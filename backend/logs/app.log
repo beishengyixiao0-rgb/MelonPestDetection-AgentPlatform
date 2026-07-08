@@ -11584,3 +11584,42 @@ WHERE %(param_1)s = user_roles.user_id
 2026-07-08 10:41:47 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
 2026-07-08 10:41:47 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
 2026-07-08 10:41:48 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:01 | INFO     | watchfiles.main:_log_changes:309 | 12 changes detected
+2026-07-08 21:51:06 | WARNING  | urllib3.connectionpool:urlopen:869 | Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=9000): Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。")': /rsod-agent-images?location=
+2026-07-08 21:51:06 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:06 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:07 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:07 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:08 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:08 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:08 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:09 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:09 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:10 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:10 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:10 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:10 | WARNING  | urllib3.connectionpool:urlopen:869 | Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=9000): Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。")': /rsod-agent-images?location=
+2026-07-08 21:51:11 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:11 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:12 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:12 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:12 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:13 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:13 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:14 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:14 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:14 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:15 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:15 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:15 | WARNING  | urllib3.connectionpool:urlopen:869 | Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=9000): Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。")': /rsod-agent-images?location=
+2026-07-08 21:51:16 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:16 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:16 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:17 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:17 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:18 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:18 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:18 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:19 | INFO     | watchfiles.main:_log_changes:309 | 1 change detected
+2026-07-08 21:51:21 | WARNING  | urllib3.connectionpool:urlopen:869 | Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=9000): Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。")': /rsod-agent-images?location=
+2026-07-08 21:51:28 | WARNING  | urllib3.connectionpool:urlopen:869 | Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPConnection(host='localhost', port=9000): Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。")': /rsod-agent-images?location=
