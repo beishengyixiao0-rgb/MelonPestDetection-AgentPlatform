@@ -97,7 +97,7 @@ ws://ip:port/api/v1/detection/camera/{model_id}
 内置 3 个 Agent 工具自动路由：
 DetectionAgent 工具：自然语言触发检测（例：帮我检测这张草莓图片病害）
 AnalysisAgent 工具：查询历史检测统计、模型效果
-SuggestionAgent 工具：检测后向用户针对性防治建议
+SuggestionAgent 工具：检测后向用户提供针对性防治建议
 QAAgent 工具：检索 RAG 病虫害知识库，返回病害防治方案
 
 辅助接口：
