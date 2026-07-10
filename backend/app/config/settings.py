@@ -10,6 +10,10 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """应用全局配置"""
 
+    # ── 训练配置 ──────────────────────────────────────
+    TRAIN_OUTPUT_DIR: str = "runs/train"  # 训练输出目录（模型权重、日志等）
+    DATASET_BASE_DIR: str = "datasets"  # 数据集根目录
+
     # — 应用基础配置 —
     APP_NAME: str = "RSOD Agent Platform"
     APP_VERSION: str = "0.1.0"
