@@ -1,6 +1,6 @@
-# MelonPestDetection-AgentPlatform
+# AgriAgent-Disease-System
 
-基于 YOLO11 与多智能体协同的哈密瓜病虫害智能检测及农业决策支持平台（待修改）
+基于多智能体协同的果蔬病害检测与智能防治系统
 
 ## 开发协作规范
 
@@ -19,7 +19,7 @@ git init
 ```
 3. 连接仓库
 ```bash
-git remote add origin https://github.com/beishengyixiao0-rgb/MelonPestDetection-AgentPlatform.git
+git remote add origin https://github.com/beishengyixiao0-rgb/AgriAgent-Disease-System.git
 ```
 
 4. 检查是否成功：
@@ -28,8 +28,8 @@ git remote -v
 ```
 应该看到：
 ```
-origin  https://github.com/beishengyixiao0-rgb/MelonPestDetection-AgentPlatform.git (fetch)
-origin  https://github.com/beishengyixiao0-rgb/MelonPestDetection-AgentPlatform.git (push)
+origin  https://github.com/beishengyixiao0-rgb/AgriAgent-Disease-System.git (fetch)
+origin  https://github.com/beishengyixiao0-rgb/AgriAgent-Disease-System.git (push)
 ```
 5. 获取仓库最新代码
 ```bash
@@ -113,11 +113,26 @@ git checkout -b 分工+名字
 ```bash
 git checkout backend-yourusername  
 ```
+切换到自己的分支后：
+
+**1. 把 main 合并进自己的分支**
+```bash
+git merge main
+```
+
+**2. 更新数据库结构**
+
+```bash
+cd backend
+.venv\Scripts\activate
+alembic upgrade head
+```
 
 查看当前在哪个分支:
 ```bash
 git branch
 ```
+
 
 #### （3）进行代码开发
 
@@ -227,4 +242,3 @@ git push origin backend-yourusername
 - **提交代码前确保项目可以正常运行，完成功能测试**；
 - Commit 信息应清晰描述修改内容；
 - 不要提交无关文件（例如编译生成文件、临时文件等）。
-

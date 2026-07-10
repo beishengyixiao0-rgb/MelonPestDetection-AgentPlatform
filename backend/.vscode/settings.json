@@ -1,0 +1,38 @@
+{
+// Python 解释器路径（指向项⽬虚拟环境）
+"python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
+"python.analysis.typeCheckingMode": "basic",
+"python.analysis.autoImportCompletions": true,
+// 编辑器设置
+"editor.formatOnSave": true,
+"editor.codeActionsOnSave": {
+"source.organizeImports": "explicit"
+  },
+"editor.tabSize": 4,
+"editor.rulers": [120],
+// 不同语⾔的格式化器
+"[python]": {
+"editor.defaultFormatter": "charliermarsh.ruff",
+"editor.tabSize": 4
+  },
+"[vue]": {
+"editor.defaultFormatter": "esbenp.prettier-vscode",
+"editor.tabSize": 2
+  },
+"[javascript]": {
+"editor.defaultFormatter": "esbenp.prettier-vscode",
+"editor.tabSize": 2
+  },
+// ⽂件排除（不在侧栏显示）
+// "files.exclude": {
+//  "**/__pycache__": true,
+//  "**/.venv": true,
+//  "**/node_modules": true,
+//  "**/.git": true
+// },
+
+// 终端配置
+"terminal.integrated.defaultProfile.osx": "zsh",
+"terminal.integrated.defaultProfile.linux": "bash",
+"terminal.integrated.defaultProfile.windows": "PowerShell"
+}

@@ -91,6 +91,42 @@ class ChangePassword(BaseModel):
     new_password: str = Field(..., min_length=6, max_length=100, description="新密码")
 
 
+class ForgotPasswordRequest(BaseModel):
+    """忘记密码请求"""
+    email: str = Field(..., description="注册邮箱")
+
+
+class ResetPasswordRequest(BaseModel):
+    """重置密码请求"""
+    token: str = Field(..., description="重置令牌")
+    new_password: str = Field(..., min_length=6, max_length=100, description="新密码")
+
+
+class ProfileResponse(BaseModel):
+    """个人信息响应（含检测统计）"""
+    id: int
+    username: str
+    email: str
+    phone: Optional[str] = None
+    avatar: Optional[str] = None
+    is_active: bool
+    roles: list[str] = []
+    last_login_at: Optional[datetime] = None
+    created_at: datetime
+    detection_stats: Optional["DetectionStatistics"] = None
+
+    model_config = {
+        "from_attributes": True,
+    }
+
+
+class ProfileUpdateRequest(BaseModel):
+    """修改个人信息请求"""
+    phone: Optional[str] = None
+    avatar: Optional[str] = None
+    email: Optional[str] = None
+
+
 # --- ⻆⾊权限 ---
 
 
@@ -456,3 +492,7 @@ class HealthResponse(BaseModel):
     database: Optional[str] = None
     redis: Optional[str] = None
     minio: Optional[str] = None
+
+
+# 解决前向引用
+ProfileResponse.model_rebuild()

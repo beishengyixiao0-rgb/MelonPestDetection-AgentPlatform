@@ -78,18 +78,27 @@ datasets/
 # *.csv
 # *.xlsx
 # *.parquet
+*.log
+logs/
+*.log.*
+
+# # ── 数据文件 ────────────────────────────────────────
+backend/datasets/
+*.csv
+*.xlsx
+*.parquet
 
 ## 图片/视频（根据项目需要调整）
-# images/
-# videos/
-# *.jpg
-# *.jpeg
-# *.png
-# *.gif
-# *.bmp
-# *.mp4
-# *.avi
-# *.mov
+images/
+videos/
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.mp4
+*.avi
+*.mov
 
 # ── Docker ──────────────────────────────────────────
 .docker/
