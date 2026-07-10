@@ -113,11 +113,26 @@ git checkout -b 分工+名字
 ```bash
 git checkout backend-yourusername  
 ```
+切换到自己的分支后：
+
+**1. 把 main 合并进自己的分支**
+```bash
+git merge main
+```
+
+**2. 更新数据库结构**
+
+```bash
+cd backend
+.venv\Scripts\activate
+alembic upgrade head
+```
 
 查看当前在哪个分支:
 ```bash
 git branch
 ```
+
 
 #### （3）进行代码开发
 

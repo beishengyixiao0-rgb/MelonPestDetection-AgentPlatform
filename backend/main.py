@@ -1,20 +1,18 @@
 from contextlib import asynccontextmanager
 
-
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-
-from app.config.settings import settings
 from app.api.auth import router as auth_router
 from app.api.health import router as health_router
+from app.config.settings import settings
 from app.core.exceptions import register_exception_handlers
 from app.middleware.request_logger import RequestLogMiddleware
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 
 def init_minio():
     """初始化 MinIO 存储桶"""
     from app.storage.minio_client import MinIOClient
+
     try:
         minio_client = MinIOClient()
         print(f"MinIO 存储桶 '{minio_client.bucket_name}' 初始化完成")
@@ -66,6 +64,7 @@ app.add_middleware(RequestLogMiddleware)
 
 # 注册路由
 app.include_router(auth_router)
+
 app.include_router(health_router)
 
 
@@ -81,4 +80,5 @@ def root():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
