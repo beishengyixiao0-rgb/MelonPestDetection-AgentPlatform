@@ -1,6 +1,5 @@
 from contextlib import asynccontextmanager
 
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config.settings import settings
 from app.api.auth import router as auth_router
 from app.api.health import router as health_router
+from app.api.dataset import router as dataset_router
 from app.core.exceptions import register_exception_handlers
 from app.middleware.request_logger import RequestLogMiddleware
 
@@ -67,6 +67,7 @@ app.add_middleware(RequestLogMiddleware)
 # 注册路由
 app.include_router(auth_router)
 app.include_router(health_router)
+app.include_router(dataset_router)
 
 
 @app.get("/")

@@ -432,7 +432,118 @@ class ChatHistoryResponse(BaseModel):
 
 
 # ══════════════════════════════════════════════════════════════
-# 五、系统运维
+# 五、数据集管理
+# ══════════════════════════════════════════════════════════════
+
+
+class DatasetCreate(BaseModel):
+    """创建数据集"""
+    name: str = Field(..., description="数据集名称")
+    display_name: str = Field(..., description="显示名称")
+    description: Optional[str] = None
+    category: str = Field(default="agriculture", description="分类")
+    format_type: str = Field(default="yolo", description="格式: yolo/voc/coco")
+
+
+class DatasetResponse(BaseModel):
+    """数据集响应"""
+    id: int
+    name: str
+    display_name: str
+    description: Optional[str] = None
+    category: str
+    status: str
+    total_images: int
+    total_labels: int
+    total_classes: int
+    class_names: Optional[list] = None
+    class_names_cn: Optional[dict] = None
+    class_distribution: Optional[dict] = None
+    train_count: int
+    val_count: int
+    test_count: int
+    data_size: int
+    format_type: str
+    label_quality: Optional[float] = None
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DatasetImageResponse(BaseModel):
+    """数据集图片响应"""
+    id: int
+    dataset_id: int
+    image_name: str
+    image_path: str
+    image_url: Optional[str] = None
+    image_width: Optional[int] = None
+    image_height: Optional[int] = None
+    file_size: Optional[int] = None
+    has_label: bool
+    label_count: int
+    split_type: str
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DatasetLabelResponse(BaseModel):
+    """数据集标签响应"""
+    id: int
+    dataset_id: int
+    image_id: int
+    class_id: int
+    class_name: str
+    class_name_cn: Optional[str] = None
+    bbox_x: float
+    bbox_y: float
+    bbox_width: float
+    bbox_height: float
+    bbox_x1: Optional[int] = None
+    bbox_y1: Optional[int] = None
+    bbox_x2: Optional[int] = None
+    bbox_y2: Optional[int] = None
+    confidence: Optional[float] = None
+
+    class Config:
+        from_attributes = True
+
+
+class DatasetStatistics(BaseModel):
+    """数据集统计信息"""
+    total_images: int
+    total_labels: int
+    total_classes: int
+    class_distribution: dict[str, int]
+    train_count: int
+    val_count: int
+    test_count: int
+    data_size: int
+    label_quality: float
+
+
+class DatasetSplitRequest(BaseModel):
+    """数据集划分请求"""
+    train_ratio: float = Field(default=0.7, ge=0.5, le=0.9)
+    val_ratio: float = Field(default=0.2, ge=0.05, le=0.3)
+
+
+class DiseaseClassResponse(BaseModel):
+    """病害类别响应"""
+    class_id: int
+    class_name: str
+    class_name_cn: str
+    sample_count: int = 0
+
+
+# ══════════════════════════════════════════════════════════════
+# 六、系统运维
 # ══════════════════════════════════════════════════════════════
 
 
