@@ -1,13 +1,19 @@
 from contextlib import asynccontextmanager
 
-from app.api.auth import router as auth_router
-from app.api.health import router as health_router
-from app.api.training import router as training_router
-from app.config.settings import settings
-from app.core.exceptions import register_exception_handlers
-from app.middleware.request_logger import RequestLogMiddleware
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+
+from app.config.settings import settings
+from app.api.auth import router as auth_router
+from app.api.health import router as health_router
+
+from app.api.training import router as training_router
+
+from app.api.dataset import router as dataset_router
+from app.core.exceptions import register_exception_handlers
+from app.middleware.request_logger import RequestLogMiddleware
+
 
 
 def init_minio():
@@ -67,6 +73,7 @@ app.add_middleware(RequestLogMiddleware)
 app.include_router(auth_router)
 
 app.include_router(health_router)
+app.include_router(dataset_router)
 
 app.include_router(training_router)
 
