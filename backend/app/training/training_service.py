@@ -118,11 +118,31 @@ class TrainingService:
             db.commit()
 
             # 2. 导入并加载模型
+            import os
+
             from ultralytics import YOLO
 
+            # 加载预训练模型
             model_name = config.get("model_name", "yolov11n")
-            logger.info("加载预训练模型: %s", model_name)
-            model = YOLO(model_name)
+
+            # 1. 找到 backend 目录的绝对路径
+            # 当前文件路径是 training_service.py
+            current_file_path = os.path.abspath(__file__)
+            # 上一级目录 app/training
+            training_dir = os.path.dirname(current_file_path)
+            # 再上一级目录 app
+            app_dir = os.path.dirname(training_dir)
+            # 再上一级目录 backend (这就是我们要找的根)
+            backend_dir = os.path.dirname(app_dir)
+
+            # 2. 拼接成绝对路径: backend/models/yolov11n.pt
+            model_path = os.path.join(backend_dir, "models", f"{model_name}.pt")
+
+            # 3. 打印日志确认路径是否正确 (非常重要，方便排查)
+            logger.info(f"准备加载本地模型: {model_path}")
+
+            # 4. 加载模型
+            model = YOLO(model_path)
 
             # 注册到运行中任务表
             with _running_lock:
@@ -442,3 +462,6 @@ class TrainingService:
             }
             for t in tasks
         ]
+
+
+training_service = TrainingService()
