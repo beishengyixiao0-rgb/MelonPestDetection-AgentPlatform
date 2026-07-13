@@ -1,10 +1,9 @@
 import io
 
 import pytest
+from app.entity.db_models import Dataset
 from PIL import Image
 from sqlalchemy.orm import Session
-
-from app.entity.db_models import Dataset
 
 
 class TestDatasetCreate:
@@ -43,10 +42,33 @@ class TestDatasetCreate:
         )
         assert response.status_code == 400
 
+    def test_create_dataset_missing_name(self, client):
+        """缺少name字段应返回422"""
+        response = client.post(
+            "/api/dataset/create",
+            json={
+                "display_name": "测试数据集",
+                "category": "agriculture",
+            },
+        )
+        assert response.status_code == 422
+
+    def test_create_dataset_missing_display_name(self, client):
+        """缺少display_name字段应返回422"""
+        response = client.post(
+            "/api/dataset/create",
+            json={
+                "name": "test_dataset",
+                "category": "agriculture",
+            },
+        )
+        assert response.status_code == 422
+
 
 @pytest.fixture
-def test_dataset(db_session: Session) -> Dataset:
+def test_dataset(db_session: Session):
     import uuid
+
     unique_name = f"test_dataset_{uuid.uuid4().hex[:8]}"
     dataset = Dataset(
         name=unique_name,
@@ -91,7 +113,7 @@ class TestDatasetDetail:
 
 class TestUploadImages:
     def test_upload_images(self, client, test_dataset):
-        img = Image.new("RGB", (640, 640), color="red")
+        img = Image.new("RGB", (640, 640), color=(255, 0, 0))  # type: ignore
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="JPEG")
         img_bytes.seek(0)
@@ -126,7 +148,9 @@ class TestConvertYolo:
 
 class TestGetImages:
     def test_get_images(self, client, test_dataset):
-        response = client.get(f"/api/dataset/{test_dataset.id}/images?page=1&page_size=20")
+        response = client.get(
+            f"/api/dataset/{test_dataset.id}/images?page=1&page_size=20"
+        )
         assert response.status_code == 200
         data = response.json()
         assert "total" in data
@@ -135,7 +159,9 @@ class TestGetImages:
 
 class TestGetLabels:
     def test_get_labels(self, client, test_dataset):
-        response = client.get(f"/api/dataset/{test_dataset.id}/labels?page=1&page_size=20")
+        response = client.get(
+            f"/api/dataset/{test_dataset.id}/labels?page=1&page_size=20"
+        )
         assert response.status_code == 200
         data = response.json()
         assert "total" in data
@@ -184,3 +210,7 @@ class TestDeleteDataset:
         assert response.status_code == 200
         data = response.json()
         assert data["code"] == 200
+
+    def test_delete_dataset_not_found(self, client):
+        response = client.delete("/api/dataset/9999")
+        assert response.status_code == 404
