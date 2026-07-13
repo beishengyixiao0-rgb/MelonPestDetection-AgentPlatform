@@ -38,7 +38,6 @@ async def lifespan(_app: FastAPI):
     print("服务已关闭")
 
 
-# 创建 FastAPI 实例
 app = FastAPI(
     title="RSOD Agent Platform",
     version="0.1.0",
@@ -47,6 +46,29 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
+
+original_openapi = app.openapi
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = original_openapi()
+    openapi_schema["components"]["securitySchemes"] = {
+        "Bearer": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "使用登录后生成的 JWT Token 进行验证，格式：Bearer <your_access_token>",
+        }
+    }
+    openapi_schema["security"] = [{"Bearer": []}]
+    app.openapi_schema = openapi_schema
+    return openapi_schema
+
+
+app.openapi = custom_openapi
 
 
 # ── 注册全局异常处理器 ─────────────────────────────────
