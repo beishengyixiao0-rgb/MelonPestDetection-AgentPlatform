@@ -1,0 +1,736 @@
+2026-07-10 17:14:02 | INFO     | watchfiles.main:_log_changes:309 | 5 changes detected
+2026-07-10 21:38:24 | INFO     | request:dispatch:64 | → POST /api/auth/login | ip=127.0.0.1 | size=46
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select pg_catalog.version()
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select current_schema()
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | show standard_conforming_strings
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s OR users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00030s] {'username_1': 'testuser', 'email_1': 'testuser', 'param_1': 1}
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | UPDATE users SET last_login_at=%(last_login_at)s, updated_at=%(updated_at)s WHERE users.id = %(users_id)s
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00048s] {'last_login_at': datetime.datetime(2026, 7, 10, 21, 38, 24, 923361), 'updated_at': datetime.datetime(2026, 7, 10, 21, 38, 24, 924692), 'users_id': 1}
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(pk_1)s
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00034s] {'pk_1': 1}
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT user_roles.id AS user_roles_id, user_roles.user_id AS user_roles_user_id, user_roles.role_id AS user_roles_role_id, user_roles.created_at AS user_roles_created_at 
+FROM user_roles 
+WHERE %(param_1)s = user_roles.user_id
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00029s] {'param_1': 1}
+2026-07-10 21:38:24 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 21:38:24 | INFO     | request:dispatch:98 | ← POST /api/auth/login | status=200 | 290.6ms
+2026-07-10 21:38:30 | INFO     | request:dispatch:64 | → POST /api/auth/login | ip=127.0.0.1 | size=46
+2026-07-10 21:38:30 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 21:38:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s OR users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-07-10 21:38:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 5.889s ago] {'username_1': 'testuser', 'email_1': 'testuser', 'param_1': 1}
+2026-07-10 21:38:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | UPDATE users SET last_login_at=%(last_login_at)s, updated_at=%(updated_at)s WHERE users.id = %(users_id)s
+2026-07-10 21:38:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 5.895s ago] {'last_login_at': datetime.datetime(2026, 7, 10, 21, 38, 30, 818494), 'updated_at': datetime.datetime(2026, 7, 10, 21, 38, 30, 818858), 'users_id': 1}
+2026-07-10 21:38:30 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-10 21:38:30 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 21:38:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(pk_1)s
+2026-07-10 21:38:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 5.895s ago] {'pk_1': 1}
+2026-07-10 21:38:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT user_roles.id AS user_roles_id, user_roles.user_id AS user_roles_user_id, user_roles.role_id AS user_roles_role_id, user_roles.created_at AS user_roles_created_at 
+FROM user_roles 
+WHERE %(param_1)s = user_roles.user_id
+2026-07-10 21:38:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 5.892s ago] {'param_1': 1}
+2026-07-10 21:38:30 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 21:38:30 | INFO     | request:dispatch:98 | ← POST /api/auth/login | status=200 | 221.4ms
+2026-07-10 21:39:10 | INFO     | request:dispatch:64 | → POST /api/training/start | ip=127.0.0.1 | size=98
+2026-07-10 21:39:10 | WARNING  | request:dispatch:93 | ← POST /api/training/start | status=404 | 0.3ms
+2026-07-10 22:21:13 | INFO     | request:dispatch:64 | → GET /api/training/tasks | ip=127.0.0.1 | size=0
+2026-07-10 22:21:13 | WARNING  | app.core.exceptions:http_exception_handler:39 | HTTP 401: 无效的认证凭据 | path=/api/training/tasks
+2026-07-10 22:21:13 | WARNING  | request:dispatch:93 | ← GET /api/training/tasks | status=401 | 8.0ms
+2026-07-10 22:22:01 | INFO     | request:dispatch:64 | → GET /api/training/tasks | ip=127.0.0.1 | size=0
+2026-07-10 22:22:01 | WARNING  | app.core.exceptions:http_exception_handler:39 | HTTP 401: 无效的认证凭据 | path=/api/training/tasks
+2026-07-10 22:22:01 | WARNING  | request:dispatch:93 | ← GET /api/training/tasks | status=401 | 1.8ms
+2026-07-10 22:22:24 | INFO     | request:dispatch:64 | → POST /api/auth/login | ip=127.0.0.1 | size=46
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select pg_catalog.version()
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select current_schema()
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | show standard_conforming_strings
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s OR users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00023s] {'username_1': 'testuser', 'email_1': 'testuser', 'param_1': 1}
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | UPDATE users SET last_login_at=%(last_login_at)s, updated_at=%(updated_at)s WHERE users.id = %(users_id)s
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00066s] {'last_login_at': datetime.datetime(2026, 7, 10, 22, 22, 24, 578981), 'updated_at': datetime.datetime(2026, 7, 10, 22, 22, 24, 580149), 'users_id': 1}
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(pk_1)s
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00029s] {'pk_1': 1}
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT user_roles.id AS user_roles_id, user_roles.user_id AS user_roles_user_id, user_roles.role_id AS user_roles_role_id, user_roles.created_at AS user_roles_created_at 
+FROM user_roles 
+WHERE %(param_1)s = user_roles.user_id
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00030s] {'param_1': 1}
+2026-07-10 22:22:24 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 22:22:24 | INFO     | request:dispatch:98 | ← POST /api/auth/login | status=200 | 267.5ms
+2026-07-10 22:22:32 | INFO     | request:dispatch:64 | → GET /api/training/tasks | ip=127.0.0.1 | size=0
+2026-07-10 22:22:32 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 22:22:32 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 22:22:32 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00044s] {'id_1': 1, 'param_1': 1}
+2026-07-10 22:22:32 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.user_id = %(user_id_1)s ORDER BY training_tasks.created_at DESC 
+ LIMIT %(param_1)s
+2026-07-10 22:22:32 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00032s] {'user_id_1': 1, 'param_1': 20}
+2026-07-10 22:22:32 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 22:22:32 | INFO     | request:dispatch:98 | ← GET /api/training/tasks | status=200 | 16.0ms
+2026-07-10 22:31:58 | INFO     | request:dispatch:64 | → POST /api/training/start | ip=127.0.0.1 | size=123
+2026-07-10 22:31:58 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 22:31:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 22:31:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 565.9s ago] {'id_1': 1, 'param_1': 1}
+2026-07-10 22:31:58 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 22:31:58 | WARNING  | app.core.exceptions:validation_exception_handler:75 | 参数验证失败 | path=/api/training/start | errors=['epochs: Input should be greater than or equal to 10']
+2026-07-10 22:31:58 | WARNING  | request:dispatch:93 | ← POST /api/training/start | status=422 | 8.4ms
+2026-07-10 22:32:50 | INFO     | request:dispatch:64 | → POST /api/training/start | ip=127.0.0.1 | size=124
+2026-07-10 22:32:50 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 22:32:50 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 22:32:50 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 618.6s ago] {'id_1': 1, 'param_1': 1}
+2026-07-10 22:32:50 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT detection_scenes.id AS detection_scenes_id, detection_scenes.name AS detection_scenes_name, detection_scenes.display_name AS detection_scenes_display_name, detection_scenes.description AS detection_scenes_description, detection_scenes.category AS detection_scenes_category, detection_scenes.class_names AS detection_scenes_class_names, detection_scenes.class_names_cn AS detection_scenes_class_names_cn, detection_scenes.is_active AS detection_scenes_is_active, detection_scenes.created_by AS detection_scenes_created_by, detection_scenes.created_at AS detection_scenes_created_at, detection_scenes.updated_at AS detection_scenes_updated_at 
+FROM detection_scenes 
+WHERE detection_scenes.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 22:32:50 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00030s] {'id_1': 1, 'param_1': 1}
+2026-07-10 22:32:50 | INFO     | app.api.training:start_training:76 | backend目录: D:\Project\team\backend
+2026-07-10 22:32:50 | INFO     | app.api.training:start_training:77 | 数据集路径: D:\Project\team\backend\datasets\PlantDiseaseDetection\yolo_dataset
+2026-07-10 22:32:50 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 22:32:50 | WARNING  | app.core.exceptions:http_exception_handler:39 | HTTP 400: data_yaml 不存在: D:\Project\team\backend\datasets\PlantDiseaseDetection\yolo_dataset\data.yaml, 请先完成数据集准备 | path=/api/training/start
+2026-07-10 22:32:50 | WARNING  | request:dispatch:93 | ← POST /api/training/start | status=400 | 9.5ms
+2026-07-10 22:53:31 | INFO     | request:dispatch:64 | → POST /api/training/start | ip=127.0.0.1 | size=123
+2026-07-10 22:53:31 | WARNING  | app.core.exceptions:http_exception_handler:39 | HTTP 401: 无效的认证凭据 | path=/api/training/start
+2026-07-10 22:53:31 | WARNING  | request:dispatch:93 | ← POST /api/training/start | status=401 | 8.9ms
+2026-07-10 22:53:52 | INFO     | request:dispatch:64 | → POST /api/auth/login | ip=127.0.0.1 | size=46
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select pg_catalog.version()
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select current_schema()
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | show standard_conforming_strings
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s OR users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00028s] {'username_1': 'testuser', 'email_1': 'testuser', 'param_1': 1}
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | UPDATE users SET last_login_at=%(last_login_at)s, updated_at=%(updated_at)s WHERE users.id = %(users_id)s
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00041s] {'last_login_at': datetime.datetime(2026, 7, 10, 22, 53, 52, 826579), 'updated_at': datetime.datetime(2026, 7, 10, 22, 53, 52, 827783), 'users_id': 1}
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(pk_1)s
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00027s] {'pk_1': 1}
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT user_roles.id AS user_roles_id, user_roles.user_id AS user_roles_user_id, user_roles.role_id AS user_roles_role_id, user_roles.created_at AS user_roles_created_at 
+FROM user_roles 
+WHERE %(param_1)s = user_roles.user_id
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00034s] {'param_1': 1}
+2026-07-10 22:53:52 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 22:53:52 | INFO     | request:dispatch:98 | ← POST /api/auth/login | status=200 | 267.2ms
+2026-07-10 22:53:59 | INFO     | request:dispatch:64 | → GET /api/training/tasks | ip=127.0.0.1 | size=0
+2026-07-10 22:53:59 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 22:53:59 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 22:53:59 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00025s] {'id_1': 1, 'param_1': 1}
+2026-07-10 22:53:59 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.user_id = %(user_id_1)s ORDER BY training_tasks.created_at DESC 
+ LIMIT %(param_1)s
+2026-07-10 22:53:59 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00042s] {'user_id_1': 1, 'param_1': 20}
+2026-07-10 22:53:59 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 22:53:59 | INFO     | request:dispatch:98 | ← GET /api/training/tasks | status=200 | 11.5ms
+2026-07-10 22:54:21 | INFO     | request:dispatch:64 | → POST /api/training/start | ip=127.0.0.1 | size=123
+2026-07-10 22:54:21 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 22:54:21 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 22:54:21 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 21.84s ago] {'id_1': 1, 'param_1': 1}
+2026-07-10 22:54:21 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 22:54:21 | WARNING  | app.core.exceptions:validation_exception_handler:75 | 参数验证失败 | path=/api/training/start | errors=['epochs: Input should be greater than or equal to 10']
+2026-07-10 22:54:21 | WARNING  | request:dispatch:93 | ← POST /api/training/start | status=422 | 6.6ms
+2026-07-10 22:55:28 | INFO     | request:dispatch:64 | → POST /api/training/start | ip=127.0.0.1 | size=124
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 88.9s ago] {'id_1': 1, 'param_1': 1}
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT detection_scenes.id AS detection_scenes_id, detection_scenes.name AS detection_scenes_name, detection_scenes.display_name AS detection_scenes_display_name, detection_scenes.description AS detection_scenes_description, detection_scenes.category AS detection_scenes_category, detection_scenes.class_names AS detection_scenes_class_names, detection_scenes.class_names_cn AS detection_scenes_class_names_cn, detection_scenes.is_active AS detection_scenes_is_active, detection_scenes.created_by AS detection_scenes_created_by, detection_scenes.created_at AS detection_scenes_created_at, detection_scenes.updated_at AS detection_scenes_updated_at 
+FROM detection_scenes 
+WHERE detection_scenes.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00036s] {'id_1': 1, 'param_1': 1}
+2026-07-10 22:55:28 | INFO     | app.api.training:start_training:78 | 数据集路径: D:\Project\team\datasets\PlantDiseaseDetection
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | INSERT INTO training_tasks (user_id, scene_id, task_uuid, status, model_name, epochs, img_size, batch_size, device, optimizer, lr0, augment_config, current_epoch, progress, dataset_path, dataset_size, data_yaml, error_message, created_at, updated_at, started_at, completed_at) VALUES (%(user_id)s, %(scene_id)s, %(task_uuid)s, %(status)s, %(model_name)s, %(epochs)s, %(img_size)s, %(batch_size)s, %(device)s, %(optimizer)s, %(lr0)s, %(augment_config)s::JSON, %(current_epoch)s, %(progress)s, %(dataset_path)s, %(dataset_size)s, %(data_yaml)s, %(error_message)s, %(created_at)s, %(updated_at)s, %(started_at)s, %(completed_at)s) RETURNING training_tasks.id
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00039s] {'user_id': 1, 'scene_id': 1, 'task_uuid': '8f6fe1a57bec4f51', 'status': 'pending', 'model_name': 'yolov11n', 'epochs': 10, 'img_size': 640, 'batch_size': 4, 'device': 'cpu', 'optimizer': 'SGD', 'lr0': 0.01, 'augment_config': 'null', 'current_epoch': 0, 'progress': 0, 'dataset_path': 'D:\\Project\\team\\datasets\\PlantDiseaseDetection', 'dataset_size': None, 'data_yaml': 'D:\\Project\\team\\datasets\\PlantDiseaseDetection\\data.yaml', 'error_message': None, 'created_at': datetime.datetime(2026, 7, 10, 22, 55, 28, 226080), 'updated_at': datetime.datetime(2026, 7, 10, 22, 55, 28, 226082), 'started_at': None, 'completed_at': None}
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id, training_tasks.user_id, training_tasks.scene_id, training_tasks.task_uuid, training_tasks.status, training_tasks.model_name, training_tasks.epochs, training_tasks.img_size, training_tasks.batch_size, training_tasks.device, training_tasks.optimizer, training_tasks.lr0, training_tasks.augment_config, training_tasks.current_epoch, training_tasks.progress, training_tasks.dataset_path, training_tasks.dataset_size, training_tasks.data_yaml, training_tasks.error_message, training_tasks.created_at, training_tasks.updated_at, training_tasks.started_at, training_tasks.completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(pk_1)s
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00030s] {'pk_1': 1}
+2026-07-10 22:55:28 | INFO     | app.training.training_service:start_training:90 | 训练任务已启动: task_id=1, uuid=8f6fe1a57bec4f51, model=yolov11n, epochs=10
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(pk_1)s
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 95.4s ago] {'pk_1': 1}
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT detection_scenes.id AS detection_scenes_id, detection_scenes.name AS detection_scenes_name, detection_scenes.display_name AS detection_scenes_display_name, detection_scenes.description AS detection_scenes_description, detection_scenes.category AS detection_scenes_category, detection_scenes.class_names AS detection_scenes_class_names, detection_scenes.class_names_cn AS detection_scenes_class_names_cn, detection_scenes.is_active AS detection_scenes_is_active, detection_scenes.created_by AS detection_scenes_created_by, detection_scenes.created_at AS detection_scenes_created_at, detection_scenes.updated_at AS detection_scenes_updated_at 
+FROM detection_scenes 
+WHERE detection_scenes.id = %(pk_1)s
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00055s] {'pk_1': 1}
+2026-07-10 22:55:28 | INFO     | app.api.training:start_training:105 | 用户 testuser 启动训练任务: scene=PlantDiseaseDetection, model=yolov11n, epochs=10
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 22:55:28 | INFO     | request:dispatch:98 | ← POST /api/training/start | status=200 | 28.4ms
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00035s] {'id_1': 1, 'param_1': 1}
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | UPDATE training_tasks SET status=%(status)s, updated_at=%(updated_at)s, started_at=%(started_at)s WHERE training_tasks.id = %(training_tasks_id)s
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00053s] {'status': 'running', 'updated_at': datetime.datetime(2026, 7, 10, 22, 55, 28, 253497), 'started_at': datetime.datetime(2026, 7, 10, 22, 55, 28, 252626), 'training_tasks_id': 1}
+2026-07-10 22:55:28 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-10 22:55:30 | INFO     | app.training.training_service:_run_training:124 | 加载预训练模型: yolov11n
+2026-07-10 22:55:30 | ERROR    | app.training.training_service:_run_training:240 | 训练文件缺失: task_id=1, error='yolov11n' does not exist
+2026-07-10 22:55:30 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 22:55:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(pk_1)s
+2026-07-10 22:55:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00025s] {'pk_1': 1}
+2026-07-10 22:55:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | UPDATE training_tasks SET status=%(status)s, error_message=%(error_message)s, updated_at=%(updated_at)s WHERE training_tasks.id = %(training_tasks_id)s
+2026-07-10 22:55:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00024s] {'status': 'failed', 'error_message': "'yolov11n' does not exist", 'updated_at': datetime.datetime(2026, 7, 10, 22, 55, 30, 653055), 'training_tasks_id': 1}
+2026-07-10 22:55:30 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-10 22:56:03 | INFO     | request:dispatch:64 | → GET /api/training/status/1 | ip=127.0.0.1 | size=0
+2026-07-10 22:56:03 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 22:56:03 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 22:56:03 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 124.5s ago] {'id_1': 1, 'param_1': 1}
+2026-07-10 22:56:03 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 22:56:03 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 35.59s ago] {'id_1': 1, 'param_1': 1}
+2026-07-10 22:56:03 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_metrics.id AS training_metrics_id, training_metrics.task_id AS training_metrics_task_id, training_metrics.epoch AS training_metrics_epoch, training_metrics.box_loss AS training_metrics_box_loss, training_metrics.cls_loss AS training_metrics_cls_loss, training_metrics.dfl_loss AS training_metrics_dfl_loss, training_metrics.precision AS training_metrics_precision, training_metrics.recall AS training_metrics_recall, training_metrics.map50 AS training_metrics_map50, training_metrics.map50_95 AS training_metrics_map50_95, training_metrics.lr AS training_metrics_lr, training_metrics.created_at AS training_metrics_created_at 
+FROM training_metrics 
+WHERE training_metrics.task_id = %(task_id_1)s ORDER BY training_metrics.epoch DESC 
+ LIMIT %(param_1)s
+2026-07-10 22:56:03 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00039s] {'task_id_1': 1, 'param_1': 1}
+2026-07-10 22:56:03 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 22:56:03 | INFO     | request:dispatch:98 | ← GET /api/training/status/1 | status=200 | 11.7ms
+2026-07-10 23:03:18 | INFO     | request:dispatch:64 | → POST /api/training/start | ip=127.0.0.1 | size=124
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select pg_catalog.version()
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select current_schema()
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | show standard_conforming_strings
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00024s] {'id_1': 1, 'param_1': 1}
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT detection_scenes.id AS detection_scenes_id, detection_scenes.name AS detection_scenes_name, detection_scenes.display_name AS detection_scenes_display_name, detection_scenes.description AS detection_scenes_description, detection_scenes.category AS detection_scenes_category, detection_scenes.class_names AS detection_scenes_class_names, detection_scenes.class_names_cn AS detection_scenes_class_names_cn, detection_scenes.is_active AS detection_scenes_is_active, detection_scenes.created_by AS detection_scenes_created_by, detection_scenes.created_at AS detection_scenes_created_at, detection_scenes.updated_at AS detection_scenes_updated_at 
+FROM detection_scenes 
+WHERE detection_scenes.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00030s] {'id_1': 1, 'param_1': 1}
+2026-07-10 23:03:18 | INFO     | app.api.training:start_training:78 | 数据集路径: D:\Project\team\datasets\PlantDiseaseDetection
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | INSERT INTO training_tasks (user_id, scene_id, task_uuid, status, model_name, epochs, img_size, batch_size, device, optimizer, lr0, augment_config, current_epoch, progress, dataset_path, dataset_size, data_yaml, error_message, created_at, updated_at, started_at, completed_at) VALUES (%(user_id)s, %(scene_id)s, %(task_uuid)s, %(status)s, %(model_name)s, %(epochs)s, %(img_size)s, %(batch_size)s, %(device)s, %(optimizer)s, %(lr0)s, %(augment_config)s::JSON, %(current_epoch)s, %(progress)s, %(dataset_path)s, %(dataset_size)s, %(data_yaml)s, %(error_message)s, %(created_at)s, %(updated_at)s, %(started_at)s, %(completed_at)s) RETURNING training_tasks.id
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00033s] {'user_id': 1, 'scene_id': 1, 'task_uuid': '65af509b2b99495b', 'status': 'pending', 'model_name': 'yolov11n', 'epochs': 10, 'img_size': 640, 'batch_size': 4, 'device': 'cpu', 'optimizer': 'SGD', 'lr0': 0.01, 'augment_config': 'null', 'current_epoch': 0, 'progress': 0, 'dataset_path': 'D:\\Project\\team\\datasets\\PlantDiseaseDetection', 'dataset_size': None, 'data_yaml': 'D:\\Project\\team\\datasets\\PlantDiseaseDetection\\data.yaml', 'error_message': None, 'created_at': datetime.datetime(2026, 7, 10, 23, 3, 18, 166890), 'updated_at': datetime.datetime(2026, 7, 10, 23, 3, 18, 166892), 'started_at': None, 'completed_at': None}
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id, training_tasks.user_id, training_tasks.scene_id, training_tasks.task_uuid, training_tasks.status, training_tasks.model_name, training_tasks.epochs, training_tasks.img_size, training_tasks.batch_size, training_tasks.device, training_tasks.optimizer, training_tasks.lr0, training_tasks.augment_config, training_tasks.current_epoch, training_tasks.progress, training_tasks.dataset_path, training_tasks.dataset_size, training_tasks.data_yaml, training_tasks.error_message, training_tasks.created_at, training_tasks.updated_at, training_tasks.started_at, training_tasks.completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(pk_1)s
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00021s] {'pk_1': 2}
+2026-07-10 23:03:18 | INFO     | app.training.training_service:start_training:90 | 训练任务已启动: task_id=2, uuid=65af509b2b99495b, model=yolov11n, epochs=10
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(pk_1)s
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00023s] {'pk_1': 1}
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT detection_scenes.id AS detection_scenes_id, detection_scenes.name AS detection_scenes_name, detection_scenes.display_name AS detection_scenes_display_name, detection_scenes.description AS detection_scenes_description, detection_scenes.category AS detection_scenes_category, detection_scenes.class_names AS detection_scenes_class_names, detection_scenes.class_names_cn AS detection_scenes_class_names_cn, detection_scenes.is_active AS detection_scenes_is_active, detection_scenes.created_by AS detection_scenes_created_by, detection_scenes.created_at AS detection_scenes_created_at, detection_scenes.updated_at AS detection_scenes_updated_at 
+FROM detection_scenes 
+WHERE detection_scenes.id = %(pk_1)s
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00022s] {'pk_1': 1}
+2026-07-10 23:03:18 | INFO     | app.api.training:start_training:105 | 用户 testuser 启动训练任务: scene=PlantDiseaseDetection, model=yolov11n, epochs=10
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 23:03:18 | INFO     | request:dispatch:98 | ← POST /api/training/start | status=200 | 92.5ms
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00030s] {'id_1': 2, 'param_1': 1}
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | UPDATE training_tasks SET status=%(status)s, updated_at=%(updated_at)s, started_at=%(started_at)s WHERE training_tasks.id = %(training_tasks_id)s
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00025s] {'status': 'running', 'updated_at': datetime.datetime(2026, 7, 10, 23, 3, 18, 213754), 'started_at': datetime.datetime(2026, 7, 10, 23, 3, 18, 212924), 'training_tasks_id': 2}
+2026-07-10 23:03:18 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-10 23:03:20 | INFO     | app.training.training_service:_run_training:130 | 加载预训练模型: yolov11n
+2026-07-10 23:03:20 | ERROR    | app.training.training_service:_run_training:246 | 训练文件缺失: task_id=2, error='yolov11n' does not exist
+2026-07-10 23:03:20 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 23:03:20 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(pk_1)s
+2026-07-10 23:03:20 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00023s] {'pk_1': 2}
+2026-07-10 23:03:20 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | UPDATE training_tasks SET status=%(status)s, error_message=%(error_message)s, updated_at=%(updated_at)s WHERE training_tasks.id = %(training_tasks_id)s
+2026-07-10 23:03:20 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00043s] {'status': 'failed', 'error_message': "'yolov11n' does not exist", 'updated_at': datetime.datetime(2026, 7, 10, 23, 3, 20, 418405), 'training_tasks_id': 2}
+2026-07-10 23:03:20 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-10 23:03:47 | INFO     | request:dispatch:64 | → GET /api/training/status/2 | ip=127.0.0.1 | size=0
+2026-07-10 23:03:47 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 23:03:47 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 23:03:47 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 28.85s ago] {'id_1': 1, 'param_1': 1}
+2026-07-10 23:03:47 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 23:03:47 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 28.81s ago] {'id_1': 2, 'param_1': 1}
+2026-07-10 23:03:47 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_metrics.id AS training_metrics_id, training_metrics.task_id AS training_metrics_task_id, training_metrics.epoch AS training_metrics_epoch, training_metrics.box_loss AS training_metrics_box_loss, training_metrics.cls_loss AS training_metrics_cls_loss, training_metrics.dfl_loss AS training_metrics_dfl_loss, training_metrics.precision AS training_metrics_precision, training_metrics.recall AS training_metrics_recall, training_metrics.map50 AS training_metrics_map50, training_metrics.map50_95 AS training_metrics_map50_95, training_metrics.lr AS training_metrics_lr, training_metrics.created_at AS training_metrics_created_at 
+FROM training_metrics 
+WHERE training_metrics.task_id = %(task_id_1)s ORDER BY training_metrics.epoch DESC 
+ LIMIT %(param_1)s
+2026-07-10 23:03:47 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00031s] {'task_id_1': 2, 'param_1': 1}
+2026-07-10 23:03:47 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 23:03:47 | INFO     | request:dispatch:98 | ← GET /api/training/status/2 | status=200 | 15.1ms
+2026-07-10 23:04:38 | INFO     | request:dispatch:64 | → GET /api/training/metrics/2 | ip=127.0.0.1 | size=0
+2026-07-10 23:04:38 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 23:04:38 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-10 23:04:38 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 80.72s ago] {'id_1': 1, 'param_1': 1}
+2026-07-10 23:04:38 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_metrics.id AS training_metrics_id, training_metrics.task_id AS training_metrics_task_id, training_metrics.epoch AS training_metrics_epoch, training_metrics.box_loss AS training_metrics_box_loss, training_metrics.cls_loss AS training_metrics_cls_loss, training_metrics.dfl_loss AS training_metrics_dfl_loss, training_metrics.precision AS training_metrics_precision, training_metrics.recall AS training_metrics_recall, training_metrics.map50 AS training_metrics_map50, training_metrics.map50_95 AS training_metrics_map50_95, training_metrics.lr AS training_metrics_lr, training_metrics.created_at AS training_metrics_created_at 
+FROM training_metrics 
+WHERE training_metrics.task_id = %(task_id_1)s ORDER BY training_metrics.epoch ASC
+2026-07-10 23:04:38 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00031s] {'task_id_1': 2}
+2026-07-10 23:04:38 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 23:04:38 | INFO     | request:dispatch:98 | ← GET /api/training/metrics/2 | status=200 | 10.2ms
+2026-07-10 23:15:54 | INFO     | request:dispatch:64 | → POST /api/auth/login | ip=127.0.0.1 | size=43
+2026-07-10 23:15:54 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 23:15:54 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s OR users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-07-10 23:15:54 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00059s] {'username_1': 'teatuser', 'email_1': 'teatuser', 'param_1': 1}
+2026-07-10 23:15:54 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 23:15:54 | WARNING  | app.core.exceptions:http_exception_handler:39 | HTTP 401: 用户名或密码错误 | path=/api/auth/login
+2026-07-10 23:15:54 | WARNING  | request:dispatch:93 | ← POST /api/auth/login | status=401 | 9.2ms
+2026-07-10 23:15:55 | INFO     | request:dispatch:64 | → POST /api/auth/login | ip=127.0.0.1 | size=43
+2026-07-10 23:15:55 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 23:15:55 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s OR users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-07-10 23:15:55 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 1.825s ago] {'username_1': 'teatuser', 'email_1': 'teatuser', 'param_1': 1}
+2026-07-10 23:15:55 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 23:15:55 | WARNING  | app.core.exceptions:http_exception_handler:39 | HTTP 401: 用户名或密码错误 | path=/api/auth/login
+2026-07-10 23:15:55 | WARNING  | request:dispatch:93 | ← POST /api/auth/login | status=401 | 11.4ms
+2026-07-10 23:17:09 | INFO     | request:dispatch:64 | → POST /api/auth/login | ip=127.0.0.1 | size=43
+2026-07-10 23:17:09 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select pg_catalog.version()
+2026-07-10 23:17:09 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-10 23:17:09 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select current_schema()
+2026-07-10 23:17:09 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-10 23:17:09 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | show standard_conforming_strings
+2026-07-10 23:17:09 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-10 23:17:09 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 23:17:09 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s OR users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-07-10 23:17:09 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00043s] {'username_1': 'testuser', 'email_1': 'testuser', 'param_1': 1}
+2026-07-10 23:17:10 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | UPDATE users SET last_login_at=%(last_login_at)s, updated_at=%(updated_at)s WHERE users.id = %(users_id)s
+2026-07-10 23:17:10 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00063s] {'last_login_at': datetime.datetime(2026, 7, 10, 23, 17, 10, 30070), 'updated_at': datetime.datetime(2026, 7, 10, 23, 17, 10, 31656), 'users_id': 1}
+2026-07-10 23:17:10 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-10 23:17:10 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-10 23:17:10 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(pk_1)s
+2026-07-10 23:17:10 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00031s] {'pk_1': 1}
+2026-07-10 23:17:10 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT user_roles.id AS user_roles_id, user_roles.user_id AS user_roles_user_id, user_roles.role_id AS user_roles_role_id, user_roles.created_at AS user_roles_created_at 
+FROM user_roles 
+WHERE %(param_1)s = user_roles.user_id
+2026-07-10 23:17:10 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00030s] {'param_1': 1}
+2026-07-10 23:17:10 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-10 23:17:10 | INFO     | request:dispatch:98 | ← POST /api/auth/login | status=200 | 412.6ms
+2026-07-10 23:17:12 | INFO     | request:dispatch:64 | → GET /api/api/training/tasks | ip=127.0.0.1 | size=0
+2026-07-10 23:17:12 | WARNING  | request:dispatch:93 | ← GET /api/api/training/tasks | status=404 | 0.4ms
+2026-07-13 09:14:52 | INFO     | request:dispatch:64 | → POST /api/auth/login | ip=127.0.0.1 | size=46
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select pg_catalog.version()
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select current_schema()
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | show standard_conforming_strings
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s OR users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00026s] {'username_1': 'testuser', 'email_1': 'testuser', 'param_1': 1}
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | UPDATE users SET last_login_at=%(last_login_at)s, updated_at=%(updated_at)s WHERE users.id = %(users_id)s
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00051s] {'last_login_at': datetime.datetime(2026, 7, 13, 9, 14, 52, 708336), 'updated_at': datetime.datetime(2026, 7, 13, 9, 14, 52, 710006), 'users_id': 1}
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(pk_1)s
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00021s] {'pk_1': 1}
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT user_roles.id AS user_roles_id, user_roles.user_id AS user_roles_user_id, user_roles.role_id AS user_roles_role_id, user_roles.created_at AS user_roles_created_at 
+FROM user_roles 
+WHERE %(param_1)s = user_roles.user_id
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00033s] {'param_1': 1}
+2026-07-13 09:14:52 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-13 09:14:52 | INFO     | request:dispatch:98 | ← POST /api/auth/login | status=200 | 309.7ms
+2026-07-13 09:15:02 | INFO     | request:dispatch:64 | → GET /api/training/tasks | ip=127.0.0.1 | size=0
+2026-07-13 09:15:02 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:15:02 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:15:02 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00031s] {'id_1': 1, 'param_1': 1}
+2026-07-13 09:15:02 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.user_id = %(user_id_1)s ORDER BY training_tasks.created_at DESC 
+ LIMIT %(param_1)s
+2026-07-13 09:15:02 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00035s] {'user_id_1': 1, 'param_1': 20}
+2026-07-13 09:15:02 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-13 09:15:02 | INFO     | request:dispatch:98 | ← GET /api/training/tasks | status=200 | 12.4ms
+2026-07-13 09:15:39 | INFO     | request:dispatch:64 | → POST /api/training/start | ip=127.0.0.1 | size=124
+2026-07-13 09:15:39 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:15:39 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:15:39 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 37.01s ago] {'id_1': 1, 'param_1': 1}
+2026-07-13 09:15:39 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT detection_scenes.id AS detection_scenes_id, detection_scenes.name AS detection_scenes_name, detection_scenes.display_name AS detection_scenes_display_name, detection_scenes.description AS detection_scenes_description, detection_scenes.category AS detection_scenes_category, detection_scenes.class_names AS detection_scenes_class_names, detection_scenes.class_names_cn AS detection_scenes_class_names_cn, detection_scenes.is_active AS detection_scenes_is_active, detection_scenes.created_by AS detection_scenes_created_by, detection_scenes.created_at AS detection_scenes_created_at, detection_scenes.updated_at AS detection_scenes_updated_at 
+FROM detection_scenes 
+WHERE detection_scenes.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:15:39 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00030s] {'id_1': 1, 'param_1': 1}
+2026-07-13 09:15:39 | INFO     | app.api.training:start_training:78 | 数据集路径: D:\Project\team\datasets\PlantDiseaseDetection
+2026-07-13 09:15:39 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | INSERT INTO training_tasks (user_id, scene_id, task_uuid, status, model_name, epochs, img_size, batch_size, device, optimizer, lr0, augment_config, current_epoch, progress, dataset_path, dataset_size, data_yaml, error_message, created_at, updated_at, started_at, completed_at) VALUES (%(user_id)s, %(scene_id)s, %(task_uuid)s, %(status)s, %(model_name)s, %(epochs)s, %(img_size)s, %(batch_size)s, %(device)s, %(optimizer)s, %(lr0)s, %(augment_config)s::JSON, %(current_epoch)s, %(progress)s, %(dataset_path)s, %(dataset_size)s, %(data_yaml)s, %(error_message)s, %(created_at)s, %(updated_at)s, %(started_at)s, %(completed_at)s) RETURNING training_tasks.id
+2026-07-13 09:15:39 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00052s] {'user_id': 1, 'scene_id': 1, 'task_uuid': '8fde2835af8c4319', 'status': 'pending', 'model_name': 'yolov11n', 'epochs': 10, 'img_size': 640, 'batch_size': 4, 'device': 'cpu', 'optimizer': 'SGD', 'lr0': 0.01, 'augment_config': 'null', 'current_epoch': 0, 'progress': 0, 'dataset_path': 'D:\\Project\\team\\datasets\\PlantDiseaseDetection', 'dataset_size': None, 'data_yaml': 'D:\\Project\\team\\datasets\\PlantDiseaseDetection\\data.yaml', 'error_message': None, 'created_at': datetime.datetime(2026, 7, 13, 9, 15, 39, 977384), 'updated_at': datetime.datetime(2026, 7, 13, 9, 15, 39, 977387), 'started_at': None, 'completed_at': None}
+2026-07-13 09:15:39 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-13 09:15:39 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:15:39 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id, training_tasks.user_id, training_tasks.scene_id, training_tasks.task_uuid, training_tasks.status, training_tasks.model_name, training_tasks.epochs, training_tasks.img_size, training_tasks.batch_size, training_tasks.device, training_tasks.optimizer, training_tasks.lr0, training_tasks.augment_config, training_tasks.current_epoch, training_tasks.progress, training_tasks.dataset_path, training_tasks.dataset_size, training_tasks.data_yaml, training_tasks.error_message, training_tasks.created_at, training_tasks.updated_at, training_tasks.started_at, training_tasks.completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(pk_1)s
+2026-07-13 09:15:39 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00058s] {'pk_1': 3}
+2026-07-13 09:15:39 | INFO     | app.training.training_service:start_training:90 | 训练任务已启动: task_id=3, uuid=8fde2835af8c4319, model=yolov11n, epochs=10
+2026-07-13 09:15:39 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(pk_1)s
+2026-07-13 09:15:39 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 47.28s ago] {'pk_1': 1}
+2026-07-13 09:15:39 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT detection_scenes.id AS detection_scenes_id, detection_scenes.name AS detection_scenes_name, detection_scenes.display_name AS detection_scenes_display_name, detection_scenes.description AS detection_scenes_description, detection_scenes.category AS detection_scenes_category, detection_scenes.class_names AS detection_scenes_class_names, detection_scenes.class_names_cn AS detection_scenes_class_names_cn, detection_scenes.is_active AS detection_scenes_is_active, detection_scenes.created_by AS detection_scenes_created_by, detection_scenes.created_at AS detection_scenes_created_at, detection_scenes.updated_at AS detection_scenes_updated_at 
+FROM detection_scenes 
+WHERE detection_scenes.id = %(pk_1)s
+2026-07-13 09:15:39 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00046s] {'pk_1': 1}
+2026-07-13 09:15:40 | INFO     | app.api.training:start_training:105 | 用户 testuser 启动训练任务: scene=PlantDiseaseDetection, model=yolov11n, epochs=10
+2026-07-13 09:15:40 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-13 09:15:40 | INFO     | request:dispatch:98 | ← POST /api/training/start | status=200 | 36.4ms
+2026-07-13 09:15:40 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:15:40 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:15:40 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00056s] {'id_1': 3, 'param_1': 1}
+2026-07-13 09:15:40 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | UPDATE training_tasks SET status=%(status)s, updated_at=%(updated_at)s, started_at=%(started_at)s WHERE training_tasks.id = %(training_tasks_id)s
+2026-07-13 09:15:40 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00045s] {'status': 'running', 'updated_at': datetime.datetime(2026, 7, 13, 9, 15, 40, 14767), 'started_at': datetime.datetime(2026, 7, 13, 9, 15, 40, 13665), 'training_tasks_id': 3}
+2026-07-13 09:15:40 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-13 09:15:51 | INFO     | app.training.training_service:_run_training:130 | 加载预训练模型: yolov11n
+2026-07-13 09:15:51 | ERROR    | app.training.training_service:_run_training:246 | 训练文件缺失: task_id=3, error='yolov11n' does not exist
+2026-07-13 09:15:51 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:15:51 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(pk_1)s
+2026-07-13 09:15:51 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00024s] {'pk_1': 3}
+2026-07-13 09:15:51 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | UPDATE training_tasks SET status=%(status)s, error_message=%(error_message)s, updated_at=%(updated_at)s WHERE training_tasks.id = %(training_tasks_id)s
+2026-07-13 09:15:51 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00029s] {'status': 'failed', 'error_message': "'yolov11n' does not exist", 'updated_at': datetime.datetime(2026, 7, 13, 9, 15, 51, 747082), 'training_tasks_id': 3}
+2026-07-13 09:15:51 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-13 09:16:13 | INFO     | request:dispatch:64 | → GET /api/training/status/2 | ip=127.0.0.1 | size=0
+2026-07-13 09:16:13 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:16:13 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:16:13 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 70.15s ago] {'id_1': 1, 'param_1': 1}
+2026-07-13 09:16:13 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:16:13 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 33.11s ago] {'id_1': 2, 'param_1': 1}
+2026-07-13 09:16:13 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_metrics.id AS training_metrics_id, training_metrics.task_id AS training_metrics_task_id, training_metrics.epoch AS training_metrics_epoch, training_metrics.box_loss AS training_metrics_box_loss, training_metrics.cls_loss AS training_metrics_cls_loss, training_metrics.dfl_loss AS training_metrics_dfl_loss, training_metrics.precision AS training_metrics_precision, training_metrics.recall AS training_metrics_recall, training_metrics.map50 AS training_metrics_map50, training_metrics.map50_95 AS training_metrics_map50_95, training_metrics.lr AS training_metrics_lr, training_metrics.created_at AS training_metrics_created_at 
+FROM training_metrics 
+WHERE training_metrics.task_id = %(task_id_1)s ORDER BY training_metrics.epoch DESC 
+ LIMIT %(param_1)s
+2026-07-13 09:16:13 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00027s] {'task_id_1': 2, 'param_1': 1}
+2026-07-13 09:16:13 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-13 09:16:13 | INFO     | request:dispatch:98 | ← GET /api/training/status/2 | status=200 | 14.4ms
+2026-07-13 09:27:17 | INFO     | request:dispatch:64 | → POST /api/auth/login | ip=127.0.0.1 | size=46
+2026-07-13 09:27:17 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select pg_catalog.version()
+2026-07-13 09:27:17 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-13 09:27:17 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select current_schema()
+2026-07-13 09:27:17 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-13 09:27:17 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | show standard_conforming_strings
+2026-07-13 09:27:17 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-13 09:27:17 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:27:17 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s OR users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:27:17 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00044s] {'username_1': 'testuser', 'email_1': 'testuser', 'param_1': 1}
+2026-07-13 09:27:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | UPDATE users SET last_login_at=%(last_login_at)s, updated_at=%(updated_at)s WHERE users.id = %(users_id)s
+2026-07-13 09:27:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00065s] {'last_login_at': datetime.datetime(2026, 7, 13, 9, 27, 18, 255055), 'updated_at': datetime.datetime(2026, 7, 13, 9, 27, 18, 257255), 'users_id': 1}
+2026-07-13 09:27:18 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-13 09:27:18 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:27:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(pk_1)s
+2026-07-13 09:27:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00024s] {'pk_1': 1}
+2026-07-13 09:27:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT user_roles.id AS user_roles_id, user_roles.user_id AS user_roles_user_id, user_roles.role_id AS user_roles_role_id, user_roles.created_at AS user_roles_created_at 
+FROM user_roles 
+WHERE %(param_1)s = user_roles.user_id
+2026-07-13 09:27:18 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00028s] {'param_1': 1}
+2026-07-13 09:27:18 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-13 09:27:18 | INFO     | request:dispatch:98 | ← POST /api/auth/login | status=200 | 435.3ms
+2026-07-13 09:27:26 | INFO     | request:dispatch:64 | → GET /api/training/tasks | ip=127.0.0.1 | size=0
+2026-07-13 09:27:26 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:27:26 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:27:26 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00049s] {'id_1': 1, 'param_1': 1}
+2026-07-13 09:27:26 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.user_id = %(user_id_1)s ORDER BY training_tasks.created_at DESC 
+ LIMIT %(param_1)s
+2026-07-13 09:27:26 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00050s] {'user_id_1': 1, 'param_1': 20}
+2026-07-13 09:27:26 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-13 09:27:26 | INFO     | request:dispatch:98 | ← GET /api/training/tasks | status=200 | 13.3ms
+2026-07-13 09:27:58 | INFO     | request:dispatch:64 | → POST /api/training/start | ip=127.0.0.1 | size=124
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 32.21s ago] {'id_1': 1, 'param_1': 1}
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT detection_scenes.id AS detection_scenes_id, detection_scenes.name AS detection_scenes_name, detection_scenes.display_name AS detection_scenes_display_name, detection_scenes.description AS detection_scenes_description, detection_scenes.category AS detection_scenes_category, detection_scenes.class_names AS detection_scenes_class_names, detection_scenes.class_names_cn AS detection_scenes_class_names_cn, detection_scenes.is_active AS detection_scenes_is_active, detection_scenes.created_by AS detection_scenes_created_by, detection_scenes.created_at AS detection_scenes_created_at, detection_scenes.updated_at AS detection_scenes_updated_at 
+FROM detection_scenes 
+WHERE detection_scenes.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00043s] {'id_1': 1, 'param_1': 1}
+2026-07-13 09:27:58 | INFO     | app.api.training:start_training:78 | 数据集路径: D:\Project\team\datasets\PlantDiseaseDetection
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | INSERT INTO training_tasks (user_id, scene_id, task_uuid, status, model_name, epochs, img_size, batch_size, device, optimizer, lr0, augment_config, current_epoch, progress, dataset_path, dataset_size, data_yaml, error_message, created_at, updated_at, started_at, completed_at) VALUES (%(user_id)s, %(scene_id)s, %(task_uuid)s, %(status)s, %(model_name)s, %(epochs)s, %(img_size)s, %(batch_size)s, %(device)s, %(optimizer)s, %(lr0)s, %(augment_config)s::JSON, %(current_epoch)s, %(progress)s, %(dataset_path)s, %(dataset_size)s, %(data_yaml)s, %(error_message)s, %(created_at)s, %(updated_at)s, %(started_at)s, %(completed_at)s) RETURNING training_tasks.id
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00069s] {'user_id': 1, 'scene_id': 1, 'task_uuid': 'c47322d0a4494e71', 'status': 'pending', 'model_name': 'yolov11n', 'epochs': 10, 'img_size': 640, 'batch_size': 4, 'device': 'cpu', 'optimizer': 'SGD', 'lr0': 0.01, 'augment_config': 'null', 'current_epoch': 0, 'progress': 0, 'dataset_path': 'D:\\Project\\team\\datasets\\PlantDiseaseDetection', 'dataset_size': None, 'data_yaml': 'D:\\Project\\team\\datasets\\PlantDiseaseDetection\\data.yaml', 'error_message': None, 'created_at': datetime.datetime(2026, 7, 13, 9, 27, 58, 627703), 'updated_at': datetime.datetime(2026, 7, 13, 9, 27, 58, 627705), 'started_at': None, 'completed_at': None}
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id, training_tasks.user_id, training_tasks.scene_id, training_tasks.task_uuid, training_tasks.status, training_tasks.model_name, training_tasks.epochs, training_tasks.img_size, training_tasks.batch_size, training_tasks.device, training_tasks.optimizer, training_tasks.lr0, training_tasks.augment_config, training_tasks.current_epoch, training_tasks.progress, training_tasks.dataset_path, training_tasks.dataset_size, training_tasks.data_yaml, training_tasks.error_message, training_tasks.created_at, training_tasks.updated_at, training_tasks.started_at, training_tasks.completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(pk_1)s
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00052s] {'pk_1': 4}
+2026-07-13 09:27:58 | INFO     | app.training.training_service:start_training:90 | 训练任务已启动: task_id=4, uuid=c47322d0a4494e71, model=yolov11n, epochs=10
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(pk_1)s
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 40.38s ago] {'pk_1': 1}
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT detection_scenes.id AS detection_scenes_id, detection_scenes.name AS detection_scenes_name, detection_scenes.display_name AS detection_scenes_display_name, detection_scenes.description AS detection_scenes_description, detection_scenes.category AS detection_scenes_category, detection_scenes.class_names AS detection_scenes_class_names, detection_scenes.class_names_cn AS detection_scenes_class_names_cn, detection_scenes.is_active AS detection_scenes_is_active, detection_scenes.created_by AS detection_scenes_created_by, detection_scenes.created_at AS detection_scenes_created_at, detection_scenes.updated_at AS detection_scenes_updated_at 
+FROM detection_scenes 
+WHERE detection_scenes.id = %(pk_1)s
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00053s] {'pk_1': 1}
+2026-07-13 09:27:58 | INFO     | app.api.training:start_training:105 | 用户 testuser 启动训练任务: scene=PlantDiseaseDetection, model=yolov11n, epochs=10
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-13 09:27:58 | INFO     | request:dispatch:98 | ← POST /api/training/start | status=200 | 43.2ms
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00046s] {'id_1': 4, 'param_1': 1}
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | UPDATE training_tasks SET status=%(status)s, updated_at=%(updated_at)s, started_at=%(started_at)s WHERE training_tasks.id = %(training_tasks_id)s
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00059s] {'status': 'running', 'updated_at': datetime.datetime(2026, 7, 13, 9, 27, 58, 682095), 'started_at': datetime.datetime(2026, 7, 13, 9, 27, 58, 681224), 'training_tasks_id': 4}
+2026-07-13 09:27:58 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-13 09:28:03 | INFO     | app.training.training_service:_run_training:142 | 准备加载本地模型: D:\Project\team\backend\models\yolov11n.pt
+2026-07-13 09:28:03 | INFO     | app.training.training_service:_run_training:171 | 临时修改 data.yaml path 为绝对路径: D:\Project\team\datasets\PlantDiseaseDetection
+2026-07-13 09:28:03 | INFO     | app.training.training_service:_run_training:238 | 开始训练: data=D:\Project\team\datasets\PlantDiseaseDetection\data.yaml, epochs=10
+2026-07-13 09:28:23 | INFO     | request:dispatch:64 | → GET /api/training/status/4 | ip=127.0.0.1 | size=0
+2026-07-13 09:28:23 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:28:23 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:28:23 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 57.22s ago] {'id_1': 1, 'param_1': 1}
+2026-07-13 09:28:23 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:28:23 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 24.96s ago] {'id_1': 4, 'param_1': 1}
+2026-07-13 09:28:23 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_metrics.id AS training_metrics_id, training_metrics.task_id AS training_metrics_task_id, training_metrics.epoch AS training_metrics_epoch, training_metrics.box_loss AS training_metrics_box_loss, training_metrics.cls_loss AS training_metrics_cls_loss, training_metrics.dfl_loss AS training_metrics_dfl_loss, training_metrics.precision AS training_metrics_precision, training_metrics.recall AS training_metrics_recall, training_metrics.map50 AS training_metrics_map50, training_metrics.map50_95 AS training_metrics_map50_95, training_metrics.lr AS training_metrics_lr, training_metrics.created_at AS training_metrics_created_at 
+FROM training_metrics 
+WHERE training_metrics.task_id = %(task_id_1)s ORDER BY training_metrics.epoch DESC 
+ LIMIT %(param_1)s
+2026-07-13 09:28:23 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00051s] {'task_id_1': 4, 'param_1': 1}
+2026-07-13 09:28:23 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-13 09:28:23 | INFO     | request:dispatch:98 | ← GET /api/training/status/4 | status=200 | 16.6ms
+2026-07-13 09:28:46 | INFO     | request:dispatch:64 | → GET /api/training/metrics/4 | ip=127.0.0.1 | size=0
+2026-07-13 09:28:46 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:28:46 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:28:46 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 80.05s ago] {'id_1': 1, 'param_1': 1}
+2026-07-13 09:28:46 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_metrics.id AS training_metrics_id, training_metrics.task_id AS training_metrics_task_id, training_metrics.epoch AS training_metrics_epoch, training_metrics.box_loss AS training_metrics_box_loss, training_metrics.cls_loss AS training_metrics_cls_loss, training_metrics.dfl_loss AS training_metrics_dfl_loss, training_metrics.precision AS training_metrics_precision, training_metrics.recall AS training_metrics_recall, training_metrics.map50 AS training_metrics_map50, training_metrics.map50_95 AS training_metrics_map50_95, training_metrics.lr AS training_metrics_lr, training_metrics.created_at AS training_metrics_created_at 
+FROM training_metrics 
+WHERE training_metrics.task_id = %(task_id_1)s ORDER BY training_metrics.epoch ASC
+2026-07-13 09:28:46 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00071s] {'task_id_1': 4}
+2026-07-13 09:28:46 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-13 09:28:46 | INFO     | request:dispatch:98 | ← GET /api/training/metrics/4 | status=200 | 19.4ms
+2026-07-13 09:29:00 | INFO     | request:dispatch:64 | → GET /api/training/status/4 | ip=127.0.0.1 | size=0
+2026-07-13 09:29:00 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:29:00 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:29:00 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 93.88s ago] {'id_1': 1, 'param_1': 1}
+2026-07-13 09:29:00 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:29:00 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 61.62s ago] {'id_1': 4, 'param_1': 1}
+2026-07-13 09:29:00 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_metrics.id AS training_metrics_id, training_metrics.task_id AS training_metrics_task_id, training_metrics.epoch AS training_metrics_epoch, training_metrics.box_loss AS training_metrics_box_loss, training_metrics.cls_loss AS training_metrics_cls_loss, training_metrics.dfl_loss AS training_metrics_dfl_loss, training_metrics.precision AS training_metrics_precision, training_metrics.recall AS training_metrics_recall, training_metrics.map50 AS training_metrics_map50, training_metrics.map50_95 AS training_metrics_map50_95, training_metrics.lr AS training_metrics_lr, training_metrics.created_at AS training_metrics_created_at 
+FROM training_metrics 
+WHERE training_metrics.task_id = %(task_id_1)s ORDER BY training_metrics.epoch DESC 
+ LIMIT %(param_1)s
+2026-07-13 09:29:00 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 36.66s ago] {'task_id_1': 4, 'param_1': 1}
+2026-07-13 09:29:00 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-13 09:29:00 | INFO     | request:dispatch:98 | ← GET /api/training/status/4 | status=200 | 15.9ms
+2026-07-13 09:29:13 | INFO     | request:dispatch:64 | → GET /api/training/status/4 | ip=127.0.0.1 | size=0
+2026-07-13 09:29:13 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:29:13 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:29:13 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 107.1s ago] {'id_1': 1, 'param_1': 1}
+2026-07-13 09:29:13 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:29:13 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 74.82s ago] {'id_1': 4, 'param_1': 1}
+2026-07-13 09:29:13 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_metrics.id AS training_metrics_id, training_metrics.task_id AS training_metrics_task_id, training_metrics.epoch AS training_metrics_epoch, training_metrics.box_loss AS training_metrics_box_loss, training_metrics.cls_loss AS training_metrics_cls_loss, training_metrics.dfl_loss AS training_metrics_dfl_loss, training_metrics.precision AS training_metrics_precision, training_metrics.recall AS training_metrics_recall, training_metrics.map50 AS training_metrics_map50, training_metrics.map50_95 AS training_metrics_map50_95, training_metrics.lr AS training_metrics_lr, training_metrics.created_at AS training_metrics_created_at 
+FROM training_metrics 
+WHERE training_metrics.task_id = %(task_id_1)s ORDER BY training_metrics.epoch DESC 
+ LIMIT %(param_1)s
+2026-07-13 09:29:13 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 49.86s ago] {'task_id_1': 4, 'param_1': 1}
+2026-07-13 09:29:13 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-13 09:29:13 | INFO     | request:dispatch:98 | ← GET /api/training/status/4 | status=200 | 18.7ms
+2026-07-13 09:29:30 | INFO     | request:dispatch:64 | → POST /api/training/stop/4 | ip=127.0.0.1 | size=0
+2026-07-13 09:29:30 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:29:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:29:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 123.9s ago] {'id_1': 1, 'param_1': 1}
+2026-07-13 09:29:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:29:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 91.65s ago] {'id_1': 4, 'param_1': 1}
+2026-07-13 09:29:30 | WARNING  | app.training.training_service:stop_training:431 | 停止训练异常: 'bool' object is not callable
+2026-07-13 09:29:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | UPDATE training_tasks SET status=%(status)s, updated_at=%(updated_at)s, completed_at=%(completed_at)s WHERE training_tasks.id = %(training_tasks_id)s
+2026-07-13 09:29:30 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00070s] {'status': 'cancelled', 'updated_at': datetime.datetime(2026, 7, 13, 9, 29, 30, 329701), 'completed_at': datetime.datetime(2026, 7, 13, 9, 29, 30, 328628), 'training_tasks_id': 4}
+2026-07-13 09:29:30 | INFO     | sqlalchemy.engine.Engine:_connection_commit_impl:2718 | COMMIT
+2026-07-13 09:29:30 | INFO     | app.training.training_service:stop_training:438 | 训练任务已停止: task_id=4
+2026-07-13 09:29:30 | INFO     | request:dispatch:98 | ← POST /api/training/stop/4 | status=200 | 31.0ms
+2026-07-13 09:36:36 | INFO     | request:dispatch:64 | → POST /api/training/stop/4 | ip=127.0.0.1 | size=0
+2026-07-13 09:36:36 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:36:36 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:36:36 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 550.5s ago] {'id_1': 1, 'param_1': 1}
+2026-07-13 09:36:36 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:36:36 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 518.3s ago] {'id_1': 4, 'param_1': 1}
+2026-07-13 09:36:36 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-13 09:36:36 | WARNING  | app.core.exceptions:http_exception_handler:39 | HTTP 400: 任务当前状态为 cancelled，无法停止 | path=/api/training/stop/4
+2026-07-13 09:36:36 | WARNING  | request:dispatch:93 | ← POST /api/training/stop/4 | status=400 | 18.0ms
+2026-07-13 09:37:25 | INFO     | request:dispatch:64 | → POST /api/training/stop/3 | ip=127.0.0.1 | size=0
+2026-07-13 09:37:25 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:37:25 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:37:25 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 598.7s ago] {'id_1': 1, 'param_1': 1}
+2026-07-13 09:37:25 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT training_tasks.id AS training_tasks_id, training_tasks.user_id AS training_tasks_user_id, training_tasks.scene_id AS training_tasks_scene_id, training_tasks.task_uuid AS training_tasks_task_uuid, training_tasks.status AS training_tasks_status, training_tasks.model_name AS training_tasks_model_name, training_tasks.epochs AS training_tasks_epochs, training_tasks.img_size AS training_tasks_img_size, training_tasks.batch_size AS training_tasks_batch_size, training_tasks.device AS training_tasks_device, training_tasks.optimizer AS training_tasks_optimizer, training_tasks.lr0 AS training_tasks_lr0, training_tasks.augment_config AS training_tasks_augment_config, training_tasks.current_epoch AS training_tasks_current_epoch, training_tasks.progress AS training_tasks_progress, training_tasks.dataset_path AS training_tasks_dataset_path, training_tasks.dataset_size AS training_tasks_dataset_size, training_tasks.data_yaml AS training_tasks_data_yaml, training_tasks.error_message AS training_tasks_error_message, training_tasks.created_at AS training_tasks_created_at, training_tasks.updated_at AS training_tasks_updated_at, training_tasks.started_at AS training_tasks_started_at, training_tasks.completed_at AS training_tasks_completed_at 
+FROM training_tasks 
+WHERE training_tasks.id = %(id_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:37:25 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 566.5s ago] {'id_1': 3, 'param_1': 1}
+2026-07-13 09:37:25 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-13 09:37:25 | WARNING  | app.core.exceptions:http_exception_handler:39 | HTTP 400: 任务当前状态为 failed，无法停止 | path=/api/training/stop/3
+2026-07-13 09:37:25 | WARNING  | request:dispatch:93 | ← POST /api/training/stop/3 | status=400 | 19.1ms
+2026-07-13 09:46:34 | INFO     | request:dispatch:64 | → GET / | ip=127.0.0.1 | size=0
+2026-07-13 09:46:34 | INFO     | request:dispatch:98 | ← GET / | status=200 | 1.7ms
+2026-07-13 09:46:47 | INFO     | request:dispatch:64 | → POST /api/auth/login | ip=127.0.0.1 | size=37
+2026-07-13 09:46:47 | WARNING  | app.core.exceptions:validation_exception_handler:75 | 参数验证失败 | path=/api/auth/login | errors=['1: JSON decode error']
+2026-07-13 09:46:47 | WARNING  | request:dispatch:93 | ← POST /api/auth/login | status=422 | 2.5ms
+2026-07-13 09:47:59 | INFO     | request:dispatch:64 | → POST /api/auth/login | ip=127.0.0.1 | size=42
+2026-07-13 09:47:59 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select pg_catalog.version()
+2026-07-13 09:47:59 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-13 09:47:59 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | select current_schema()
+2026-07-13 09:47:59 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-13 09:47:59 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | show standard_conforming_strings
+2026-07-13 09:47:59 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [raw sql] {}
+2026-07-13 09:47:59 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:47:59 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s OR users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:47:59 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [generated in 0.00039s] {'username_1': 'admin', 'email_1': 'admin', 'param_1': 1}
+2026-07-13 09:47:59 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-13 09:47:59 | WARNING  | app.core.exceptions:http_exception_handler:39 | HTTP 401: 用户名或密码错误 | path=/api/auth/login
+2026-07-13 09:47:59 | WARNING  | request:dispatch:93 | ← POST /api/auth/login | status=401 | 55.1ms
+2026-07-13 09:49:52 | INFO     | request:dispatch:64 | → POST /api/auth/login | ip=127.0.0.1 | size=42
+2026-07-13 09:49:52 | INFO     | sqlalchemy.engine.Engine:_connection_begin_impl:2712 | BEGIN (implicit)
+2026-07-13 09:49:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.phone AS users_phone, users.avatar AS users_avatar, users.is_active AS users_is_active, users.is_superuser AS users_is_superuser, users.last_login_at AS users_last_login_at, users.reset_token AS users_reset_token, users.reset_token_expires_at AS users_reset_token_expires_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at 
+FROM users 
+WHERE users.username = %(username_1)s OR users.email = %(email_1)s 
+ LIMIT %(param_1)s
+2026-07-13 09:49:52 | INFO     | sqlalchemy.engine.Engine:_execute_context:1848 | [cached since 112.1s ago] {'username_1': 'admin', 'email_1': 'admin', 'param_1': 1}
+2026-07-13 09:49:52 | INFO     | sqlalchemy.engine.Engine:_connection_rollback_impl:2715 | ROLLBACK
+2026-07-13 09:49:52 | WARNING  | app.core.exceptions:http_exception_handler:39 | HTTP 401: 用户名或密码错误 | path=/api/auth/login
+2026-07-13 09:49:52 | WARNING  | request:dispatch:93 | ← POST /api/auth/login | status=401 | 5.5ms
