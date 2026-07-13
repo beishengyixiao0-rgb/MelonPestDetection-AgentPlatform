@@ -4,6 +4,7 @@
  * - 其他页面需要登录后才能访问
  * - 路由守卫自动检查登录状态
  */
+import { useUserStore } from '@/stores/user'
 import { createRouter, createWebHistory } from 'vue-router'
 
 // ── 路由定义 ────────────────────────────────────────
@@ -93,6 +94,7 @@ router.beforeEach((to, from, next) => {
 
   const token = localStorage.getItem('rsod_token')
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth !== false)
+  const userStore = useUserStore()
 
   if (requiresAuth && !token) {
     next({ path: '/login', query: { redirect: to.fullPath } })

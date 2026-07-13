@@ -40,7 +40,10 @@
           </el-button>
         </el-form-item>
       </el-form>
-
+      <div class="login-tip">
+        <div>如果你之前没有账号，请先注册。</div>
+        <div>如果已有账号，直接输入用户名和密码登录即可。</div>
+      </div>
       <div class="login-footer">
         <span>还没有账号？</span>
         <router-link to="/register">立即注册</router-link>
@@ -50,10 +53,10 @@
 </template>
 
 <script setup>
+import { useUserStore } from '@/stores/user'
+import { ElMessage } from 'element-plus'
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
 const route = useRoute()
@@ -147,6 +150,14 @@ async function handleLogin() {
 
 .login-btn {
   width: 100%;
+}
+
+.login-tip {
+  margin-bottom: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: $text-secondary;
+  line-height: 1.6;
 }
 
 .login-footer {
