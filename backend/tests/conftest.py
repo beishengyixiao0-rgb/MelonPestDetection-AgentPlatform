@@ -9,6 +9,11 @@ Fixtures 是 pytest 的核心概念，用于：
 conftest.py 中的 fixtures 对所有测试文件可用，无需显式导入。
 """
 
+import os
+
+# 测试环境中禁用速率限制
+os.environ["DISABLE_RATE_LIMIT"] = "true"
+
 import pytest
 from app.database.session import Base, get_db
 from fastapi.testclient import TestClient

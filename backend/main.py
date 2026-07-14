@@ -15,6 +15,7 @@ from app.api.dataset import router as dataset_router
 from app.api.detection import router as detection_router
 from app.core.exceptions import register_exception_handlers
 from app.middleware.request_logger import RequestLogMiddleware
+from app.middleware.rate_limiter import RateLimiterMiddleware
 
 
 
@@ -54,8 +55,6 @@ original_openapi = app.openapi
 
 
 def custom_openapi():
-    if app.openapi_schema:
-        return app.openapi_schema
     openapi_schema = original_openapi()
     openapi_schema["components"]["securitySchemes"] = {
         "Bearer": {
@@ -66,7 +65,6 @@ def custom_openapi():
         }
     }
     openapi_schema["security"] = [{"Bearer": []}]
-    app.openapi_schema = openapi_schema
     return openapi_schema
 
 
@@ -89,7 +87,10 @@ app.add_middleware(
 )
 
 
-# 2. 请求日志中间件（在 CORS 之后执行）
+# 2. 速率限制中间件（在 CORS 之后执行）
+app.add_middleware(RateLimiterMiddleware)
+
+# 3. 请求日志中间件
 app.add_middleware(RequestLogMiddleware)
 
 
