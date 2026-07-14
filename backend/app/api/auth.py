@@ -98,6 +98,25 @@ async def get_current_user(
     return user
 
 
+def require_admin(
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    要求管理员角色
+    在需要管理员权限的路由中通过 Depends(require_admin) 使用
+    超级管理员自动通过
+    """
+    if current_user.is_superuser:
+        return current_user
+    
+    roles = [ur.role.name for ur in current_user.user_roles]
+    if "admin" not in roles:
+        raise HTTPException(status_code=403, detail="需要管理员权限")
+    
+    return current_user
+
+
 # ══════════════════════════════════════════════════════════════
 # 公开接口（无需登录）
 # ══════════════════════════════════════════════════════════════

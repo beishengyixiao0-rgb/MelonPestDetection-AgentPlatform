@@ -23,7 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
+from app.api.auth import require_admin
 from app.core.logger import get_logger
 from app.database.session import get_db
 from app.entity.db_models import DetectionScene, TrainingTask
@@ -43,7 +43,7 @@ router = APIRouter(prefix="/api/training", tags=["模型训练"])
 async def start_training(
     request: TrainingTaskCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """
     启动模型训练任务
@@ -119,7 +119,7 @@ async def start_training(
 @router.get("/tasks", openapi_extra={"security": [{"BearerAuth": []}]})
 async def list_training_tasks(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """获取当前用户的训练任务列表"""
     tasks = training_service.get_task_list(db, user_id=current_user.id)
@@ -130,7 +130,7 @@ async def list_training_tasks(
 async def get_training_status(
     task_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """
     获取训练任务状态
@@ -148,7 +148,7 @@ async def get_training_status(
 async def get_training_metrics(
     task_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """
     获取训练任务的所有 epoch 指标
@@ -163,7 +163,7 @@ async def get_training_metrics(
 async def stop_training(
     task_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """停止正在运行的训练任务"""
     result = training_service.stop_training(db, task_id)
@@ -175,7 +175,7 @@ async def stop_training(
 @router.get("/results/{task_uuid}", openapi_extra={"security": [{"BearerAuth": []}]})
 async def get_results_csv(
     task_uuid: str,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """
     获取 Ultralytics 生成的原始 results.csv 文件
@@ -198,7 +198,7 @@ async def validate_model(
     task_id: int,
     request: ModelValidateRequest = None,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """
     对已完成训练的模型执行评估
@@ -237,7 +237,7 @@ async def export_model(
     task_id: int,
     request: ModelExportRequest = None,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """
     导出训练好的模型为正式版本
@@ -277,7 +277,7 @@ async def export_model(
 async def download_model(
     task_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """
     下载训练好的模型权重文件（best.pt）
@@ -310,7 +310,7 @@ async def predict_test_image(
     conf: float = Form(0.25, description="置信度阈值"),
     iou: float = Form(0.45, description="NMS IoU 阈值"),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """
     上传测试图片，使用训练好的模型进行预测

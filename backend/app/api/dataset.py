@@ -16,7 +16,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, File, UploadFile, Query, Path, Response
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
+from app.api.auth import require_admin
 from app.database.session import get_db
 from app.services.dataset_service import dataset_service
 from app.entity.schemas import (
@@ -38,7 +38,7 @@ router = APIRouter(prefix="/api/dataset", tags=["数据集管理"])
 def create_dataset(
     data: DatasetCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """创建数据集"""
     dataset = dataset_service.create_dataset(
@@ -58,7 +58,7 @@ def list_datasets(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """分页查询数据集列表"""
     datasets, total = dataset_service.list_datasets(
@@ -77,7 +77,7 @@ def list_datasets(
 def get_dataset_detail(
     dataset_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """获取数据集详情"""
     dataset = dataset_service.get_dataset(db=db, dataset_id=dataset_id)
@@ -89,7 +89,7 @@ def upload_images(
     dataset_id: int = Path(..., ge=1),
     images: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """上传图片"""
     result = dataset_service.upload_images(db=db, dataset_id=dataset_id, images=images, user_id=current_user.id)
@@ -101,7 +101,7 @@ def upload_labels(
     dataset_id: int = Path(..., ge=1),
     labels: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """上传标签文件"""
     result = dataset_service.upload_labels(db=db, dataset_id=dataset_id, labels=labels, user_id=current_user.id)
@@ -112,7 +112,7 @@ def upload_labels(
 def convert_yolo(
     dataset_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """转换YOLO格式（自动解析）"""
     result = dataset_service.auto_parse_yolo(db=db, dataset_id=dataset_id, user_id=current_user.id)
@@ -127,7 +127,7 @@ def get_images(
     split_type: Optional[str] = Query(None, regex="^(train|val|test)$"),
     has_label: Optional[bool] = Query(None),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """分页查询图片列表"""
     images, total = dataset_service.get_images(
@@ -152,7 +152,7 @@ def get_images(
 def get_image(
     image_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """获取单张图片详情"""
     image = dataset_service.get_image(db=db, image_id=image_id, user_id=current_user.id)
@@ -163,7 +163,7 @@ def get_image(
 def delete_image(
     image_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """删除图片"""
     dataset_service.delete_image(db=db, image_id=image_id, user_id=current_user.id)
@@ -177,7 +177,7 @@ def get_labels(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """查询标签列表"""
     labels, total = dataset_service.get_labels(
@@ -201,7 +201,7 @@ def get_labels(
 def get_statistics(
     dataset_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """获取数据集统计信息"""
     stats = dataset_service.get_class_statistics(db=db, dataset_id=dataset_id, user_id=current_user.id)
@@ -212,7 +212,7 @@ def get_statistics(
 def get_dataset_summary(
     dataset_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """获取数据集摘要统计"""
     dataset = dataset_service.get_dataset(db=db, dataset_id=dataset_id)
@@ -234,7 +234,7 @@ def split_dataset(
     dataset_id: int = Path(..., ge=1),
     data: DatasetSplitRequest = Depends(),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """自动划分数据集"""
     result = dataset_service.split_dataset(
@@ -253,7 +253,7 @@ def export_dataset(
     format_type: str = Query("yolo", regex="^(yolo)$"),
     split_type: str = Query("all", regex="^(all|train|val|test)$"),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """导出数据集"""
     zip_path = dataset_service.export_dataset(
@@ -296,7 +296,7 @@ def get_disease_classes():
 def delete_dataset(
     dataset_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """删除数据集"""
     dataset_service.delete_dataset(db=db, dataset_id=dataset_id, user_id=current_user.id)
@@ -308,7 +308,7 @@ def upload_dataset_zip(
     dataset_id: int = Path(..., ge=1),
     zip_file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin),
 ):
     """
     上传数据集压缩包并自动解析 YOLO 格式
