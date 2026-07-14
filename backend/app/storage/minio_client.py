@@ -91,3 +91,62 @@ class MinIOClient:
             bucket_name=self.bucket_name,
             object_name=object_name,
         )
+
+    def upload_image(self, data: bytes, object_name: str) -> str:
+        """
+        上传图片到 MinIO
+
+        Args:
+            data: 图片字节数据
+            object_name: MinIO 中的对象名称（路径）
+
+        Returns:
+            预签名 URL
+        """
+        import os
+        ext = os.path.splitext(object_name)[1].lower()
+        content_type_map = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".gif": "image/gif",
+            ".bmp": "image/bmp",
+            ".tiff": "image/tiff",
+        }
+        content_type = content_type_map.get(ext, "image/jpeg")
+        return self.upload_bytes(object_name, data, content_type)
+
+    def get_object(self, object_name: str) -> bytes:
+        """
+        获取 MinIO 中的对象内容
+
+        Args:
+            object_name: MinIO 中的对象名称（路径）
+
+        Returns:
+            对象字节数据
+        """
+        response = self.client.get_object(
+            bucket_name=self.bucket_name,
+            object_name=object_name,
+        )
+        try:
+            return response.read()
+        finally:
+            response.close()
+            response.release_conn()
+
+    def delete_object(self, object_name: str):
+        """
+        删除 MinIO 中的对象
+
+        Args:
+            object_name: MinIO 中的对象名称（路径）
+        """
+        try:
+            self.client.remove_object(
+                bucket_name=self.bucket_name,
+                object_name=object_name,
+            )
+        except S3Error:
+            pass

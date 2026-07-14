@@ -1,0 +1,76 @@
+# 数据集根路径
+path: .
+
+# 各子集路径
+train: images/train
+val: images/val
+test: images/test
+
+# 类别总数 (30个)
+nc: 30
+
+# 类别名称字典（索引必须从0开始，且连续）
+names:
+  0: Grape Leaf Black Rot
+  1: Apple Scab Leaf
+  2: Apple leaf
+  3: Apple rust leaf
+  4: Bell_pepper leaf
+  5: Bell_pepper leaf spot
+  6: Blueberry leaf
+  7: Cherry leaf
+  8: Corn Gray leaf spot
+  9: Corn leaf blight
+  10: Corn rust leaf
+  11: Peach leaf
+  12: Potato leaf
+  13: Potato leaf early blight
+  14: Potato leaf late blight
+  15: Raspberry leaf
+  16: Soyabean leaf
+  17: Squash Powdery mildew leaf
+  18: Strawberry leaf
+  19: Tomato Early blight leaf
+  20: Tomato Septoria leaf spot
+  21: Tomato leaf
+  22: Tomato leaf bacterial spot
+  23: Tomato leaf late blight
+  24: Tomato leaf mosaic virus
+  25: Tomato leaf yellow virus
+  26: Tomato mold leaf
+  27: Tomato two spotted spider mites leaf
+  28: grape leaf
+  29: grape leaf black rot
+
+# 类别中文名称映射（用于前端显示）
+names_cn:
+  0: 品种标签
+  1: 苹果疮痂叶
+  2: 苹果叶 (健康)
+  3: 苹果锈病叶
+  4: 灯笼椒叶 (健康)
+  5: 灯笼椒叶斑病
+  6: 蓝莓叶
+  7: 樱桃叶
+  8: 玉米灰斑病叶
+  9: 玉米叶枯病
+  10: 玉米锈病叶
+  11: 桃叶
+  12: 马铃薯叶 (健康)
+  13: 马铃薯早疫病叶
+  14: 马铃薯晚疫病叶
+  15: 覆盆子叶
+  16: 大豆叶
+  17: 南瓜白粉病叶
+  18: 草莓叶
+  19: 番茄早疫病叶
+  20: 番茄斑枯病叶
+  21: 番茄叶 (健康)
+  22: 番茄细菌性斑点病叶
+  23: 番茄晚疫病叶
+  24: 番茄花叶病毒病叶
+  25: 番茄黄化曲叶病毒病叶
+  26: 番茄叶霉病叶
+  27: 番茄二斑叶螨病叶
+  28: 葡萄叶 (健康)
+  29: 葡萄黑腐病叶

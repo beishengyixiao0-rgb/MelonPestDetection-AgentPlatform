@@ -377,6 +377,47 @@ class ModelVersionCreate(BaseModel):
     model_type: str = Field(default="yolov11n", description="模型类型")
     description: Optional[str] = None
 
+# --- 模型评估与导出 ---
+
+class ModelValidateRequest(BaseModel):
+    """模型评估请求"""
+    split: str = Field(default="val", description="评估数据集划分: val / test / train")
+    conf: float = Field(default=0.001, description="置信度阈值")
+    iou: float = Field(default=0.6, description="NMS IoU 阈值")
+
+
+class ModelExportRequest(BaseModel):
+    """模型导出请求"""
+    version: Optional[str] = Field(None, description="版本号（如 v1.0.0，不传则自动生成）")
+    description: Optional[str] = Field(None, description="版本描述/变更说明")
+    set_default: bool = Field(default=False, description="是否设为该场景的默认模型")
+    upload_minio: bool = Field(default=True, description="是否上传到 MinIO")
+
+
+class ModelExportResponse(BaseModel):
+    """模型导出响应"""
+    model_version_id: int
+    version: str
+    model_name: str
+    model_path: str
+    export_dir: str
+    minio_url: Optional[str] = None
+    file_size: Optional[int] = None
+    evaluation: dict
+    is_default: bool
+    message: str
+
+
+class ModelValidateResponse(BaseModel):
+    """模型评估响应"""
+    task_id: int
+    task_uuid: str
+    split: str
+    overall: dict
+    per_class: dict
+    model_version_id: Optional[int] = None
+    model_version: Optional[str] = None
+
 
 # ══════════════════════════════════════════════════════════════
 # 四、智能体对话
@@ -432,7 +473,118 @@ class ChatHistoryResponse(BaseModel):
 
 
 # ══════════════════════════════════════════════════════════════
-# 五、系统运维
+# 五、数据集管理
+# ══════════════════════════════════════════════════════════════
+
+
+class DatasetCreate(BaseModel):
+    """创建数据集"""
+    name: str = Field(..., description="数据集名称")
+    display_name: str = Field(..., description="显示名称")
+    description: Optional[str] = None
+    category: str = Field(default="agriculture", description="分类")
+    format_type: str = Field(default="yolo", description="格式: yolo/voc/coco")
+
+
+class DatasetResponse(BaseModel):
+    """数据集响应"""
+    id: int
+    name: str
+    display_name: str
+    description: Optional[str] = None
+    category: str
+    status: str
+    total_images: int
+    total_labels: int
+    total_classes: int
+    class_names: Optional[list] = None
+    class_names_cn: Optional[dict] = None
+    class_distribution: Optional[dict] = None
+    train_count: int
+    val_count: int
+    test_count: int
+    data_size: int
+    format_type: str
+    label_quality: Optional[float] = None
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DatasetImageResponse(BaseModel):
+    """数据集图片响应"""
+    id: int
+    dataset_id: int
+    image_name: str
+    image_path: str
+    image_url: Optional[str] = None
+    image_width: Optional[int] = None
+    image_height: Optional[int] = None
+    file_size: Optional[int] = None
+    has_label: bool
+    label_count: int
+    split_type: str
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DatasetLabelResponse(BaseModel):
+    """数据集标签响应"""
+    id: int
+    dataset_id: int
+    image_id: int
+    class_id: int
+    class_name: str
+    class_name_cn: Optional[str] = None
+    bbox_x: float
+    bbox_y: float
+    bbox_width: float
+    bbox_height: float
+    bbox_x1: Optional[int] = None
+    bbox_y1: Optional[int] = None
+    bbox_x2: Optional[int] = None
+    bbox_y2: Optional[int] = None
+    confidence: Optional[float] = None
+
+    class Config:
+        from_attributes = True
+
+
+class DatasetStatistics(BaseModel):
+    """数据集统计信息"""
+    total_images: int
+    total_labels: int
+    total_classes: int
+    class_distribution: dict[str, int]
+    train_count: int
+    val_count: int
+    test_count: int
+    data_size: int
+    label_quality: float
+
+
+class DatasetSplitRequest(BaseModel):
+    """数据集划分请求"""
+    train_ratio: float = Field(default=0.7, ge=0.5, le=0.9)
+    val_ratio: float = Field(default=0.2, ge=0.05, le=0.3)
+
+
+class DiseaseClassResponse(BaseModel):
+    """病害类别响应"""
+    class_id: int
+    class_name: str
+    class_name_cn: str
+    sample_count: int = 0
+
+
+# ══════════════════════════════════════════════════════════════
+# 六、系统运维
 # ══════════════════════════════════════════════════════════════
 
 

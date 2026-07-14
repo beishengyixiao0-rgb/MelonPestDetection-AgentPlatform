@@ -528,7 +528,138 @@ class ChatMessage(Base):
 
 
 # ==============================================================================
-# 五、系统运维
+# 五、数据集管理
+# ==============================================================================
+
+
+class Dataset(Base):
+    """数据集表"""
+
+    __tablename__ = "datasets"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), unique=True, nullable=False, comment="数据集名称")
+    display_name = Column(String(100), nullable=False, comment="显示名称")
+    description = Column(Text, nullable=True, comment="数据集描述")
+    category = Column(
+        String(50),
+        default="agriculture",
+        comment="分类: agriculture/industry/remote_sensing/medical",
+    )
+    status = Column(
+        String(20),
+        default="uploading",
+        comment="状态: uploading/processing/ready/failed",
+    )
+
+    total_images = Column(Integer, default=0, comment="图片总数")
+    total_labels = Column(Integer, default=0, comment="标签总数")
+    total_classes = Column(Integer, default=0, comment="类别总数")
+
+    class_names = Column(JSON, nullable=True, comment="类别列表")
+    class_names_cn = Column(JSON, nullable=True, comment="类别中文名映射")
+    class_distribution = Column(JSON, nullable=True, comment="各类别样本数量分布")
+
+    train_count = Column(Integer, default=0, comment="训练集数量")
+    val_count = Column(Integer, default=0, comment="验证集数量")
+    test_count = Column(Integer, default=0, comment="测试集数量")
+
+    minio_bucket = Column(String(100), nullable=True, comment="MinIO存储桶")
+    data_size = Column(BigInteger, default=0, comment="数据大小(字节)")
+
+    format_type = Column(String(20), default="yolo", comment="格式: yolo/voc/coco")
+    label_quality = Column(Float, nullable=True, comment="标签完整率")
+
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    user = relationship("User")
+    images = relationship(
+        "DatasetImage", back_populates="dataset", cascade="all, delete-orphan"
+    )
+    labels = relationship(
+        "DatasetLabel", back_populates="dataset", cascade="all, delete-orphan"
+    )
+
+
+class DatasetImage(Base):
+    """数据集图片表"""
+
+    __tablename__ = "dataset_images"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    dataset_id = Column(
+        Integer, ForeignKey("datasets.id"), nullable=False, index=True
+    )
+    image_name = Column(String(500), nullable=False, comment="图片文件名")
+    image_path = Column(String(1000), nullable=False, comment="MinIO路径")
+    image_url = Column(String(2000), nullable=True, comment="MinIO访问URL")
+
+    image_width = Column(Integer, nullable=True)
+    image_height = Column(Integer, nullable=True)
+    file_size = Column(BigInteger, nullable=True)
+
+    has_label = Column(Boolean, default=False, comment="是否有标签")
+    label_count = Column(Integer, default=0, comment="标签数量")
+
+    split_type = Column(
+        String(10),
+        default="train",
+        comment="划分类型: train/val/test",
+    )
+
+    status = Column(
+        String(20),
+        default="uploaded",
+        comment="状态: uploaded/processed/analyzed",
+    )
+
+    created_at = Column(DateTime, default=datetime.now)
+
+    dataset = relationship("Dataset", back_populates="images")
+    labels = relationship(
+        "DatasetLabel", back_populates="image", cascade="all, delete-orphan"
+    )
+
+
+class DatasetLabel(Base):
+    """数据集标签表"""
+
+    __tablename__ = "dataset_labels"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    dataset_id = Column(
+        Integer, ForeignKey("datasets.id"), nullable=False, index=True
+    )
+    image_id = Column(
+        Integer, ForeignKey("dataset_images.id"), nullable=False, index=True
+    )
+
+    class_id = Column(Integer, nullable=False, comment="类别ID")
+    class_name = Column(String(50), nullable=False, comment="类别名称")
+    class_name_cn = Column(String(50), nullable=True, comment="类别中文名")
+
+    bbox_x = Column(Float, nullable=False)
+    bbox_y = Column(Float, nullable=False)
+    bbox_width = Column(Float, nullable=False)
+    bbox_height = Column(Float, nullable=False)
+
+    bbox_x1 = Column(Integer, nullable=True)
+    bbox_y1 = Column(Integer, nullable=True)
+    bbox_x2 = Column(Integer, nullable=True)
+    bbox_y2 = Column(Integer, nullable=True)
+
+    confidence = Column(Float, nullable=True, default=1.0)
+
+    created_at = Column(DateTime, default=datetime.now)
+
+    dataset = relationship("Dataset", back_populates="labels")
+    image = relationship("DatasetImage", back_populates="labels")
+
+
+# ==============================================================================
+# 六、系统运维
 # ==============================================================================
 
 

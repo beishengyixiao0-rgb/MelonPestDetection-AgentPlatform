@@ -12,7 +12,7 @@
 
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
 from sqlalchemy.orm import Session
 
@@ -36,12 +36,15 @@ from app.services.user_service import user_service
 router = APIRouter(prefix="/api/auth", tags=["认证"])
 
 
-# OAuth2 密码模式，用于从请求 Header 中提取 Token
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+import logging
+
+bearer_scheme = HTTPBearer(auto_error=False)
+
+logger = logging.getLogger(__name__)
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ):
     """
@@ -50,19 +53,43 @@ async def get_current_user(
     """
     credentials_exception = HTTPException(
         status_code=401,
-        detail="无效的认证凭据",
+        detail="未认证或认证失败",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    logger.debug(f"credentials: {credentials}")
+
+    if credentials is None:
+        logger.error("未提供 Authorization 头")
+        raise credentials_exception
+
     try:
+        token = credentials.credentials
+        logger.debug(f"token length: {len(token)}, token preview: {token[:20]}...")
+
         payload = decode_access_token(token)
+        logger.debug(f"payload: {payload}")
+
         user_id_str: str = payload.get("sub")
         if user_id_str is None:
+            logger.error("Token 中缺少 sub 字段")
             raise credentials_exception
         user_id = int(user_id_str)
-    except (JWTError, ValueError):
+        logger.debug(f"user_id: {user_id}")
+
+    except JWTError as e:
+        logger.error(f"JWT 解析失败: {str(e)}")
+        raise credentials_exception
+    except ValueError as e:
+        logger.error(f"用户 ID 转换失败: {str(e)}")
         raise credentials_exception
 
     user = user_service.get_user_by_id(db, user_id)
+    if user is None:
+        logger.error(f"用户不存在: user_id={user_id}")
+        raise credentials_exception
+
+    logger.debug(f"认证成功: username={user.username}")
     return user
 
 
