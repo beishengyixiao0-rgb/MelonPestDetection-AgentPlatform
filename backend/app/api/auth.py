@@ -38,15 +38,13 @@ router = APIRouter(prefix="/api/auth", tags=["认证"])
 
 import logging
 
-from fastapi.security import APIKeyHeader
+bearer_scheme = HTTPBearer(auto_error=False)
 
 logger = logging.getLogger(__name__)
 
-api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
-
 
 async def get_current_user(
-    token: str = Depends(api_key_header),
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ):
     """
@@ -59,17 +57,14 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    logger.debug(f"token: {token}")
+    logger.debug(f"credentials: {credentials}")
 
-    if token is None or token.strip() == "":
+    if credentials is None:
         logger.error("未提供 Authorization 头")
         raise credentials_exception
 
     try:
-        token = token.strip()
-        if token.lower().startswith("bearer "):
-            token = token[7:]
-
+        token = credentials.credentials
         logger.debug(f"token length: {len(token)}, token preview: {token[:20]}...")
 
         payload = decode_access_token(token)
@@ -96,25 +91,6 @@ async def get_current_user(
 
     logger.debug(f"认证成功: username={user.username}")
     return user
-
-
-def require_admin(
-    current_user=Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    要求管理员角色
-    在需要管理员权限的路由中通过 Depends(require_admin) 使用
-    超级管理员自动通过
-    """
-    if current_user.is_superuser:
-        return current_user
-    
-    roles = [ur.role.name for ur in current_user.user_roles]
-    if "admin" not in roles:
-        raise HTTPException(status_code=403, detail="需要管理员权限")
-    
-    return current_user
 
 
 # ══════════════════════════════════════════════════════════════
@@ -212,7 +188,7 @@ async def reset_password(
 # ══════════════════════════════════════════════════════════════
 
 
-@router.get("/profile", response_model=ProfileResponse, openapi_extra={"security": [{"BearerAuth": []}]})
+@router.get("/profile", response_model=ProfileResponse)
 async def get_profile(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -240,7 +216,7 @@ async def get_profile(
     }
 
 
-@router.put("/profile", response_model=ProfileResponse, openapi_extra={"security": [{"BearerAuth": []}]})
+@router.put("/profile", response_model=ProfileResponse)
 async def update_profile(
     request: ProfileUpdateRequest,
     current_user=Depends(get_current_user),
@@ -277,7 +253,7 @@ async def update_profile(
     }
 
 
-@router.put("/password", openapi_extra={"security": [{"BearerAuth": []}]})
+@router.put("/password")
 async def change_password(
     request: ChangePassword,
     current_user=Depends(get_current_user),
@@ -303,7 +279,7 @@ async def change_password(
 # ══════════════════════════════════════════════════════════════
 
 
-@router.get("/me", response_model=UserResponse, openapi_extra={"security": [{"BearerAuth": []}]})
+@router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),

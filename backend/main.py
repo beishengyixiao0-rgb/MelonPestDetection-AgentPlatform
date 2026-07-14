@@ -8,10 +8,10 @@ from app.config.settings import settings
 from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
 from app.api.health import router as health_router
-from app.api.training import router as training_router
-from app.api.dataset import router as dataset_router
 
-from app.api.user import router as user_router
+from app.api.training import router as training_router
+
+from app.api.dataset import router as dataset_router
 from app.api.detection import router as detection_router
 from app.core.exceptions import register_exception_handlers
 from app.middleware.request_logger import RequestLogMiddleware
@@ -58,14 +58,14 @@ def custom_openapi():
         return app.openapi_schema
     openapi_schema = original_openapi()
     openapi_schema["components"]["securitySchemes"] = {
-        "BearerAuth": {
-            "type": "apiKey",
-            "in": "header",
-            "name": "Authorization",
-            "description": "使用登录后生成的 JWT Token 进行验证，直接输入 Token 值即可",
+        "Bearer": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "使用登录后生成的 JWT Token 进行验证，格式：Bearer <your_access_token>",
         }
     }
-    openapi_schema["security"] = [{"BearerAuth": []}]
+    openapi_schema["security"] = [{"Bearer": []}]
     app.openapi_schema = openapi_schema
     return openapi_schema
 
@@ -95,14 +95,13 @@ app.add_middleware(RequestLogMiddleware)
 
 # 注册路由
 app.include_router(auth_router)
-app.include_router(health_router)
-app.include_router(dataset_router)
 app.include_router(chat_router)
 
+app.include_router(health_router)
+app.include_router(dataset_router)
 app.include_router(detection_router)
 
 app.include_router(training_router)
-app.include_router(user_router)
 
 
 @app.get("/")
