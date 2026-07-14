@@ -523,38 +523,37 @@ class TrainingService:
         """
         from ultralytics import YOLO
 
-        # ── 查找训练任务 ──
-        task = db.query(TrainingTask).filter(TrainingTask.id == task_id).first()
-        if not task:
-            return {"error": "训练任务不存在"}
-
-        if task.status != "completed":
-            return {"error": f"训练任务状态为 {task.status}，只有已完成的任务才能评估"}
-
-        # ── 定位 best.pt ──
-        weights_path = TrainingService.get_task_weights_path(task.task_uuid)
-
-        if not weights_path.exists():
-            return {"error": f"模型权重不存在: {weights_path}"}
-
-        # ── 定位 data.yaml ──
-        data_yaml = TrainingService._resolve_project_path(task.data_yaml)
-        if not data_yaml or not data_yaml.exists():
-            # 尝试在数据集目录下查找
-            dataset_path = TrainingService._resolve_project_path(task.dataset_path)
-            if dataset_path:
-                data_yaml = dataset_path / "data.yaml"
-        if not data_yaml or not data_yaml.exists():
-            return {"error": "data.yaml 不存在"}
-
-        logger.info(
-            "开始模型评估: task_id=%d, weights=%s, split=%s",
-            task_id,
-            weights_path,
-            split,
-        )
-
         try:
+            # ── 查找训练任务 ──
+            task = db.query(TrainingTask).filter(TrainingTask.id == task_id).first()
+            if not task:
+                return {"error": "训练任务不存在"}
+
+            if task.status != "completed":
+                return {"error": f"训练任务状态为 {task.status}，只有已完成的任务才能评估"}
+
+            # ── 定位 best.pt ──
+            weights_path = TrainingService.get_task_weights_path(task.task_uuid)
+
+            if not weights_path.exists():
+                return {"error": f"模型权重不存在: {weights_path}"}
+
+            # ── 定位 data.yaml ──
+            data_yaml = TrainingService._resolve_project_path(task.data_yaml)
+            if not data_yaml or not data_yaml.exists():
+                # 尝试在数据集目录下查找
+                dataset_path = TrainingService._resolve_project_path(task.dataset_path)
+                if dataset_path:
+                    data_yaml = dataset_path / "data.yaml"
+            if not data_yaml or not data_yaml.exists():
+                return {"error": "data.yaml 不存在"}
+
+            logger.info(
+                "开始模型评估: task_id=%d, weights=%s, split=%s",
+                task_id,
+                weights_path,
+                split,
+            )
             # ── 加载模型并评估 ──
             model = YOLO(str(weights_path))
             results = model.val(

@@ -1,0 +1,25 @@
+{
+  "version": "v2.0.0",
+  "model_name": "plant_disease_best",
+  "scene": "plant_disease",
+  "training_task": "001",
+  "evaluation": {
+    "split": "val",
+    "overall": {
+      "precision": 0.64789,
+      "recall": 0.65543,
+      "map50": 0.68123,
+      "map50_95": 0.51653
+    },
+    "per_class": {}
+  },
+  "training_config": {
+    "epochs": 50,
+    "batch_size": 16,
+    "img_size": 640,
+    "optimizer": "SGD",
+    "lr0": 0.01,
+    "device": "cpu"
+  },
+  "exported_at": "2026-07-14T10:40:12.735648"
+}
