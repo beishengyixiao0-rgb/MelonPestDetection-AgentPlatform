@@ -21,6 +21,13 @@ const request = axios.create({
 // ── 请求拦截器 ──────────────────────────────────────
 request.interceptors.request.use(
   (config) => {
+    // FormData 必须由浏览器自动设置 multipart/form-data boundary。
+    // 全局 JSON Content-Type 会导致 FastAPI 收不到 file/files 字段并返回 422。
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      config.headers.delete?.('Content-Type')
+      delete config.headers['Content-Type']
+    }
+
     // 从 Pinia store 获取 Token，自动注入请求头
     const userStore = useUserStore()
     if (userStore.token) {

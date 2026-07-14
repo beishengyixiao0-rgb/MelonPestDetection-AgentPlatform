@@ -58,6 +58,15 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
+    # — 通义千问配置（Day 8） —
+    # 未配置 Key 时，对话接口仍保留本地检测路由和基础问答降级能力。
+    QWEN_API_KEY: str = ""
+    QWEN_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    QWEN_MODEL: str = "qwen3.7-plus"
+    # 留空时直连 DashScope，避免系统代理导致兼容接口连接失败。
+    # 仅在网络环境明确要求代理时填写，例如：http://127.0.0.1:7890
+    QWEN_PROXY: str = ""
+
     # — CORS 配置 —
     ALLOWED_ORIGINS: str = (
         "http://localhost:3000,http://localhost:5173,http://localhost:8080"

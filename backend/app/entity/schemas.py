@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Optional
 
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ══════════════════════════════════════════════════════════════
@@ -204,6 +204,8 @@ class SceneResponse(BaseModel):
 
 class DetectionTaskResponse(BaseModel):
     """检测任务响应"""
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: int
     user_id: int
     scene_id: int
@@ -219,10 +221,6 @@ class DetectionTaskResponse(BaseModel):
     error_message: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
-
 
 class DetectionResultResponse(BaseModel):
     """单条检测结果响应"""
@@ -274,6 +272,8 @@ class DetectionStatistics(BaseModel):
 
 class TrainingTaskCreate(BaseModel):
     """创建训练任务"""
+    model_config = ConfigDict(protected_namespaces=())
+
     scene_id: int = Field(..., description="关联场景 ID")
     model_name: str = Field(default="yolov11n", description="基础模型")
     epochs: int = Field(default=100, ge=10, le=500, description="训练轮数")
@@ -287,6 +287,8 @@ class TrainingTaskCreate(BaseModel):
 
 class TrainingTaskResponse(BaseModel):
     """训练任务响应"""
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: int
     user_id: int
     scene_id: int
@@ -305,10 +307,6 @@ class TrainingTaskResponse(BaseModel):
     created_at: datetime
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
-
 
 class TrainingMetricResponse(BaseModel):
     """训练指标响应（单 epoch）"""
@@ -331,6 +329,8 @@ class TrainingMetricResponse(BaseModel):
 
 class ModelVersionBrief(BaseModel):
     """模型版本简要信息"""
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: int
     version: str
     model_name: str
@@ -339,12 +339,10 @@ class ModelVersionBrief(BaseModel):
     is_default: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
-
 class ModelVersionResponse(BaseModel):
     """模型版本详情"""
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: int
     scene_id: int
     scene_name: Optional[str] = None
@@ -365,12 +363,10 @@ class ModelVersionResponse(BaseModel):
     is_default: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
-
 class ModelVersionCreate(BaseModel):
     """⼿动上传模型版本"""
+    model_config = ConfigDict(protected_namespaces=())
+
     scene_id: int
     version: str = Field(..., description="版本号")
     model_name: str = Field(..., description="模型名称")
@@ -396,6 +392,8 @@ class ModelExportRequest(BaseModel):
 
 class ModelExportResponse(BaseModel):
     """模型导出响应"""
+    model_config = ConfigDict(protected_namespaces=())
+
     model_version_id: int
     version: str
     model_name: str
@@ -410,6 +408,8 @@ class ModelExportResponse(BaseModel):
 
 class ModelValidateResponse(BaseModel):
     """模型评估响应"""
+    model_config = ConfigDict(protected_namespaces=())
+
     task_id: int
     task_uuid: str
     split: str
