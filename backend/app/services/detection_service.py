@@ -1,0 +1,507 @@
+"""
+目标检测服务 — 封装 YOLOv11 推理逻辑
+
+职责：
+  - 单图检测（detect_single）
+  - 批量检测（detect_batch）
+  - ZIP 解压 + 批量检测（detect_zip）
+  - 结果持久化（MinIO 存储标注图 + PostgreSQL 存储检测结果）
+
+架构：
+  DetectionService 是无状态的纯服务，被 Agent Tool 和快捷按钮 API 共同调用。
+  每次检测都会：
+    1. 创建 DetectionTask 记录
+    2. 运行 YOLO 推理
+    3. 上传 标注图到 MinIO
+    4. 保存 DetectionResult 记录
+
+使用方式：
+  from app.services.detection_service import detection_service
+
+  result = detection_service.detect_single(image_path, scene_id, user_id)
+"""
+
+import base64
+import os
+import shutil
+import tempfile
+import zipfile
+from datetime import datetime
+from pathlib import Path
+
+import cv2
+from sqlalchemy.orm import Session
+from ultralytics import YOLO
+
+from app.config.detection import DetectionConfig
+from app.config.settings import settings
+from app.core.logger import get_logger
+from app.database.session import SessionLocal
+from app.entity.db_models import DetectionResult, DetectionScene, DetectionTask, ModelVersion
+from app.storage.minio_client import MinIOClient
+from app.training.training_service import TrainingService
+
+logger = get_logger(__name__)
+
+# ── 支持的图片格式 ──
+ALLOWED_IMAGE_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/bmp",
+    "image/webp",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".bmp",
+    ".webp",
+}
+ALLOWED_IMAGE_SUFFIXES = {item for item in ALLOWED_IMAGE_TYPES if item.startswith(".")}
+
+
+class DetectionService:
+    """目标检测服务 — 封装 YOLOv11 推理全流程"""
+
+    @staticmethod
+    def _resolve_model_path(path_value: str | None) -> str | None:
+        """兼容 Day07 写入数据库的项目相对模型路径。"""
+        path = TrainingService._resolve_project_path(path_value)
+        return str(path) if path and path.exists() else None
+
+    @staticmethod
+    def _get_default_model_path() -> str:
+        """
+        获取默认模型权重路径
+
+        查找顺序：
+          1. models/ 目录下 is_default=True 的模型
+          2. runs/train/ 目录下最新训练产出的 best.pt
+          3. 回退到预训练模型 yolov11n.pt
+        """
+        db = SessionLocal()
+        try:
+            # 查找默认模型版本
+            default_model = db.query(ModelVersion).filter(ModelVersion.is_default.is_(True)).first()
+            model_path = DetectionService._resolve_model_path(default_model.model_path) if default_model else None
+            if model_path:
+                return model_path
+
+            # 回退：查找最新训练的 best.pt
+            from app.entity.db_models import TrainingTask
+
+            latest_task = (
+                db.query(TrainingTask)
+                .filter(TrainingTask.status == "completed")
+                .order_by(TrainingTask.completed_at.desc())
+                .first()
+            )
+            if latest_task:
+                weights_path = TrainingService.get_task_weights_path(latest_task.task_uuid)
+                if weights_path.exists():
+                    return str(weights_path)
+        finally:
+            db.close()
+
+        # 最终回退：预训练模型
+        configured_path = Path(DetectionConfig.model_path)
+        if not configured_path.is_absolute():
+            configured_path = TrainingService.BACKEND_DIR / configured_path
+        return str(configured_path) if configured_path.exists() else "yolo11n.pt"
+
+    @staticmethod
+    def _get_model(scene_id: int = None) -> YOLO:
+        """
+        加载 YOLO 模型
+
+        优先使用场景关联的默认模型，否则使用全局默认模型
+        """
+        model_path = None
+
+        if scene_id:
+            db = SessionLocal()
+            try:
+                default_model = (
+                    db.query(ModelVersion)
+                    .filter(ModelVersion.scene_id == scene_id, ModelVersion.is_default.is_(True))
+                    .first()
+                )
+                model_path = DetectionService._resolve_model_path(default_model.model_path) if default_model else None
+            finally:
+                db.close()
+
+        if not model_path:
+            model_path = DetectionService._get_default_model_path()
+
+        logger.info("加载检测模型: %s", model_path)
+        return YOLO(model_path)
+
+    @staticmethod
+    def _resolve_scene_id(db: Session, scene_id: int | None) -> int | None:
+        """快捷接口未传场景时使用第一个启用场景，保证检测记录可以持久化。"""
+        if scene_id is not None:
+            return scene_id
+        scene = db.query(DetectionScene).filter(DetectionScene.is_active.is_(True)).first()
+        return scene.id if scene else None
+
+    @staticmethod
+    def _save_task_and_results(
+        db: Session,
+        user_id: int,
+        scene_id: int,
+        task_type: str,
+        detections: list,
+        annotated_image: bytes,
+        original_filename: str,
+        inference_time: float,
+        conf: float,
+        iou: float,
+    ) -> dict:
+        """
+        保存检测任务和结果到数据库 + MinIO
+
+        Returns:
+            包含 task_id 和 annotated_image_url 的字典
+        """
+        # ── 创建检测任务记录 ──
+        task = DetectionTask(
+            user_id=user_id,
+            scene_id=scene_id,
+            task_type=task_type,
+            status="completed",
+            total_images=1,
+            total_objects=len(detections),
+            total_inference_time=inference_time,
+            conf_threshold=conf,
+            iou_threshold=iou,
+            completed_at=datetime.now(),
+        )
+        db.add(task)
+        db.flush()  # 获取 task.id
+
+        # ── 上传 标注图到 MinIO ──
+        annotated_image_url = None
+        try:
+            minio_client = MinIOClient()
+            object_name = f"detections/{task.id}/{original_filename}"
+            annotated_image_url = minio_client.upload_bytes(object_name, annotated_image, "image/jpeg")
+            # 修正：这里应该更新的是 annotated_image_url 字段，但这个字段不存在于 DetectionTask 中。
+            # 标注图 URL 在下面写入每一条 DetectionResult。
+        except Exception as e:
+            logger.warning("MinIO 上传失败（不影响检测结果）: %s", str(e))
+
+        # ── 保存每条检测结果 ──
+        for det in detections:
+            result = DetectionResult(
+                task_id=task.id,
+                image_path=original_filename,
+                annotated_image_url=annotated_image_url,
+                class_name=det["class_name"],
+                class_name_cn=det.get("class_name_cn"),
+                class_id=det["class_id"],
+                confidence=det["confidence"],
+                bbox=det["bbox"],
+                inference_time=inference_time,
+            )
+            db.add(result)
+
+        db.commit()
+        return {"task_id": task.id, "annotated_image_url": annotated_image_url}
+
+    def detect_single(
+        self,
+        image_path: str,
+        conf: float = 0.25,
+        iou: float = 0.45,
+        scene_id: int = None,
+        user_id: int = None,
+    ) -> dict:
+        """
+        单图检测
+
+        Args:
+            image_path: 图片文件路径
+            conf: 置信度阈值
+            iou: NMS IoU 阈值
+            scene_id: 检测场景 ID
+            user_id: 操作用户 ID
+
+        Returns:
+            检测结果字典：
+            {
+                "total_objects": int,
+                "class_counts": {"class_name": count, ...},
+                "detections": [...],
+                "annotated_image_base64": str,
+                "inference_time": float,
+                "task_id": int,
+            }
+        """
+        db = SessionLocal()
+        try:
+            if Path(image_path).suffix.lower() not in ALLOWED_IMAGE_SUFFIXES:
+                return {"error": "不支持的图片格式"}
+            if not Path(image_path).is_file():
+                return {"error": "图片文件不存在"}
+            if not 0 <= conf <= 1 or not 0 <= iou <= 1:
+                return {"error": "conf 和 iou 必须在 0 到 1 之间"}
+
+            # ── 加载模型 ──
+            scene_id = self._resolve_scene_id(db, scene_id)
+            model = self._get_model(scene_id)
+
+            # ── YOLO 推理 ──
+            results = model.predict(
+                source=image_path,
+                conf=conf,
+                iou=iou,
+                imgsz=DetectionConfig.image_size,
+                device=DetectionConfig.device,
+                save=False,
+                verbose=False,
+            )
+
+            result = results[0]
+            detections = []
+            total_objects = 0
+
+            if result.boxes is not None and len(result.boxes) > 0:
+                for box in result.boxes:
+                    cls_id = int(box.cls[0])
+                    cls_name = model.names.get(cls_id, f"class_{cls_id}")
+                    confidence = float(box.conf[0])
+                    x1, y1, x2, y2 = box.xyxy[0].tolist()
+
+                    detections.append(
+                        {
+                            "class_name": cls_name,
+                            "class_id": cls_id,
+                            "confidence": round(confidence, 4),
+                            "bbox": [round(x1, 1), round(y1, 1), round(x2, 1), round(y2, 1)],
+                        }
+                    )
+                    total_objects += 1
+
+            # ── 生成标注图 ──
+            annotated_img = result.plot()
+            _, buffer = cv2.imencode(".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            annotated_base64 = base64.b64encode(buffer).decode("utf-8")
+
+            # ── 统计各类别数量 ──
+            class_counts = {}
+            for det in detections:
+                name = det["class_name"]
+                class_counts[name] = class_counts.get(name, 0) + 1
+
+            # ── 持久化到数据库 ──
+            task_id = None
+            annotated_image_url = None
+            if user_id and scene_id:
+                save_result = self._save_task_and_results(
+                    db=db,
+                    user_id=user_id,
+                    scene_id=scene_id,
+                    task_type="single",
+                    detections=detections,
+                    annotated_image=buffer.tobytes(),
+                    original_filename=os.path.basename(image_path),
+                    inference_time=float(result.speed.get("inference", 0)),
+                    conf=conf,
+                    iou=iou,
+                )
+                task_id = save_result["task_id"]
+                annotated_image_url = save_result.get("annotated_image_url")
+
+            logger.info("单图检测完成: %s, 检测到 %d 个目标, 耗时 %.2fms", image_path, total_objects, float(result.speed.get("inference", 0)))
+
+            return {
+                "total_objects": total_objects,
+                "class_counts": class_counts,
+                "detections": detections,
+                "annotated_image_base64": annotated_base64,
+                "annotated_image_url": annotated_image_url,
+                "inference_time": round(float(result.speed.get("inference", 0)), 2),
+                "task_id": task_id,
+            }
+
+        except Exception as e:
+            db.rollback()
+            logger.error("单图检测异常: %s", str(e), exc_info=True)
+            return {"error": f"检测失败: {str(e)}"}
+        finally:
+            db.close()
+
+    def detect_batch(
+        self,
+        image_paths: list[str],
+        conf: float = 0.25,
+        iou: float = 0.45,
+        scene_id: int = None,
+        user_id: int = None,
+    ) -> dict:
+        """
+        批量检测多张图片
+
+        Args:
+            image_paths: 图片文件路径列表
+            conf: 置信度阈值
+            scene_id: 检测场景 ID
+            user_id: 操作用户 ID
+
+        Returns:
+            批量检测结果字典
+        """
+        db = SessionLocal()
+        try:
+            if not image_paths:
+                return {"error": "请至少上传一张图片"}
+            if len(image_paths) > DetectionConfig.max_batch_size:
+                return {"error": f"单次最多检测 {DetectionConfig.max_batch_size} 张图片"}
+            if not 0 <= conf <= 1 or not 0 <= iou <= 1:
+                return {"error": "conf 和 iou 必须在 0 到 1 之间"}
+
+            # 当 scene_id 为 None 时，自动查询第一个可用场景
+            scene_id = self._resolve_scene_id(db, scene_id)
+            if not scene_id:
+                return {"error": "数据库中没有可用的检测场景，请先创建检测场景"}
+            if not user_id:
+                return {"error": "检测操作需要登录用户"}
+            model = self._get_model(scene_id)
+
+            # ── 创建批量检测任务 ──
+            task = DetectionTask(
+                user_id=user_id,
+                scene_id=scene_id,
+                task_type="batch",
+                status="processing",
+                total_images=len(image_paths),
+                conf_threshold=conf,
+                iou_threshold=iou,
+            )
+            db.add(task)
+            db.flush()
+
+            all_detections = []
+            annotated_images = []  # 每张图片的标注图 base64
+            total_objects = 0
+            total_inference_time = 0
+            class_counts = {}
+
+            for i, image_path in enumerate(image_paths):
+                if Path(image_path).suffix.lower() not in ALLOWED_IMAGE_SUFFIXES:
+                    continue
+                results = model.predict(source=image_path, conf=conf, iou=iou, imgsz=DetectionConfig.image_size, device=DetectionConfig.device, save=False, verbose=False)
+                result = results[0]
+                inference_time = float(result.speed.get("inference", 0))
+                total_inference_time += inference_time
+
+                # 生成标注图 base64
+                annotated_img = result.plot()
+                _, buffer = cv2.imencode(".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                annotated_images.append({"image_path": os.path.basename(image_path), "annotated_image_base64": base64.b64encode(buffer).decode("utf-8")})
+
+                if result.boxes is not None and len(result.boxes) > 0:
+                    for box in result.boxes:
+                        cls_id = int(box.cls[0])
+                        cls_name = model.names.get(cls_id, f"class_{cls_id}")
+                        confidence = float(box.conf[0])
+                        x1, y1, x2, y2 = box.xyxy[0].tolist()
+
+                        det = {"image_path": image_path, "class_name": cls_name, "class_id": cls_id, "confidence": round(confidence, 4), "bbox": [round(x1, 1), round(y1, 1), round(x2, 1), round(y2, 1)], "inference_time": inference_time}
+                        all_detections.append(det)
+                        total_objects += 1
+
+                        # 统计类别计数
+                        class_counts[cls_name] = class_counts.get(cls_name, 0) + 1
+
+                    # 保存检测结果到数据库
+                    for det in all_detections:
+                        if det["image_path"] == image_path:
+                            db.add(DetectionResult(task_id=task.id, image_path=image_path, class_name=det["class_name"], class_id=det["class_id"], confidence=det["confidence"], bbox=det["bbox"], inference_time=inference_time))
+
+            task.status = "completed"
+            task.total_objects = total_objects
+            task.total_inference_time = total_inference_time
+            task.completed_at = datetime.now()
+            db.commit()
+
+            logger.info("批量检测完成: %d 张图, 共 %d 个目标, 总耗时 %.2fms", len(image_paths), total_objects, total_inference_time)
+
+            return {"task_id": task.id, "total_images": len(image_paths), "total_objects": total_objects, "class_counts": class_counts, "total_inference_time": round(total_inference_time, 2), "detections": all_detections, "annotated_images": annotated_images}
+
+        except Exception as e:
+            db.rollback()
+            logger.error("批量检测异常: %s", str(e), exc_info=True)
+            return {"error": f"批量检测失败: {str(e)}"}
+        finally:
+            db.close()
+
+    def detect_zip(
+        self,
+        zip_path: str,
+        conf: float = 0.25,
+        iou: float = 0.45,
+        scene_id: int = None,
+        user_id: int = None,
+    ) -> dict:
+        """
+        解压 ZIP 文件并批量检测其中所有图片
+
+        Args:
+            zip_path: ZIP 文件路径
+            conf: 置信度阈值
+            scene_id: 检测场景 ID
+            user_id: 操作用户 ID
+
+        Returns:
+            ZIP 检测结果字典
+        """
+        temp_dir = None
+        try:
+            # ── 解压 ZIP 到临时目录 ──
+            temp_dir = tempfile.mkdtemp(prefix="rsod_zip_")
+            logger.info("解压 ZIP 文件: %s → %s", zip_path, temp_dir)
+
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                # 指导书使用 extractall；这里逐文件校验目标路径，防止 ZIP 路径穿越。
+                for member in zf.infolist():
+                    if member.is_dir() or Path(member.filename).suffix.lower() not in ALLOWED_IMAGE_SUFFIXES:
+                        continue
+                    target = (Path(temp_dir) / member.filename).resolve()
+                    if Path(temp_dir).resolve() not in target.parents:
+                        return {"error": "ZIP 文件包含非法路径"}
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(member) as source, target.open("wb") as destination:
+                        shutil.copyfileobj(source, destination)
+
+            # ── 筛选图片文件 ──
+            image_files = []
+            for root, dirs, files in os.walk(temp_dir):
+                for fname in files:
+                    ext = os.path.splitext(fname)[1].lower()
+                    if ext in ALLOWED_IMAGE_SUFFIXES:
+                        image_files.append(os.path.join(root, fname))
+
+            if not image_files:
+                return {"error": "ZIP 文件中没有找到图片"}
+
+            logger.info("ZIP 中包含 %d 张图片，开始批量检测", len(image_files))
+
+            # ── 调用批量检测 ──
+            batch_result = self.detect_batch(image_paths=image_files, conf=conf, iou=iou, scene_id=scene_id, user_id=user_id)
+            batch_result["source"] = "zip"
+            batch_result["zip_filename"] = os.path.basename(zip_path)
+            batch_result["total_images_in_zip"] = len(image_files)
+            return batch_result
+
+        except zipfile.BadZipFile:
+            return {"error": f"无效的 ZIP 文件: {zip_path}"}
+        except Exception as e:
+            logger.error("ZIP 检测异常: %s", str(e), exc_info=True)
+            return {"error": f"ZIP 检测失败: {str(e)}"}
+        finally:
+            # ── 清理临时目录 ──
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+# 创建全局单例
+detection_service = DetectionService()

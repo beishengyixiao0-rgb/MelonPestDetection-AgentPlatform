@@ -119,3 +119,4 @@ QAAgent 工具：检索 RAG 病虫害知识库，返回病害防治方案
 2.MinIO 通用文件上传：/common/upload POST（数据集、图片、视频通用）
 3.全局日志接口：/log/api GET（查询系统 API 调用日志）
 4.pytest 测试专用：/test/api/all GET（自动化接口测试）
+
