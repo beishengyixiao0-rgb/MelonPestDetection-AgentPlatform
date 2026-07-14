@@ -180,9 +180,10 @@ class DetectionAgent:
 
 重要规则：
 - 当用户消息中包含 [附件图片路径: xxx] 时，xxx 就是图片的服务器路径，你应直接使用它调用检测工具
+- 当用户消息中包含 [附件图片路径列表: [...]] 时，必须将列表中的全部路径传给 detect_batch_images 的 image_paths 参数
 - 不要要求用户再次提供路径，直接使用附件中给出的路径
 - 对于单张图片，调用 detect_single_image 工具
-- 对于多张图片或 ZIP 文件，调用 detect_batch_images 或 detect_zip_images_file 工具
+- 对于多张图片，调用 detect_batch_images；对于 ZIP 文件，调用 detect_zip_images_file
 
 工作流程：
 1. 理解用户意图
@@ -223,7 +224,18 @@ class DetectionAgent:
 
         logger.info("DetectionAgent 初始化完成，绑定 %d 个工具", len(DETECTION_TOOLS))
 
-    async def chat(self, message: str, image_path: str = None) -> dict:
+    @staticmethod
+    def _attachment_message(message: str, image_path: str | None = None, image_paths: list[str] | None = None) -> tuple[str, list[str]]:
+        """标准化单附件和多附件输入，并生成供 Agent 读取的路径提示。"""
+        attachment_paths = image_paths or ([image_path] if image_path else [])
+        if len(attachment_paths) == 1:
+            return f"{message}\n[附件图片路径: {attachment_paths[0]}]", attachment_paths
+        if attachment_paths:
+            paths_json = json.dumps(attachment_paths, ensure_ascii=False)
+            return f"{message}\n[附件图片路径列表: {paths_json}]", attachment_paths
+        return message, attachment_paths
+
+    async def chat(self, message: str, image_path: str = None, image_paths: list[str] | None = None) -> dict:
         """
         处理用户对话消息
 
@@ -234,9 +246,7 @@ class DetectionAgent:
         Returns:
             Agent 响应字典
         """
-        # 如果有图片附件，将路径信息追加到消息中
-        if image_path:
-            message = f"{message}\n[附件图片路径: {image_path}]"
+        message, _ = self._attachment_message(message, image_path, image_paths)
 
         if self.executor is None:
             return {"output": self._fallback_reply(message), "intermediate_steps": []}
@@ -258,6 +268,7 @@ class DetectionAgent:
         self,
         message: str,
         image_path: str = None,
+        image_paths: list[str] | None = None,
         user_id: int | None = None,
         scene_id: int | None = None,
     ) -> AsyncGenerator:
@@ -268,19 +279,19 @@ class DetectionAgent:
 
         Args:
             message: 用户文本消息
-            image_path: 附带的图片路径（可选）
+            image_path: 单个附带图片或 ZIP 路径（可选）
+            image_paths: 多张附带图片路径（可选）
 
         Yields:
             SSE 事件数据字典
         """
-        if image_path:
-            message = f"{message}\n[附件图片路径: {image_path}]"
+        message, attachment_paths = self._attachment_message(message, image_path, image_paths)
 
         user_token = _tool_user_id.set(user_id)
         scene_token = _tool_scene_id.set(scene_id)
         try:
             if self.executor is None:
-                async for event in self._local_stream(message, image_path):
+                async for event in self._local_stream(message, attachment_paths):
                     yield event
                 return
 
@@ -332,23 +343,27 @@ class DetectionAgent:
         """未配置外部 LLM 时仍返回明确、不过度承诺的基础回复。"""
         if any(keyword in message for keyword in ("防治", "治疗", "用药")):
             return "请先上传叶片图片完成检测。确认病害类别后，再结合当地登记农药标签、作物生育期和农技部门建议制定防治方案。"
-        return "我是果蔬病害检测助手。你可以上传一张叶片图片或 ZIP 图片包，我会识别病害并返回标注图和统计结果。"
+        return "我是果蔬病害检测助手。你可以上传一张或多张叶片图片，也可以上传 ZIP 图片包，我会识别病害并返回标注图和统计结果。"
 
-    async def _local_stream(self, message: str, image_path: str | None) -> AsyncGenerator:
+    async def _local_stream(self, message: str, image_paths: list[str]) -> AsyncGenerator:
         """无 LLM Key 时保留与指导书相同的 Tool/SSE 事件协议。"""
-        if not image_path:
+        if not image_paths:
             for chunk in self._text_chunks(self._fallback_reply(message)):
                 yield {"type": "text_chunk", "content": chunk}
             return
 
-        if image_path.lower().endswith(".zip"):
+        if len(image_paths) > 1:
+            tool_function = detect_batch_images
+            tool_name = "detect_batch_images"
+            tool_input = {"image_paths": image_paths}
+        elif image_paths[0].lower().endswith(".zip"):
             tool_function = detect_zip_images_file
             tool_name = "detect_zip_images_file"
-            tool_input = {"zip_path": image_path}
+            tool_input = {"zip_path": image_paths[0]}
         else:
             tool_function = detect_single_image
             tool_name = "detect_single_image"
-            tool_input = {"image_path": image_path}
+            tool_input = {"image_path": image_paths[0]}
 
         yield {"type": "tool_call", "tool": tool_name, "input": tool_input}
         tool_output = await asyncio.to_thread(tool_function.invoke, tool_input)

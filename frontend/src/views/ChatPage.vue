@@ -44,13 +44,13 @@
     <div class="input-area">
       <!-- 附件按钮 -->
       <el-button class="attach-btn" @click="triggerFileInput" :disabled="agentStore.isLoading" circle :icon="Paperclip" />
-      <input ref="fileInputRef" type="file" accept="image/*,.zip" style="display: none" @change="handleFileSelect" />
+      <input ref="fileInputRef" type="file" accept="image/*,.zip" multiple style="display: none" @change="handleFileSelect" />
 
       <!-- 文本输入框 -->
       <el-input v-model="inputText" placeholder="输入消息，或拖拽图片/ZIP 到这里..." @keyup.enter="sendMessage" :disabled="agentStore.isLoading" />
 
       <!-- 发送/停止按钮 -->
-      <el-button v-if="!agentStore.isLoading" type="primary" @click="sendMessage" :disabled="!inputText.trim() && !selectedFile" :icon="Promotion">发送</el-button>
+      <el-button v-if="!agentStore.isLoading" type="primary" @click="sendMessage" :disabled="!inputText.trim() && !selectedFiles.length" :icon="Promotion">发送</el-button>
       <el-button v-else type="danger" @click="handleStop" :icon="Close">停止</el-button>
     </div>
   </div>
@@ -83,12 +83,12 @@ const agentStore = useAgentStore()
 
 // ── 响应式状态 ──
 const inputText = ref('')
-const selectedFile = ref(null)
+const selectedFiles = ref([])
 const messageListRef = ref(null)
 const fileInputRef = ref(null)
 
 // ── 计算属性 ──
-const canSend = computed(() => inputText.value.trim() || selectedFile.value)
+const canSend = computed(() => inputText.value.trim() || selectedFiles.value.length)
 
 // ── 方法 ──
 
@@ -97,16 +97,24 @@ async function sendMessage() {
   if (!canSend.value) return
 
   const message = inputText.value.trim() || '检测这个附件'
-  // ── 关键：在清空之前保存文件引用 ──
-  const fileToSend = selectedFile.value
-  const imagePreview = fileToSend && fileToSend.type.startsWith('image/') ? URL.createObjectURL(fileToSend) : null
+  // 在清空之前保存附件引用，Agent 通道支持单图、ZIP 或多张图片。
+  const filesToSend = selectedFiles.value
+  const imagePreviews = filesToSend
+    .filter((file) => file.type.startsWith('image/'))
+    .map((file) => URL.createObjectURL(file))
 
   // 添加用户消息到列表
-  agentStore.addMessage({ role: 'user', content: message, image: fileToSend ? fileToSend.name : null, imagePreview })
+  agentStore.addMessage({
+    role: 'user',
+    content: message,
+    image: filesToSend.length === 1 && imagePreviews.length ? filesToSend[0].name : null,
+    imagePreview: imagePreviews[0] || null,
+    images: filesToSend.length > 1 ? imagePreviews : null,
+  })
 
   // 清空输入
   inputText.value = ''
-  selectedFile.value = null
+  selectedFiles.value = []
 
   // 添加 AI 加载占位
   agentStore.addMessage({ role: 'assistant', content: '', loading: true })
@@ -116,14 +124,16 @@ async function sendMessage() {
   scrollToBottom()
 
   // ── 如果有附件图片，先上传到服务端获取真实路径 ──
-  let serverImagePath = null
-  if (fileToSend) {
+  const serverImagePaths = []
+  if (filesToSend.length) {
     try {
-      const formData = new FormData()
-      formData.append('file', fileToSend)
-      // 不设置 Content-Type，让 axios 自动添加 boundary
-      const uploadResult = await request.post('/chat/upload', formData)
-      serverImagePath = uploadResult.image_path
+      for (const file of filesToSend) {
+        const formData = new FormData()
+        formData.append('file', file)
+        // 不设置 Content-Type，让 axios 自动添加 boundary
+        const uploadResult = await request.post('/chat/upload', formData)
+        serverImagePaths.push(uploadResult.image_path)
+      }
     } catch (err) {
       console.error('[图片上传失败]', err.response?.data || err.message || err)
       const lastMsg = agentStore.messages[agentStore.messages.length - 1]
@@ -136,7 +146,12 @@ async function sendMessage() {
   }
 
   // 发起 SSE 流式请求
-  const requestBody = { message, ...(serverImagePath ? { image_path: serverImagePath } : {}), ...(agentStore.currentSessionId ? { session_id: agentStore.currentSessionId } : {}) }
+  const requestBody = {
+    message,
+    ...(serverImagePaths.length === 1 ? { image_path: serverImagePaths[0] } : {}),
+    ...(serverImagePaths.length > 1 ? { image_paths: serverImagePaths } : {}),
+    ...(agentStore.currentSessionId ? { session_id: agentStore.currentSessionId } : {}),
+  }
   let fullContent = ''
 
   const stop = streamChat('/api/chat/stream', requestBody, {
@@ -210,14 +225,18 @@ function triggerFileInput() { fileInputRef.value?.click() }
 
 /** 文件选择回调 */
 function handleFileSelect(event) {
-  const file = event.target.files[0]
+  const files = Array.from(event.target.files)
   event.target.value = ''
-  if (file) {
-    selectedFile.value = file
-    // 临时保存文件路径（后续上传用）
-    file._tempPath = URL.createObjectURL(file)
-    ElMessage.info(`${file.name} 已选择`)
+  if (!files.length) return
+
+  const containsZip = files.some((file) => file.name.toLowerCase().endsWith('.zip'))
+  if (containsZip && files.length > 1) {
+    ElMessage.warning('ZIP 文件请单独选择；多图检测请选择多张图片')
+    return
   }
+
+  selectedFiles.value = files
+  ElMessage.info(files.length === 1 ? `${files[0].name} 已选择` : `已选择 ${files.length} 张图片`)
 }
 
 /** 滚动到底部 */
