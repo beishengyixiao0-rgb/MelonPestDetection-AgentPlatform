@@ -40,9 +40,6 @@
         </div>
       </div>
 
-      <button class="upload-btn" @click="$emit('open-upload', 'image')">
-        📷 Upload plant image
-      </button>
     </div>
 
     <div v-else class="chat-messages">
@@ -55,8 +52,22 @@
           {{ item.role === 'assistant' ? '🌿' : 'You' }}
         </div>
 
-        <div v-if="item.type === 'image'" class="image-message">
-          <img :src="item.imageUrl" class="chat-image" alt="uploaded image" />
+        <div v-if="item.type === 'image' || item.imagePreview" class="image-message">
+          <img :src="item.imageUrl || item.imagePreview" class="chat-image" alt="uploaded image" />
+          <div v-if="item.content" class="media-caption">{{ item.content }}</div>
+        </div>
+
+        <div v-else-if="item.images?.length" class="image-message batch-message">
+          <div class="batch-grid">
+            <img
+              v-for="(image, imageIndex) in item.images"
+              :key="imageIndex"
+              :src="image"
+              class="chat-image"
+              alt="batch upload preview"
+            />
+          </div>
+          <div class="media-caption">{{ item.content }}</div>
         </div>
 
         <div v-else-if="item.type === 'video'" class="video-message">
@@ -64,11 +75,12 @@
         </div>
 
         <DiagnosisCard
-          v-else-if="item.type === 'diagnosis'"
+          v-else-if="item.type === 'diagnosis' || item.detectionResult"
           :item="item"
         />
 
-        <div v-else class="message-bubble">
+        <div v-else class="message-bubble" :class="{ loading: item.loading, error: item.error }">
+          <span v-if="item.loading" class="loading-dot" />
           {{ item.content }}
         </div>
       </div>
@@ -88,7 +100,7 @@ const props = defineProps({
   },
 })
 
-defineEmits(['use-suggestion', 'open-upload'])
+defineEmits(['use-suggestion'])
 
 const messageEndRef = ref(null)
 
@@ -161,16 +173,6 @@ defineExpose({ scrollToBottom })
   border-color: #16a34a;
 }
 
-.upload-btn {
-  border: 1px solid #16a34a;
-  color: #16a34a;
-  background: white;
-  border-radius: 14px;
-  padding: 14px 24px;
-  font-size: 16px;
-  cursor: pointer;
-}
-
 .chat-messages {
   width: 100%;
   max-width: 900px;
@@ -233,6 +235,30 @@ defineExpose({ scrollToBottom })
   color: white;
 }
 
+.message-bubble.loading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.message-bubble.error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.loading-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #16a34a;
+  animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+  to { opacity: 0.25; transform: scale(0.75); }
+}
+
 .image-message,
 .video-message {
   max-width: 420px;
@@ -252,6 +278,27 @@ defineExpose({ scrollToBottom })
 
 .chat-video {
   max-height: 280px;
+  object-fit: cover;
+}
+
+.media-caption {
+  padding: 8px 6px 2px;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.batch-message {
+  max-width: 500px;
+}
+
+.batch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.batch-grid .chat-image {
+  height: 110px;
   object-fit: cover;
 }
 </style>

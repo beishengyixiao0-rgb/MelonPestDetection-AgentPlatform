@@ -10,7 +10,6 @@
           <button @click="go('/ai-chat')">AI Agent</button>
           <button @click="go('/data-analysis')">Analytics</button>
           <button @click="go('/history')">History</button>
-          <button v-if="showTrainingEntry" @click="go('/training')">Training</button>
         </div>
 
         <div class="user-menu" @mouseenter="showUserMenu = true" @mouseleave="showUserMenu = false">
@@ -76,13 +75,6 @@
           </p>
         </div>
 
-        <div v-if="showTrainingEntry" class="entry-card" @click="go('/training')">
-          <div class="icon">🧠</div>
-          <h2>Training Records</h2>
-          <p>
-            Review training tasks, monitor model progress, and access the admin training record template.
-          </p>
-        </div>
       </div>
 
       <button class="history-btn" @click="go('/history')">
@@ -112,7 +104,6 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const userStore = useUserStore()
 
-const showTrainingEntry = computed(() => true)
 const roleLabel = computed(() => (userStore.isSuperuser ? 'Administrator' : 'User'))
 const userInitial = computed(() => (userStore.username || 'U').charAt(0).toUpperCase())
 const showUserMenu = ref(false)

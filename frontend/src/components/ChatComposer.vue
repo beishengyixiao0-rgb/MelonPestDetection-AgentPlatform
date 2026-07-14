@@ -34,22 +34,26 @@
             </div>
             <div class="upload-status">
               <span v-if="item.status === 'uploading'">Uploading… {{ item.progress }}%</span>
-              <span v-else class="success-text">Upload complete ✓</span>
+              <span v-else-if="item.status === 'success' && item.mode === 'agent-image'" class="success-text">上传成功，可输入内容后发送 ✓</span>
+              <span v-else-if="item.status === 'success'" class="success-text">Upload complete ✓</span>
+              <span v-else class="error-text">{{ item.errorMessage || '上传失败' }}</span>
             </div>
           </div>
         </div>
 
-        <button class="upload-remove" @click="$emit('remove-upload-item', item.id)" aria-label="Remove upload">
-          ×
-        </button>
+        <div class="upload-item-actions">
+          <button v-if="item.status === 'error'" class="retry-upload" @click="$emit('retry-upload', item.id)">重试</button>
+          <button class="upload-remove" @click="$emit('remove-upload-item', item.id)" aria-label="Remove upload">×</button>
+        </div>
       </div>
     </div>
 
     <div v-if="showUploadMenu" class="upload-menu">
-      <button class="upload-option" @click="$emit('select-upload-mode', 'image')">📷 Single image</button>
-      <button class="upload-option" @click="$emit('select-upload-mode', 'batch')">🗂️ Batch images</button>
-      <button class="upload-option" @click="$emit('select-upload-mode', 'video')">🎬 Video</button>
-      <button class="upload-option" @click="$emit('select-upload-mode', 'camera')">📹 Camera</button>
+      <button class="upload-option primary" @click="$emit('select-upload-mode', 'agent-image')">📎 添加图片到 Agent 对话</button>
+      <button class="upload-option" @click="$emit('select-upload-mode', 'image')">⚡ 快捷单图检测</button>
+      <button class="upload-option" @click="$emit('select-upload-mode', 'batch')">🗂️ 快捷批量检测（图片 / ZIP）</button>
+      <button class="upload-option" @click="$emit('select-upload-mode', 'video')">🎬 视频检测</button>
+      <button class="upload-option" @click="$emit('select-upload-mode', 'camera')">📹 相机拍摄</button>
     </div>
 
     <div v-if="showCameraModal" class="camera-modal">
@@ -132,6 +136,7 @@ const emit = defineEmits([
   'toggle-upload-menu',
   'select-upload-mode',
   'remove-upload-item',
+  'retry-upload',
   'file-selected',
   'close-camera',
   'capture-camera',
@@ -372,6 +377,27 @@ defineExpose({ openFilePicker })
 .success-text {
   color: #16a34a;
   font-weight: 600;
+}
+
+.error-text {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.upload-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.retry-upload {
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 5px 9px;
+  background: #fff;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 12px;
 }
 
 .upload-remove {
