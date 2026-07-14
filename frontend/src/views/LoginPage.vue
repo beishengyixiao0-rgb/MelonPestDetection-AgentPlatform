@@ -3,7 +3,7 @@
     <div class="login-card">
       <div class="login-header">
         <img src="/favicon.svg" alt="logo" class="login-logo" />
-        <h2>RSOD Agent Platform</h2>
+        <h2>AgriAgent Platform</h2>
         <p>基于 YOLOv11 的目标检测智能体平台</p>
       </div>
 

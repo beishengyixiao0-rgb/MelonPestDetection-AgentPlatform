@@ -51,6 +51,7 @@
     <div v-if="showUploadMenu" class="upload-menu">
       <button class="upload-option primary" @click="$emit('select-upload-mode', 'agent-image')">📎 添加图片到 Agent 对话</button>
       <button class="upload-option" @click="$emit('select-upload-mode', 'image')">⚡ 快捷单图检测</button>
+      <button class="upload-option" @click="$emit('select-upload-mode', 'realtime-camera')">📡 实时摄像头检测</button>
       <button class="upload-option" @click="$emit('select-upload-mode', 'batch')">🗂️ 快捷批量检测（图片 / ZIP）</button>
       <button class="upload-option" @click="$emit('select-upload-mode', 'video')">🎬 视频检测</button>
       <button class="upload-option" @click="$emit('select-upload-mode', 'camera')">📹 相机拍摄</button>

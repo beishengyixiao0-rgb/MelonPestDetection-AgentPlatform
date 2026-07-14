@@ -6,23 +6,17 @@ import { defineConfig } from "vite";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [
-    vue({
-      template: {
-        transformAssetUrls: {
-          includeAbsolute: false,
-        },
-      },
-    }),
-  ],
-  base: "/",
+  plugins: [vue()],
+
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "src"),
+      "@": fileURLToPath(
+        new URL("./src", import.meta.url)
+      ),
     },
   },
 
-  // ── CSS 预处理器配置 ──────────────────────────────
+  // 为所有 SCSS 文件注入主题变量，组件中可直接使用 $spacing-lg 等变量。
   css: {
     preprocessorOptions: {
       scss: {
@@ -31,27 +25,40 @@ export default defineConfig({
     },
   },
 
-  // ── 开发服务器配置 ────────────────────────────────
   server: {
     port: 5173,
-    open: true,
+
     proxy: {
+      /**
+       * REST API 代理
+       * 前端请求:
+       *   /api/**
+       *
+       * 实际转发:
+       *   http://localhost:8000/api/**
+       */
       "/api": {
         target: "http://localhost:8000",
+        changeOrigin: true,
+        ws: true,
+      },
+
+      /**
+       * WebSocket 代理
+       * 摄像头实时检测
+       */
+      "/api/detection/camera": {
+        target: "ws://localhost:8000",
+        ws: true,
         changeOrigin: true,
       },
     },
   },
 
-  // ── Vitest 测试配置 ───────────────────────────────
   test: {
-    // 使用 happy-dom 模拟浏览器环境
     environment: "happy-dom",
-    // 全局 setup 文件
     setupFiles: ["./tests/setup.js"],
-    // 测试文件匹配模式
     include: ["tests/**/*.{test,spec}.{js,ts}"],
-    // 覆盖率（可选）
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],

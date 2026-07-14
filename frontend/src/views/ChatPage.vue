@@ -15,6 +15,7 @@
         ref="chatMessageListRef"
         :messages="messages"
         @use-suggestion="useSuggestion"
+        @realtime-finished="handleRealtimeFinished"
       />
 
       <ChatComposer
@@ -43,9 +44,17 @@
 
 <script setup>
 import { uploadCommonFile } from '@/api/common'
-import { detectBatch, detectSingle, detectZip } from '@/api/detection'
-import { nextTick, ref } from 'vue'
+import {
+  detectBatch,
+  detectSingle,
+  detectVideo,
+  detectZip,
+  getTrainingTasks,
+  getVideoStatus,
+} from '@/api/detection'
+import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import ChatComposer from '@/components/ChatComposer.vue'
 import ChatMessageList from '@/components/ChatMessageList.vue'
@@ -65,6 +74,7 @@ const inputCapture = ref(null)
 const showUploadMenu = ref(false)
 const showCameraModal = ref(false)
 const cameraError = ref('')
+const completedTaskId = ref(null)
 
 const chatComposerRef = ref(null)
 const chatMessageListRef = ref(null)
@@ -137,6 +147,11 @@ const handleUploadModeSelection = (mode) => {
     return
   }
 
+  if (mode === 'realtime-camera') {
+    startRealtimeDetection()
+    return
+  }
+
   if (mode === 'batch') {
     handleQuickDetect('batch')
     return
@@ -147,7 +162,42 @@ const handleUploadModeSelection = (mode) => {
     return
   }
 
+  if (mode === 'video') {
+    handleVideoDetect()
+    return
+  }
+
   openUploadMenu(mode)
+}
+
+const startRealtimeDetection = () => {
+  agentStore.addMessage({
+    role: 'user',
+    content: '请开启摄像头进行实时检测',
+  })
+  agentStore.addMessage({
+    id: `realtime-${Date.now()}`,
+    role: 'assistant',
+    type: 'realtime-detection',
+    content: '请确认摄像头权限并开始实时检测',
+    config: {
+      mode: 'cpu',
+      conf: 0.25,
+      iou: 0.45,
+    },
+  })
+  scrollToBottom()
+}
+
+const handleRealtimeFinished = ({ result }) => {
+  agentStore.addMessage({
+    role: 'assistant',
+    type: 'diagnosis',
+    content: `实时检测完成，共处理 ${result.processed_frames ?? 0} 帧。`,
+    detectionResult: result,
+    annotatedImage: result.annotated_image_url || '',
+  })
+  scrollToBottom()
 }
 
 const handleCameraCapture = (file) => {
@@ -282,24 +332,42 @@ async function handleQuickDetect(type) {
         imageUrl: imagePreview,
       })
 
-      const loadingMessage = {
+      agentStore.addMessage({
         role: 'assistant',
         content: '正在检测中...',
         loading: true,
-      }
-      agentStore.addMessage(loadingMessage)
+      })
+      const loadingMessage = agentStore.messages[agentStore.messages.length - 1]
       scrollToBottom()
 
       const formData = new FormData()
       formData.append('file', file)
 
       try {
+        if (!completedTaskId.value) {
+          const taskResponse = await getTrainingTasks()
+          const tasks = taskResponse.items || taskResponse.tasks || []
+          const completedTask = tasks.find((task) => task.status === 'completed')
+
+          if (!completedTask) {
+            throw new Error('当前账号下没有可用的已完成模型')
+          }
+
+          completedTaskId.value = completedTask.id || completedTask.task_id
+        }
+
+        formData.append('task_id', completedTaskId.value)
+        formData.append('conf', '0.25')
+        formData.append('iou', '0.45')
+
         const result = await detectSingle(formData)
         loadingMessage.content = `检测完成！发现 ${result.total_objects ?? 0} 个目标。`
         loadingMessage.loading = false
         loadingMessage.type = 'diagnosis'
         loadingMessage.detectionResult = result
-        loadingMessage.annotatedImage = result.annotated_image_url || result.result_image_url || ''
+        loadingMessage.annotatedImage = result.annotated_image
+          ? `data:image/jpeg;base64,${result.annotated_image}`
+          : result.annotated_image_url || result.result_image_url || ''
       } catch (error) {
         loadingMessage.content = `检测失败：${getErrorMessage(error)}`
         loadingMessage.loading = false
@@ -328,12 +396,12 @@ async function handleQuickDetect(type) {
       })
     }
 
-    const loadingMessage = {
+    agentStore.addMessage({
       role: 'assistant',
       content: '正在批量检测中...',
       loading: true,
-    }
-    agentStore.addMessage(loadingMessage)
+    })
+    const loadingMessage = agentStore.messages[agentStore.messages.length - 1]
     scrollToBottom()
 
     try {
@@ -362,6 +430,156 @@ async function handleQuickDetect(type) {
   }
 
   input.click()
+}
+
+/**
+ * 视频检测流程
+ *
+ * 1. 用户点击“视频检测”按钮
+ * 2. 弹出文件选择框（限制视频格式）
+ * 3. 选择视频后上传到后端
+ * 4. 后端返回 task_id，前端开始轮询进度
+ * 5. 处理完成后展示检测结果
+ */
+const VIDEO_POLL_INTERVAL = 1500
+const VIDEO_POLL_MAX_ATTEMPTS = 200
+const activeVideoPolls = new Set()
+
+const waitForNextVideoPoll = () => (
+  new Promise((resolve) => window.setTimeout(resolve, VIDEO_POLL_INTERVAL))
+)
+
+const normalizeVideoResult = (payload, taskId) => {
+  const nestedResult = payload?.result
+    || payload?.detection_result
+    || payload?.data?.result
+    || (payload?.data && typeof payload.data === 'object' ? payload.data : null)
+  const result = nestedResult && typeof nestedResult === 'object' ? nestedResult : payload
+
+  return {
+    ...result,
+    type: 'video',
+    task_id: result?.task_id ?? taskId,
+  }
+}
+
+async function pollVideoProgress(taskId, loadingMessage) {
+  const pollToken = Symbol(`video-${taskId}`)
+  activeVideoPolls.add(pollToken)
+
+  try {
+    for (let attempt = 0; attempt < VIDEO_POLL_MAX_ATTEMPTS; attempt += 1) {
+      if (!activeVideoPolls.has(pollToken)) return null
+
+      const payload = await getVideoStatus(taskId) || {}
+      const status = String(payload.status || payload.state || '').toLowerCase()
+      const progress = Number(payload.progress ?? payload.percent ?? 0)
+      const progressPercent = progress > 0 && progress <= 1 ? progress * 100 : progress
+
+      if (payload.error) {
+        throw new Error(payload.error)
+      }
+
+      if (Number.isFinite(progressPercent) && progressPercent > 0) {
+        loadingMessage.content = `视频处理中... ${Math.min(100, Math.round(progressPercent))}%`
+      } else {
+        loadingMessage.content = payload.message || '视频已上传，正在处理中...'
+      }
+
+      if (['completed', 'complete', 'success', 'succeeded', 'finished', 'done'].includes(status)) {
+        const result = normalizeVideoResult(payload, taskId)
+        loadingMessage.content = `视频检测完成！共发现 ${result.total_objects ?? 0} 个目标。`
+        loadingMessage.loading = false
+        loadingMessage.type = 'diagnosis'
+        loadingMessage.detectionResult = result
+        scrollToBottom()
+        return result
+      }
+
+      if (['failed', 'failure', 'error', 'cancelled', 'canceled'].includes(status)) {
+        throw new Error(payload.message || payload.detail || '视频处理失败')
+      }
+
+      await waitForNextVideoPoll()
+    }
+
+    throw new Error('视频处理超时，请稍后重试')
+  } finally {
+    activeVideoPolls.delete(pollToken)
+  }
+}
+
+async function handleVideoDetect() {
+  const input = document.createElement("input");
+
+  input.type = "file";
+  input.accept =
+    "video/mp4,video/avi,video/quicktime,video/x-msvideo";
+
+  input.onchange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 文件大小限制：50 MB
+    const maxSize = 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+      ElMessage.warning("视频文件不能超过 50MB");
+      return;
+    }
+
+    // 创建本地预览地址
+    const videoUrl = URL.createObjectURL(file);
+
+    // 添加用户消息
+    agentStore.addMessage({
+      role: "user",
+      type: "video",
+      content: `[视频检测] ${file.name} (${(
+        file.size /
+        (1024 * 1024)
+      ).toFixed(1)} MB)`,
+      videoUrl,
+    });
+
+    // 添加加载占位消息
+    agentStore.addMessage({
+      role: "assistant",
+      content: "正在上传视频...",
+      loading: true,
+    });
+    const loadingMessage =
+      agentStore.messages[agentStore.messages.length - 1];
+    scrollToBottom();
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      // 上传视频
+      const uploadResult = await detectVideo(formData);
+      const taskId = uploadResult.task_id;
+
+      if (!taskId) {
+        throw new Error("后端未返回视频检测 task_id");
+      }
+
+      // 更新加载提示
+      loadingMessage.content = "视频已上传，正在处理中...";
+
+      // 轮询检测进度
+      await pollVideoProgress(taskId, loadingMessage);
+    } catch (error) {
+      console.error("[视频检测失败]", error);
+
+      loadingMessage.content =
+        `视频检测失败：${getErrorMessage(error)}`;
+
+      loadingMessage.loading = false;
+      loadingMessage.error = true;
+    }
+  };
+
+  input.click();
 }
 
 const getErrorMessage = (error) => (
@@ -436,12 +654,12 @@ const sendMessage = async () => {
 
   agentStore.addMessage(userMessage)
 
-  const assistantMessage = {
+  agentStore.addMessage({
     role: 'assistant',
     content: '',
     loading: true,
-  }
-  agentStore.addMessage(assistantMessage)
+  })
+  const assistantMessage = agentStore.messages[agentStore.messages.length - 1]
   agentStore.setLoading(true)
 
   scrollToBottom()
@@ -498,6 +716,20 @@ const sendMessage = async () => {
 
   agentStore.abortController = stop
 }
+
+onMounted(async () => {
+  const pendingPrompt = agentStore.consumePendingPrompt()
+
+  if (!pendingPrompt?.content) return
+
+  message.value = pendingPrompt.content
+  await nextTick()
+  await sendMessage()
+})
+
+onBeforeUnmount(() => {
+  activeVideoPolls.clear()
+})
 
 const useSuggestion = (text) => {
   message.value = text

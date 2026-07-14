@@ -72,7 +72,14 @@
 
         <div v-else-if="item.type === 'video'" class="video-message">
           <video :src="item.videoUrl" class="chat-video" controls playsinline />
+          <div v-if="item.content" class="media-caption">{{ item.content }}</div>
         </div>
+
+        <RealtimeDetectionCard
+          v-else-if="item.type === 'realtime-detection'"
+          :item="item"
+          @finished="$emit('realtime-finished', { item, result: $event })"
+        />
 
         <DiagnosisCard
           v-else-if="item.type === 'diagnosis' || item.detectionResult"
@@ -91,6 +98,7 @@
 
 <script setup>
 import DiagnosisCard from '@/components/DiagnosisCard.vue'
+import RealtimeDetectionCard from '@/components/RealtimeDetectionCard.vue'
 import { ref } from 'vue'
 
 const props = defineProps({
@@ -100,7 +108,7 @@ const props = defineProps({
   },
 })
 
-defineEmits(['use-suggestion'])
+defineEmits(['use-suggestion', 'realtime-finished'])
 
 const messageEndRef = ref(null)
 

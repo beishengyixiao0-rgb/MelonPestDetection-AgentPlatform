@@ -12,6 +12,9 @@ export const useAgentStore = defineStore('agent', {
     // 当前会话的消息列表
     messages: [],
 
+    // 从首页带入 ChatPage 的一次性首问
+    pendingPrompt: null,
+
     // 会话列表
     sessions: [],
 
@@ -34,6 +37,22 @@ export const useAgentStore = defineStore('agent', {
     /** 添加一条消息 */
     addMessage(message) {
       this.messages.push(message)
+    },
+
+    /** 从首页开启一段新对话，并暂存首条自然语言消息 */
+    queueHomePrompt(content) {
+      this.newChat()
+      this.pendingPrompt = {
+        content,
+        createdAt: Date.now(),
+      }
+    },
+
+    /** ChatPage 只消费一次，防止返回页面或刷新时重复发送 */
+    consumePendingPrompt() {
+      const prompt = this.pendingPrompt
+      this.pendingPrompt = null
+      return prompt
     },
 
     /** 更新最后一条 AI 消息（用于流式追加） */
@@ -62,6 +81,7 @@ export const useAgentStore = defineStore('agent', {
     newChat() {
       this.currentSessionId = null
       this.messages = []
+      this.pendingPrompt = null
       this.abort()
     },
 
@@ -70,6 +90,7 @@ export const useAgentStore = defineStore('agent', {
       this.currentSessionId = null
       this.messages = []
       this.sessions = []
+      this.pendingPrompt = null
       this.abort()
     },
   },
