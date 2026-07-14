@@ -12,11 +12,14 @@
 import csv
 import json
 import shutil
+import tempfile
 import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
+
+import yaml
 
 from app.config.settings import settings
 from app.core.logger import get_logger
@@ -555,22 +558,57 @@ class TrainingService:
         )
 
         try:
+            # Ultralytics 会将 data.yaml 中的相对 path 按其全局 datasets 目录解析，
+            # 而不是按 data.yaml 文件所在目录解析。为保持仓库 data.yaml 的可移植性，
+            # 仅在本次评估中写入一个 path 已绝对化的临时 YAML。
+            with data_yaml.open("r", encoding="utf-8") as file:
+                validation_data = yaml.safe_load(file) or {}
+
+            configured_root = validation_data.get("path")
+            if configured_root in (None, "", "."):
+                dataset_root = data_yaml.parent.resolve()
+            else:
+                root_path = Path(str(configured_root))
+                dataset_root = (
+                    root_path.resolve()
+                    if root_path.is_absolute()
+                    else (data_yaml.parent / root_path).resolve()
+                )
+            validation_data["path"] = str(dataset_root)
+
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".yaml",
+                encoding="utf-8",
+                delete=False,
+            ) as temporary_yaml:
+                yaml.safe_dump(
+                    validation_data,
+                    temporary_yaml,
+                    allow_unicode=True,
+                    sort_keys=False,
+                )
+                validation_yaml_path = Path(temporary_yaml.name)
+
             # ── 加载模型并评估 ──
             model = YOLO(str(weights_path))
-            results = model.val(
-                data=str(data_yaml),
-                split=split,
-                conf=conf,
-                iou=iou,
-                imgsz=task.img_size,
-                device="cpu",
-                save_json=True,
-                plots=True,
-                project=str(TrainingService.get_train_output_dir()),
-                name=f"task_{task.task_uuid}",
-                exist_ok=True,
-                verbose=False,
-            )
+            try:
+                results = model.val(
+                    data=str(validation_yaml_path),
+                    split=split,
+                    conf=conf,
+                    iou=iou,
+                    imgsz=task.img_size,
+                    device="cpu",
+                    save_json=True,
+                    plots=True,
+                    project=str(TrainingService.get_train_output_dir()),
+                    name=f"task_{task.task_uuid}",
+                    exist_ok=True,
+                    verbose=False,
+                )
+            finally:
+                validation_yaml_path.unlink(missing_ok=True)
 
             # ── 解析评估结果 ──
             overall = {
