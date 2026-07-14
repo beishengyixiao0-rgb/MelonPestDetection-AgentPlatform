@@ -81,6 +81,11 @@
           @finished="$emit('realtime-finished', { item, result: $event })"
         />
 
+        <DetectionResultCard
+          v-else-if="isBatchDetection(item)"
+          :result="getDetectionResult(item)"
+        />
+
         <DiagnosisCard
           v-else-if="item.type === 'diagnosis' || item.detectionResult"
           :item="item"
@@ -98,6 +103,7 @@
 
 <script setup>
 import DiagnosisCard from '@/components/DiagnosisCard.vue'
+import DetectionResultCard from '@/components/DetectionResultCard.vue'
 import RealtimeDetectionCard from '@/components/RealtimeDetectionCard.vue'
 import { ref } from 'vue'
 
@@ -109,6 +115,12 @@ const props = defineProps({
 })
 
 defineEmits(['use-suggestion', 'realtime-finished'])
+
+const getDetectionResult = (item) => item.detectionResult?.data || item.detectionResult || {}
+const isBatchDetection = (item) => (
+  Array.isArray(getDetectionResult(item).annotated_images)
+  && getDetectionResult(item).annotated_images.length > 0
+)
 
 const messageEndRef = ref(null)
 
