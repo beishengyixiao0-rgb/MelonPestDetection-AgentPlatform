@@ -51,9 +51,10 @@ class UserBrief(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    """登录成功响应"""
+    """登录成功响应（兼容OAuth2标准格式）"""
     access_token: str
     token_type: str = "bearer"
+    expires_in: int = 1800
     user: UserBrief
 
 
