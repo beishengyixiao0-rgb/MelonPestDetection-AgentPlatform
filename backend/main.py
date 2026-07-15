@@ -12,6 +12,8 @@ from app.api.training import router as training_router
 from app.api.dataset import router as dataset_router
 from app.api.detection import router as detection_router
 from app.api.user import router as user_router
+from app.api.dashboard import router as dashboard_router
+from app.api.history import router as history_router
 from app.core.exceptions import register_exception_handlers
 from app.middleware.request_logger import RequestLogMiddleware
 from app.middleware.rate_limiter import RateLimiterMiddleware
@@ -101,6 +103,8 @@ app.include_router(dataset_router)
 app.include_router(detection_router)
 app.include_router(training_router)
 app.include_router(user_router)
+app.include_router(dashboard_router)
+app.include_router(history_router)
 
 
 @app.get("/")
