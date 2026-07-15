@@ -26,6 +26,7 @@ from app.storage.redis_client import redis_client
 
 # 测试环境中禁用速率限制
 DISABLE_RATE_LIMIT = os.environ.get("DISABLE_RATE_LIMIT", "").lower() in ("1", "true", "yes")
+HEALTH_CHECK_PATHS = {"/api/health", "/api/health/"}
 
 
 class RateLimiterMiddleware(BaseHTTPMiddleware):
@@ -60,6 +61,11 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         if DISABLE_RATE_LIMIT:
             return await call_next(request)
         path = request.url.path
+
+        # 存活探针会被 Docker、负载均衡器高频调用，不能因限流或 Redis
+        # 延迟影响探活结果；详细健康检查仍需经过限流保护。
+        if path in HEALTH_CHECK_PATHS:
+            return await call_next(request)
 
         rate_limit_path = path
         for pattern, config in self.RATE_LIMITS.items():
