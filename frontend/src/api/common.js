@@ -4,7 +4,7 @@
 import request from "@/utils/request";
 
 export function uploadCommonFile(formData, onUploadProgress) {
-  return request.post("/common/upload", formData, {
+  return request.post("/chat/upload", formData, {
     timeout: 180_000,
     onUploadProgress,
   });

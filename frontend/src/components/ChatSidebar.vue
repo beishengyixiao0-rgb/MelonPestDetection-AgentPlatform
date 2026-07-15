@@ -1,13 +1,8 @@
 <template>
   <aside class="sidebar">
-    <router-link to="/" class="brand">
-      🌿 AgriAgent
-    </router-link>
+    <router-link to="/" class="brand"> 🌿 AgriAgent </router-link>
 
-    <button
-      class="new-chat"
-      @click="$emit('new-diagnosis')"
-    >
+    <button class="new-chat" @click="$emit('new-diagnosis')">
       + New Diagnosis
     </button>
 
@@ -15,26 +10,46 @@
 
     <div class="session-list">
       <div
-        v-for="(session, index) in sessions"
-        :key="index"
+        v-for="session in sessions"
+        :key="session.id"
         class="session-item"
+        :class="{ active: currentSessionId === session.id }"
+        @click="$emit('select-session', session.id)"
       >
-        {{ session }}
+        <div class="session-title">{{ session.title || "新对话" }}</div>
+        <div class="session-meta">
+          <span class="session-count">{{ session.message_count }} 条消息</span>
+          <span class="session-time">{{
+            formatTime(session.last_message_at)
+          }}</span>
+        </div>
       </div>
     </div>
 
     <div class="sidebar-bottom">
       <div class="sidebar-section-title">Navigation</div>
 
-      <router-link to="/ai-chat" class="nav-item" active-class="nav-item-active">
+      <router-link
+        to="/ai-chat"
+        class="nav-item"
+        active-class="nav-item-active"
+      >
         🤖 AI Diagnosis
       </router-link>
 
-      <router-link to="/data-analysis" class="nav-item" active-class="nav-item-active">
+      <router-link
+        to="/data-analysis"
+        class="nav-item"
+        active-class="nav-item-active"
+      >
         📊 Data Analysis
       </router-link>
 
-      <router-link to="/history" class="nav-item" active-class="nav-item-active">
+      <router-link
+        to="/history"
+        class="nav-item"
+        active-class="nav-item-active"
+      >
         🕒 History Analysis
       </router-link>
     </div>
@@ -47,9 +62,29 @@ defineProps({
     type: Array,
     default: () => [],
   },
-})
+  currentSessionId: {
+    type: Number,
+    default: null,
+  },
+});
 
-defineEmits(['new-diagnosis'])
+defineEmits(["new-diagnosis", "select-session"]);
+
+const formatTime = (timestamp) => {
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diff = now - date;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return "刚刚";
+  if (minutes < 60) return `${minutes}分钟前`;
+  if (hours < 24) return `${hours}小时前`;
+  if (days < 7) return `${days}天前`;
+  return date.toLocaleDateString("zh-CN");
+};
 </script>
 
 <style scoped>
@@ -94,14 +129,14 @@ defineEmits(['new-diagnosis'])
   margin-top: 8px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  overflow-y: auto;
 }
 
 .session-item {
   border: 1px solid #e5e7eb;
   border-radius: 12px;
-  padding: 14px;
-  margin-bottom: 12px;
+  padding: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
   background: #ffffff;
@@ -110,6 +145,37 @@ defineEmits(['new-diagnosis'])
 .session-item:hover {
   background: #f9fafb;
   border-color: #16a34a;
+}
+
+.session-item.active {
+  background: #ecfdf5;
+  border-color: #16a34a;
+}
+
+.session-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.session-count {
+  margin-right: 8px;
+}
+
+.session-time {
+  flex-shrink: 0;
 }
 
 .sidebar-bottom {

@@ -2,12 +2,12 @@
 MinIO 对象存储客户端封装
 用于存储检测图像、训练模型等文件
 """
-import io
-from minio import Minio
-from minio.error import S3Error
 
+import io
 
 from app.config.settings import settings
+from minio import Minio
+from minio.error import S3Error
 
 
 class MinIOClient:
@@ -31,7 +31,12 @@ class MinIOClient:
         except S3Error as e:
             print(f"MinIO bucket 初始化警告: {e}")
 
-    def upload_file(self, object_name: str, file_path: str) -> str:
+    def upload_file(
+        self,
+        object_name: str,
+        file_path: str,
+        content_type: str | None = None,
+    ) -> str:
         """
         上传本地文件到 MinIO
 
@@ -39,6 +44,7 @@ class MinIOClient:
         Args:
             object_name: MinIO 中的对象名称（路径）
             file_path: 本地文件路径
+            content_type: 可选的 MIME 类型
 
 
         Returns:
@@ -48,10 +54,13 @@ class MinIOClient:
             bucket_name=self.bucket_name,
             object_name=object_name,
             file_path=file_path,
+            content_type=content_type,
         )
         return self.get_presigned_url(object_name)
 
-    def upload_bytes(self, object_name: str, data: bytes, content_type: str = "image/jpeg") -> str:
+    def upload_bytes(
+        self, object_name: str, data: bytes, content_type: str = "image/jpeg"
+    ) -> str:
         """
         上传字节数据到 MinIO
 
@@ -104,6 +113,7 @@ class MinIOClient:
             预签名 URL
         """
         import os
+
         ext = os.path.splitext(object_name)[1].lower()
         content_type_map = {
             ".jpg": "image/jpeg",

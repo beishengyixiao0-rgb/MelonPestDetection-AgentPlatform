@@ -15,16 +15,15 @@ import tempfile
 import threading
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
-from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
-
 from app.api.auth import get_current_user
 from app.core.logger import get_logger
 from app.database.session import get_db
 from app.entity.db_models import DetectionResult, DetectionTask
 from app.services.detection_service import ALLOWED_IMAGE_SUFFIXES, detection_service
 from app.storage.redis_client import redis_client
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 
@@ -171,9 +170,15 @@ async def get_detection_status(
     current_user=Depends(get_current_user),
 ):
     """查询检测任务状态"""
-    task = db.query(DetectionTask).filter(DetectionTask.id == task_id, DetectionTask.user_id == current_user.id).first()
+    task = (
+        db.query(DetectionTask)
+        .filter(DetectionTask.id == task_id, DetectionTask.user_id == current_user.id)
+        .first()
+    )
     if not task:
-        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"error": "任务不存在"})
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND, content={"error": "任务不存在"}
+        )
     return {
         "task_id": task.id,
         "status": task.status,
@@ -255,11 +260,15 @@ async def detect_video_api(
             pass
         raise
 
-    redis_client.set_json(f"video_task:{task_id}", {
-        "status": "processing",
-        "progress": 0,
-        "message": "视频处理中...",
-    }, expire=3600)
+    redis_client.set_json(
+        f"video_task:{task_id}",
+        {
+            "status": "processing",
+            "progress": 0,
+            "message": "视频处理中...",
+        },
+        expire=3600,
+    )
 
     def run_video_detection():
         try:
@@ -275,26 +284,38 @@ async def detect_video_api(
             )
 
             if "error" in result:
-                redis_client.set_json(f"video_task:{task_id}", {
-                    "status": "failed",
-                    "progress": 0,
-                    "message": result["error"],
-                }, expire=3600)
+                redis_client.set_json(
+                    f"video_task:{task_id}",
+                    {
+                        "status": "failed",
+                        "progress": 0,
+                        "message": result["error"],
+                    },
+                    expire=3600,
+                )
             else:
-                redis_client.set_json(f"video_task:{task_id}", {
-                    "status": "completed",
-                    "progress": 100,
-                    "message": f"检测完成，共处理 {result['processed_frames']} 帧，"
-                    f"发现 {result['total_objects']} 个目标",
-                    "result": result,
-                }, expire=3600)
+                redis_client.set_json(
+                    f"video_task:{task_id}",
+                    {
+                        "status": "completed",
+                        "progress": 100,
+                        "message": f"检测完成，共处理 {result['processed_frames']} 帧，"
+                        f"发现 {result['total_objects']} 个目标",
+                        "result": result,
+                    },
+                    expire=3600,
+                )
         except Exception as e:
             logger.error("视频后台检测异常: %s", str(e), exc_info=True)
-            redis_client.set_json(f"video_task:{task_id}", {
-                "status": "failed",
-                "progress": 0,
-                "message": f"视频检测异常: {str(e)}",
-            }, expire=3600)
+            redis_client.set_json(
+                f"video_task:{task_id}",
+                {
+                    "status": "failed",
+                    "progress": 0,
+                    "message": f"视频检测异常: {str(e)}",
+                },
+                expire=3600,
+            )
         finally:
             try:
                 os.unlink(tmp_path)
@@ -348,9 +369,7 @@ async def get_video_detection_status(
 
     if task.status == "completed":
         results = (
-            db.query(DetectionResult)
-            .filter(DetectionResult.task_id == task_id)
-            .all()
+            db.query(DetectionResult).filter(DetectionResult.task_id == task_id).all()
         )
 
         class_counts = {}

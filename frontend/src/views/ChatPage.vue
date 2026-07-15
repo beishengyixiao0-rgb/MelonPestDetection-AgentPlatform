@@ -1,6 +1,11 @@
 <template>
   <div class="chat-page">
-    <ChatSidebar :sessions="sessions" @new-diagnosis="startNewDiagnosis" />
+    <ChatSidebar
+      :sessions="sessions"
+      :current-session-id="currentSessionId"
+      @new-diagnosis="startNewDiagnosis"
+      @select-session="handleSelectSession"
+    />
 
     <main class="main-area">
       <header class="topbar">
@@ -61,7 +66,7 @@ import { streamChat } from "@/utils/stream";
 
 const message = ref("");
 const agentStore = useAgentStore();
-const { messages } = storeToRefs(agentStore);
+const { messages, sessions, currentSessionId } = storeToRefs(agentStore);
 
 const uploadQueue = ref([]);
 const uploadMode = ref("image");
@@ -703,12 +708,17 @@ const sendMessage = async () => {
     (item) => item.mode !== "agent-image",
   );
 
+  const imagePath = attachments.length === 1 ? attachments[0].uploadUrl : null;
+  const imagePaths =
+    attachments.length > 1 ? attachments.map((item) => item.uploadUrl) : null;
+
   const stop = streamChat(
-    "/api/agent/chat/stream",
+    "/api/chat/stream",
     {
       message: userMessage.content,
       session_id: agentStore.currentSessionId,
-      attachments: attachmentData,
+      image_path: imagePath,
+      image_paths: imagePaths,
     },
     {
       onMessage: (event) => {
@@ -732,7 +742,7 @@ const sendMessage = async () => {
 
         scrollToBottom();
       },
-      onDone: () => {
+      onDone: async () => {
         assistantMessage.loading = false;
         agentStore.setLoading(false);
         agentStore.abortController = null;
@@ -741,6 +751,7 @@ const sendMessage = async () => {
           assistantMessage.content = "分析已完成";
         }
 
+        await agentStore.loadSessions();
         scrollToBottom();
       },
       onError: (error) => {
@@ -758,6 +769,8 @@ const sendMessage = async () => {
 };
 
 onMounted(async () => {
+  await agentStore.loadSessions();
+
   const pendingPrompt = agentStore.consumePendingPrompt();
 
   if (!pendingPrompt?.content) return;
@@ -801,11 +814,30 @@ const startNewDiagnosis = () => {
   cameraError.value = "";
 };
 
-const sessions = ref([
-  "Tomato leaf disease",
-  "Grape black rot",
-  "Pepper diagnosis",
-]);
+const handleSelectSession = async (sessionId) => {
+  messages.value.forEach((item) => {
+    if (item.imagePreview?.startsWith("blob:"))
+      URL.revokeObjectURL(item.imagePreview);
+    if (item.imageUrl?.startsWith("blob:")) URL.revokeObjectURL(item.imageUrl);
+    item.images?.forEach((url) => {
+      if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+    });
+  });
+  await agentStore.loadSessionMessages(sessionId);
+  uploadQueue.value.forEach((item) => {
+    if (item.timer) {
+      window.clearInterval(item.timer);
+    }
+    if (item.previewUrl) {
+      URL.revokeObjectURL(item.previewUrl);
+    }
+  });
+  uploadQueue.value = [];
+  message.value = "";
+  showUploadMenu.value = false;
+  showCameraModal.value = false;
+  cameraError.value = "";
+};
 </script>
 
 <style scoped>

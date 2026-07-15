@@ -31,17 +31,21 @@ from datetime import datetime
 from pathlib import Path
 
 import cv2
-from sqlalchemy.orm import Session
-from ultralytics import YOLO
-
 from app.config.detection import DetectionConfig
 from app.config.settings import settings
 from app.core.logger import get_logger
 from app.database.session import SessionLocal
-from app.entity.db_models import DetectionResult, DetectionScene, DetectionTask, ModelVersion
+from app.entity.db_models import (
+    DetectionResult,
+    DetectionScene,
+    DetectionTask,
+    ModelVersion,
+)
 from app.storage.minio_client import MinIOClient
 from app.storage.redis_client import redis_client
 from app.training.training_service import TrainingService
+from sqlalchemy.orm import Session
+from ultralytics import YOLO
 
 logger = get_logger(__name__)
 
@@ -82,8 +86,14 @@ class DetectionService:
         db = SessionLocal()
         try:
             # 查找默认模型版本
-            default_model = db.query(ModelVersion).filter(ModelVersion.is_default.is_(True)).first()
-            model_path = DetectionService._resolve_model_path(default_model.model_path) if default_model else None
+            default_model = (
+                db.query(ModelVersion).filter(ModelVersion.is_default.is_(True)).first()
+            )
+            model_path = (
+                DetectionService._resolve_model_path(default_model.model_path)
+                if default_model
+                else None
+            )
             if model_path:
                 return model_path
 
@@ -97,7 +107,9 @@ class DetectionService:
                 .first()
             )
             if latest_task:
-                weights_path = TrainingService.get_task_weights_path(latest_task.task_uuid)
+                weights_path = TrainingService.get_task_weights_path(
+                    latest_task.task_uuid
+                )
                 if weights_path.exists():
                     return str(weights_path)
         finally:
@@ -123,10 +135,17 @@ class DetectionService:
             try:
                 default_model = (
                     db.query(ModelVersion)
-                    .filter(ModelVersion.scene_id == scene_id, ModelVersion.is_default.is_(True))
+                    .filter(
+                        ModelVersion.scene_id == scene_id,
+                        ModelVersion.is_default.is_(True),
+                    )
                     .first()
                 )
-                model_path = DetectionService._resolve_model_path(default_model.model_path) if default_model else None
+                model_path = (
+                    DetectionService._resolve_model_path(default_model.model_path)
+                    if default_model
+                    else None
+                )
             finally:
                 db.close()
 
@@ -149,16 +168,26 @@ class DetectionService:
                 .first()
             )
             return scene.id if scene else None
-        scene = db.query(DetectionScene).filter(DetectionScene.is_active.is_(True)).first()
+        scene = (
+            db.query(DetectionScene).filter(DetectionScene.is_active.is_(True)).first()
+        )
         return scene.id if scene else None
 
     @staticmethod
-    def _set_video_progress(task_id: int, progress: int, message: str) -> None:
+    def _set_video_progress(
+        task_id: int,
+        progress: int,
+        message: str,
+        source_video_url: str | None = None,
+    ) -> None:
         """写入短生命周期的轮询进度；Redis 不可用时由客户端自动降级。"""
         try:
+            payload = {"status": "processing", "progress": progress, "message": message}
+            if source_video_url:
+                payload["source_video_url"] = source_video_url
             redis_client.set_json(
                 f"video_task:{task_id}",
-                {"status": "processing", "progress": progress, "message": message},
+                payload,
                 expire=3600,
             )
         except Exception as exc:
@@ -204,7 +233,9 @@ class DetectionService:
         try:
             minio_client = MinIOClient()
             object_name = f"detections/{task.id}/{original_filename}"
-            annotated_image_url = minio_client.upload_bytes(object_name, annotated_image, "image/jpeg")
+            annotated_image_url = minio_client.upload_bytes(
+                object_name, annotated_image, "image/jpeg"
+            )
             # 修正：这里应该更新的是 annotated_image_url 字段，但这个字段不存在于 DetectionTask 中。
             # 标注图 URL 在下面写入每一条 DetectionResult。
         except Exception as e:
@@ -297,14 +328,21 @@ class DetectionService:
                             "class_name": cls_name,
                             "class_id": cls_id,
                             "confidence": round(confidence, 4),
-                            "bbox": [round(x1, 1), round(y1, 1), round(x2, 1), round(y2, 1)],
+                            "bbox": [
+                                round(x1, 1),
+                                round(y1, 1),
+                                round(x2, 1),
+                                round(y2, 1),
+                            ],
                         }
                     )
                     total_objects += 1
 
             # ── 生成标注图 ──
             annotated_img = result.plot()
-            _, buffer = cv2.imencode(".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            _, buffer = cv2.imencode(
+                ".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 85]
+            )
             annotated_base64 = base64.b64encode(buffer).decode("utf-8")
 
             # ── 统计各类别数量 ──
@@ -332,7 +370,12 @@ class DetectionService:
                 task_id = save_result["task_id"]
                 annotated_image_url = save_result.get("annotated_image_url")
 
-            logger.info("单图检测完成: %s, 检测到 %d 个目标, 耗时 %.2fms", image_path, total_objects, float(result.speed.get("inference", 0)))
+            logger.info(
+                "单图检测完成: %s, 检测到 %d 个目标, 耗时 %.2fms",
+                image_path,
+                total_objects,
+                float(result.speed.get("inference", 0)),
+            )
 
             return {
                 "total_objects": total_objects,
@@ -376,7 +419,9 @@ class DetectionService:
             if not image_paths:
                 return {"error": "请至少上传一张图片"}
             if len(image_paths) > DetectionConfig.max_batch_size:
-                return {"error": f"单次最多检测 {DetectionConfig.max_batch_size} 张图片"}
+                return {
+                    "error": f"单次最多检测 {DetectionConfig.max_batch_size} 张图片"
+                }
             if not 0 <= conf <= 1 or not 0 <= iou <= 1:
                 return {"error": "conf 和 iou 必须在 0 到 1 之间"}
 
@@ -410,15 +455,32 @@ class DetectionService:
             for i, image_path in enumerate(image_paths):
                 if Path(image_path).suffix.lower() not in ALLOWED_IMAGE_SUFFIXES:
                     continue
-                results = model.predict(source=image_path, conf=conf, iou=iou, imgsz=DetectionConfig.image_size, device=DetectionConfig.device, save=False, verbose=False)
+                results = model.predict(
+                    source=image_path,
+                    conf=conf,
+                    iou=iou,
+                    imgsz=DetectionConfig.image_size,
+                    device=DetectionConfig.device,
+                    save=False,
+                    verbose=False,
+                )
                 result = results[0]
                 inference_time = float(result.speed.get("inference", 0))
                 total_inference_time += inference_time
 
                 # 生成标注图 base64
                 annotated_img = result.plot()
-                _, buffer = cv2.imencode(".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
-                annotated_images.append({"image_path": os.path.basename(image_path), "annotated_image_base64": base64.b64encode(buffer).decode("utf-8")})
+                _, buffer = cv2.imencode(
+                    ".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 85]
+                )
+                annotated_images.append(
+                    {
+                        "image_path": os.path.basename(image_path),
+                        "annotated_image_base64": base64.b64encode(buffer).decode(
+                            "utf-8"
+                        ),
+                    }
+                )
 
                 if result.boxes is not None and len(result.boxes) > 0:
                     for box in result.boxes:
@@ -427,7 +489,19 @@ class DetectionService:
                         confidence = float(box.conf[0])
                         x1, y1, x2, y2 = box.xyxy[0].tolist()
 
-                        det = {"image_path": image_path, "class_name": cls_name, "class_id": cls_id, "confidence": round(confidence, 4), "bbox": [round(x1, 1), round(y1, 1), round(x2, 1), round(y2, 1)], "inference_time": inference_time}
+                        det = {
+                            "image_path": image_path,
+                            "class_name": cls_name,
+                            "class_id": cls_id,
+                            "confidence": round(confidence, 4),
+                            "bbox": [
+                                round(x1, 1),
+                                round(y1, 1),
+                                round(x2, 1),
+                                round(y2, 1),
+                            ],
+                            "inference_time": inference_time,
+                        }
                         all_detections.append(det)
                         total_objects += 1
 
@@ -437,7 +511,17 @@ class DetectionService:
                     # 保存检测结果到数据库
                     for det in all_detections:
                         if det["image_path"] == image_path:
-                            db.add(DetectionResult(task_id=task.id, image_path=image_path, class_name=det["class_name"], class_id=det["class_id"], confidence=det["confidence"], bbox=det["bbox"], inference_time=inference_time))
+                            db.add(
+                                DetectionResult(
+                                    task_id=task.id,
+                                    image_path=image_path,
+                                    class_name=det["class_name"],
+                                    class_id=det["class_id"],
+                                    confidence=det["confidence"],
+                                    bbox=det["bbox"],
+                                    inference_time=inference_time,
+                                )
+                            )
 
             task.status = "completed"
             task.total_objects = total_objects
@@ -445,9 +529,22 @@ class DetectionService:
             task.completed_at = datetime.now()
             db.commit()
 
-            logger.info("批量检测完成: %d 张图, 共 %d 个目标, 总耗时 %.2fms", len(image_paths), total_objects, total_inference_time)
+            logger.info(
+                "批量检测完成: %d 张图, 共 %d 个目标, 总耗时 %.2fms",
+                len(image_paths),
+                total_objects,
+                total_inference_time,
+            )
 
-            return {"task_id": task.id, "total_images": len(image_paths), "total_objects": total_objects, "class_counts": class_counts, "total_inference_time": round(total_inference_time, 2), "detections": all_detections, "annotated_images": annotated_images}
+            return {
+                "task_id": task.id,
+                "total_images": len(image_paths),
+                "total_objects": total_objects,
+                "class_counts": class_counts,
+                "total_inference_time": round(total_inference_time, 2),
+                "detections": all_detections,
+                "annotated_images": annotated_images,
+            }
 
         except Exception as e:
             db.rollback()
@@ -485,7 +582,11 @@ class DetectionService:
             with zipfile.ZipFile(zip_path, "r") as zf:
                 # 指导书使用 extractall；这里逐文件校验目标路径，防止 ZIP 路径穿越。
                 for member in zf.infolist():
-                    if member.is_dir() or Path(member.filename).suffix.lower() not in ALLOWED_IMAGE_SUFFIXES:
+                    if (
+                        member.is_dir()
+                        or Path(member.filename).suffix.lower()
+                        not in ALLOWED_IMAGE_SUFFIXES
+                    ):
                         continue
                     target = (Path(temp_dir) / member.filename).resolve()
                     if Path(temp_dir).resolve() not in target.parents:
@@ -508,7 +609,13 @@ class DetectionService:
             logger.info("ZIP 中包含 %d 张图片，开始批量检测", len(image_files))
 
             # ── 调用批量检测 ──
-            batch_result = self.detect_batch(image_paths=image_files, conf=conf, iou=iou, scene_id=scene_id, user_id=user_id)
+            batch_result = self.detect_batch(
+                image_paths=image_files,
+                conf=conf,
+                iou=iou,
+                scene_id=scene_id,
+                user_id=user_id,
+            )
             batch_result["source"] = "zip"
             batch_result["zip_filename"] = os.path.basename(zip_path)
             batch_result["total_images_in_zip"] = len(image_files)
@@ -574,6 +681,8 @@ class DetectionService:
         video_writer = None
         output_video_path = None
         converted_video_path = None
+        source_video_path = None
+        source_video_url = None
         try:
             if not 0 <= conf <= 1 or not 0 <= iou <= 1:
                 raise ValueError("conf 和 iou 必须在 0 到 1 之间")
@@ -607,6 +716,55 @@ class DetectionService:
                 db.add(task)
                 db.flush()
                 task_id = task.id
+
+            # 将原视频统一转为浏览器可播放的 H.264/AAC，再提供给右侧播放器。
+            ffmpeg_path = shutil.which("ffmpeg")
+            source_upload_path = video_path
+            if ffmpeg_path:
+                source_video_path = f"{video_path}.source.h264.mp4"
+                try:
+                    subprocess.run(
+                        [
+                            ffmpeg_path,
+                            "-y",
+                            "-i",
+                            video_path,
+                            "-map",
+                            "0:v:0",
+                            "-map",
+                            "0:a?",
+                            "-c:v",
+                            "libx264",
+                            "-pix_fmt",
+                            "yuv420p",
+                            "-c:a",
+                            "aac",
+                            "-movflags",
+                            "+faststart",
+                            source_video_path,
+                        ],
+                        check=True,
+                        capture_output=True,
+                        timeout=120,
+                    )
+                    source_upload_path = source_video_path
+                except (OSError, subprocess.SubprocessError) as exc:
+                    logger.warning("原视频转码失败，使用上传原文件: %s", exc)
+
+            try:
+                minio_client = MinIOClient()
+                source_object_name = f"detections/{task_id}/source_video.mp4"
+                source_video_url = minio_client.upload_file(
+                    source_object_name, source_upload_path, content_type="video/mp4"
+                )
+                self._set_video_progress(
+                    task_id,
+                    1,
+                    "原视频已准备完成，正在检测...",
+                    source_video_url,
+                )
+            except Exception as exc:
+                logger.warning("原视频上传 MinIO 失败: %s", exc)
 
             model = self._get_model(scene_id)
             cap = cv2.VideoCapture(video_path)
@@ -654,7 +812,9 @@ class DetectionService:
                 for det in detections:
                     x1, y1, x2, y2 = det["bbox"]
                     color = (0, 255, 0)
-                    cv2.rectangle(annotated, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+                    cv2.rectangle(
+                        annotated, (int(x1), int(y1)), (int(x2), int(y2)), color, 2
+                    )
                     label = f"{det['class_name']} {det['confidence']:.2f}"
                     cv2.putText(
                         annotated,
@@ -667,9 +827,7 @@ class DetectionService:
                     )
                 return annotated
 
-            output_tmp = tempfile.NamedTemporaryFile(
-                suffix=".mp4", delete=False
-            )
+            output_tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
             output_video_path = output_tmp.name
             output_tmp.close()
 
@@ -686,7 +844,9 @@ class DetectionService:
 
                 if frame_idx not in sample_set:
                     if last_detections:
-                        annotated_frame = draw_detections_on_frame(frame, last_detections)
+                        annotated_frame = draw_detections_on_frame(
+                            frame, last_detections
+                        )
                         video_writer.write(annotated_frame)
                     else:
                         video_writer.write(frame)
@@ -740,9 +900,7 @@ class DetectionService:
                             }
                             frame_detections.append(det)
                             total_objects += 1
-                            class_counts[cls_name] = (
-                                class_counts.get(cls_name, 0) + 1
-                            )
+                            class_counts[cls_name] = class_counts.get(cls_name, 0) + 1
 
                     last_detections = frame_detections
                     sampled_count += 1
@@ -794,7 +952,9 @@ class DetectionService:
                     )
                 else:
                     if last_detections:
-                        annotated_frame = draw_detections_on_frame(frame, last_detections)
+                        annotated_frame = draw_detections_on_frame(
+                            frame, last_detections
+                        )
                         video_writer.write(annotated_frame)
                     else:
                         video_writer.write(frame)
@@ -808,6 +968,7 @@ class DetectionService:
                     task_id,
                     progress,
                     f"视频处理中，已采样 {sampled_frames_seen}/{len(sample_indices)} 帧",
+                    source_video_url,
                 )
                 frame_idx += 1
 
@@ -818,7 +979,6 @@ class DetectionService:
 
             annotated_video_url = None
             upload_video_path = output_video_path
-            ffmpeg_path = shutil.which("ffmpeg")
             if ffmpeg_path:
                 converted_video_path = f"{output_video_path}.h264.mp4"
                 try:
@@ -847,7 +1007,7 @@ class DetectionService:
                 minio_client = MinIOClient()
                 object_name = f"detections/{task_id}/annotated_video.mp4"
                 annotated_video_url = minio_client.upload_file(
-                    object_name, upload_video_path
+                    object_name, upload_video_path, content_type="video/mp4"
                 )
                 logger.info("标注视频已上传: %s", object_name)
             except Exception as e:
@@ -887,6 +1047,7 @@ class DetectionService:
                 "total_objects": total_objects,
                 "class_counts": class_counts,
                 "key_frames": key_frames,
+                "source_video_url": source_video_url,
                 "annotated_video_url": annotated_video_url,
                 "total_inference_time": round(total_inference_time, 2),
             }
@@ -908,7 +1069,7 @@ class DetectionService:
                 cap.release()
             if video_writer is not None:
                 video_writer.release()
-            for path in (output_video_path, converted_video_path):
+            for path in (output_video_path, converted_video_path, source_video_path):
                 if path and os.path.exists(path):
                     try:
                         os.unlink(path)

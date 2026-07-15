@@ -18,6 +18,7 @@ from app.config.settings import settings
 try:
     import redis
     from redis.exceptions import RedisError
+
     HAS_REDIS = True
 except ImportError:
     HAS_REDIS = False
@@ -108,9 +109,11 @@ class RedisClient:
     def set(self, key: str, value: str, expire: Optional[int] = None) -> Any:
         """设置键值"""
         return self._retry_on_fail(
-            lambda: self._client.set(key, value, ex=expire)
-            if self._use_redis
-            else self._memory_set(key, value, expire)
+            lambda: (
+                self._client.set(key, value, ex=expire)
+                if self._use_redis
+                else self._memory_set(key, value, expire)
+            )
         )
 
     def get(self, key: str) -> Optional[str]:
@@ -122,15 +125,21 @@ class RedisClient:
     def delete(self, key: str) -> Any:
         """删除键"""
         return self._retry_on_fail(
-            lambda: self._client.delete(key) if self._use_redis else self._memory_delete(key)
+            lambda: (
+                self._client.delete(key)
+                if self._use_redis
+                else self._memory_delete(key)
+            )
         )
 
     def exists(self, key: str) -> bool:
         """检查键是否存在"""
         return self._retry_on_fail(
-            lambda: bool(self._client.exists(key))
-            if self._use_redis
-            else self._memory_get(key) is not None
+            lambda: (
+                bool(self._client.exists(key))
+                if self._use_redis
+                else self._memory_get(key) is not None
+            )
         )
 
     def set_json(self, key: str, data: dict, expire: Optional[int] = None) -> Any:
@@ -148,46 +157,68 @@ class RedisClient:
     def hset(self, name: str, mapping: dict) -> Any:
         """设置哈希表"""
         return self._retry_on_fail(
-            lambda: self._client.hset(name, mapping=mapping) if self._use_redis else self._memory_cache.setdefault(name, {}).update(mapping)
+            lambda: (
+                self._client.hset(name, mapping=mapping)
+                if self._use_redis
+                else self._memory_cache.setdefault(name, {}).update(mapping)
+            )
         )
 
     def hgetall(self, name: str) -> Optional[dict]:
         """获取哈希表所有数据"""
         return self._retry_on_fail(
-            lambda: self._client.hgetall(name) if self._use_redis else self._memory_cache.get(name, {})
+            lambda: (
+                self._client.hgetall(name)
+                if self._use_redis
+                else self._memory_cache.get(name, {})
+            )
         )
 
     def lpush(self, name: str, *values: Any) -> Any:
         """列表左侧插入"""
         return self._retry_on_fail(
-            lambda: self._client.lpush(name, *values) if self._use_redis else self._memory_cache.setdefault(name, []).extend(values)
+            lambda: (
+                self._client.lpush(name, *values)
+                if self._use_redis
+                else self._memory_cache.setdefault(name, []).extend(values)
+            )
         )
 
     def rpop(self, name: str) -> Optional[Any]:
         """列表右侧弹出"""
         return self._retry_on_fail(
-            lambda: self._client.rpop(name) if self._use_redis else self._memory_cache.get(name, []).pop() if self._memory_cache.get(name) else None
+            lambda: (
+                self._client.rpop(name)
+                if self._use_redis
+                else self._memory_cache.get(name, []).pop()
+                if self._memory_cache.get(name)
+                else None
+            )
         )
 
     def flushall(self) -> Any:
         """清空所有数据"""
         return self._retry_on_fail(
-            lambda: self._client.flushall()
-            if self._use_redis
-            else (self._memory_cache.clear(), self._memory_expirations.clear())
+            lambda: (
+                self._client.flushall()
+                if self._use_redis
+                else (self._memory_cache.clear(), self._memory_expirations.clear())
+            )
         )
 
     def keys(self, pattern: str = "*") -> list:
         """获取匹配模式的所有键"""
         return self._retry_on_fail(
-            lambda: self._client.keys(pattern)
-            if self._use_redis
-            else [
-                key
-                for key in list(self._memory_cache)
-                if self._memory_get(key) is not None
-                and (pattern == "*" or key.startswith(pattern.replace("*", "")))
-            ]
+            lambda: (
+                self._client.keys(pattern)
+                if self._use_redis
+                else [
+                    key
+                    for key in list(self._memory_cache)
+                    if self._memory_get(key) is not None
+                    and (pattern == "*" or key.startswith(pattern.replace("*", "")))
+                ]
+            )
         )
 
     def get_all_data(self) -> dict:
@@ -211,7 +242,9 @@ class RedisClient:
             "redis_host": settings.REDIS_HOST,
             "redis_port": settings.REDIS_PORT,
             "key_count": len(self.keys()),
-            "memory_usage": self._client.info("memory") if self._use_redis and self._client else None,
+            "memory_usage": self._client.info("memory")
+            if self._use_redis and self._client
+            else None,
         }
 
 
