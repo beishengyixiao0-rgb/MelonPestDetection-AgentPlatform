@@ -6,68 +6,141 @@
       :accept="inputAccept"
       :multiple="inputMultiple"
       :capture="inputCapture"
-      style="display:none"
+      style="display: none"
       @change="handleFileSelection"
     />
 
     <div v-if="uploadQueue.length" class="upload-panel">
-      <div
-        v-for="item in uploadQueue"
-        :key="item.id"
-        class="upload-item"
-      >
+      <div v-for="item in uploadQueue" :key="item.id" class="upload-item">
         <div class="upload-item-main">
-          <div class="upload-preview" v-if="item.type === 'image' && item.previewUrl">
+          <div
+            class="upload-preview"
+            v-if="item.type === 'image' && item.previewUrl"
+          >
             <img :src="item.previewUrl" alt="preview" />
           </div>
           <div class="upload-preview video-preview" v-else>
-            <span>{{ item.type === 'video' ? '🎬' : '📷' }}</span>
+            <span>{{ item.type === "video" ? "🎬" : "📷" }}</span>
           </div>
 
           <div class="upload-info">
             <div class="upload-name">{{ item.name }}</div>
             <div class="upload-meta">
-              {{ item.type === 'video' ? 'Video' : 'Image' }} • {{ item.modeLabel }}
+              {{ item.type === "video" ? "Video" : "Image" }} •
+              {{ item.modeLabel }}
             </div>
             <div class="upload-progress-track">
-              <div class="upload-progress-bar" :style="{ width: item.progress + '%' }" />
+              <div
+                class="upload-progress-bar"
+                :style="{ width: item.progress + '%' }"
+              />
             </div>
             <div class="upload-status">
-              <span v-if="item.status === 'uploading'">Uploading… {{ item.progress }}%</span>
-              <span v-else-if="item.status === 'success' && item.mode === 'agent-image'" class="success-text">上传成功，可输入内容后发送 ✓</span>
-              <span v-else-if="item.status === 'success'" class="success-text">Upload complete ✓</span>
-              <span v-else class="error-text">{{ item.errorMessage || '上传失败' }}</span>
+              <span v-if="item.status === 'uploading'"
+                >Uploading… {{ item.progress }}%</span
+              >
+              <span
+                v-else-if="
+                  item.status === 'success' && item.mode === 'agent-image'
+                "
+                class="success-text"
+                >上传成功，可输入内容后发送 ✓</span
+              >
+              <span v-else-if="item.status === 'success'" class="success-text"
+                >Upload complete ✓</span
+              >
+              <span v-else class="error-text">{{
+                item.errorMessage || "上传失败"
+              }}</span>
             </div>
           </div>
         </div>
 
         <div class="upload-item-actions">
-          <button v-if="item.status === 'error'" class="retry-upload" @click="$emit('retry-upload', item.id)">重试</button>
-          <button class="upload-remove" @click="$emit('remove-upload-item', item.id)" aria-label="Remove upload">×</button>
+          <button
+            v-if="item.status === 'error'"
+            class="retry-upload"
+            @click="$emit('retry-upload', item.id)"
+          >
+            重试
+          </button>
+          <button
+            class="upload-remove"
+            @click="$emit('remove-upload-item', item.id)"
+            aria-label="Remove upload"
+          >
+            ×
+          </button>
         </div>
       </div>
     </div>
 
     <div v-if="showUploadMenu" class="upload-menu">
-      <button class="upload-option primary" @click="$emit('select-upload-mode', 'agent-image')">📎 添加图片到 Agent 对话</button>
-      <button class="upload-option" @click="$emit('select-upload-mode', 'image')">⚡ 快捷单图检测</button>
-      <button class="upload-option" @click="$emit('select-upload-mode', 'realtime-camera')">📡 实时摄像头检测</button>
-      <button class="upload-option" @click="$emit('select-upload-mode', 'batch')">🗂️ 快捷批量检测（图片 / ZIP）</button>
-      <button class="upload-option" @click="$emit('select-upload-mode', 'video')">🎬 视频检测</button>
-      <button class="upload-option" @click="$emit('select-upload-mode', 'camera')">📹 相机拍摄</button>
+      <button
+        class="upload-option primary"
+        @click="$emit('select-upload-mode', 'agent-image')"
+      >
+        📎 添加图片到 Agent 对话
+      </button>
+      <button
+        class="upload-option"
+        @click="$emit('select-upload-mode', 'image')"
+      >
+        ⚡ 快捷单图检测
+      </button>
+      <button
+        class="upload-option"
+        @click="$emit('select-upload-mode', 'realtime-camera')"
+      >
+        📡 实时摄像头检测
+      </button>
+      <button
+        class="upload-option"
+        @click="$emit('select-upload-mode', 'batch')"
+      >
+        🗂️ 快捷批量检测（图片 / ZIP）
+      </button>
+      <button
+        class="upload-option"
+        @click="$emit('select-upload-mode', 'video')"
+      >
+        🎬 视频检测
+      </button>
+      <button
+        class="upload-option"
+        @click="$emit('select-upload-mode', 'camera')"
+      >
+        📹 相机拍摄
+      </button>
     </div>
 
     <div v-if="showCameraModal" class="camera-modal">
       <div class="camera-panel">
         <div class="camera-header">
           <strong>Camera capture</strong>
-          <button class="upload-remove" @click="$emit('close-camera')" aria-label="Close camera">×</button>
+          <button
+            class="upload-remove"
+            @click="$emit('close-camera')"
+            aria-label="Close camera"
+          >
+            ×
+          </button>
         </div>
-        <video ref="cameraVideoRef" autoplay playsinline muted class="camera-video" />
+        <video
+          ref="cameraVideoRef"
+          autoplay
+          playsinline
+          muted
+          class="camera-video"
+        />
         <canvas ref="cameraCanvasRef" class="camera-canvas" />
         <div class="camera-actions">
-          <button class="upload-option" @click="$emit('close-camera')">Cancel</button>
-          <button class="upload-option primary" @click="captureCameraPhoto">Capture</button>
+          <button class="upload-option" @click="$emit('close-camera')">
+            Cancel
+          </button>
+          <button class="upload-option primary" @click="captureCameraPhoto">
+            Capture
+          </button>
         </div>
         <div v-if="cameraError" class="camera-error">{{ cameraError }}</div>
       </div>
@@ -83,9 +156,7 @@
         @keydown.enter.exact.prevent="$emit('send-message')"
       />
 
-      <button class="send-btn" @click="$emit('send-message')">
-        ➤
-      </button>
+      <button class="send-btn" @click="$emit('send-message')">➤</button>
     </div>
 
     <div class="input-tip">
@@ -95,12 +166,12 @@
 </template>
 
 <script setup>
-import { nextTick, ref, watch } from 'vue'
+import { nextTick, ref, watch } from "vue";
 
 const props = defineProps({
   modelValue: {
     type: String,
-    default: '',
+    default: "",
   },
   uploadQueue: {
     type: Array,
@@ -116,7 +187,7 @@ const props = defineProps({
   },
   inputAccept: {
     type: String,
-    default: 'image/*',
+    default: "image/*",
   },
   inputMultiple: {
     type: Boolean,
@@ -128,111 +199,124 @@ const props = defineProps({
   },
   cameraError: {
     type: String,
-    default: '',
+    default: "",
   },
-})
+});
 
 const emit = defineEmits([
-  'update:modelValue',
-  'toggle-upload-menu',
-  'select-upload-mode',
-  'remove-upload-item',
-  'retry-upload',
-  'file-selected',
-  'close-camera',
-  'capture-camera',
-  'send-message',
-  'camera-error',
-])
+  "update:modelValue",
+  "toggle-upload-menu",
+  "select-upload-mode",
+  "remove-upload-item",
+  "retry-upload",
+  "file-selected",
+  "close-camera",
+  "capture-camera",
+  "send-message",
+  "camera-error",
+]);
 
-const fileInputRef = ref(null)
-const cameraVideoRef = ref(null)
-const cameraCanvasRef = ref(null)
-const cameraStreamRef = ref(null)
+const fileInputRef = ref(null);
+const cameraVideoRef = ref(null);
+const cameraCanvasRef = ref(null);
+const cameraStreamRef = ref(null);
 
 const handleFileSelection = (event) => {
-  const files = Array.from(event.target.files || [])
-  emit('file-selected', files)
-  event.target.value = ''
-}
+  const files = Array.from(event.target.files || []);
+  emit("file-selected", files);
+  event.target.value = "";
+};
 
 const stopCameraStream = () => {
   if (cameraStreamRef.value) {
-    cameraStreamRef.value.getTracks().forEach((track) => track.stop())
-    cameraStreamRef.value = null
+    cameraStreamRef.value.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.value = null;
   }
-}
+};
 
 const startCameraStream = async () => {
   if (!props.showCameraModal) {
-    stopCameraStream()
-    return
+    stopCameraStream();
+    return;
   }
 
   if (!navigator.mediaDevices?.getUserMedia) {
-    emit('camera-error', 'This browser does not support camera capture. Falling back to file selection.')
-    return
+    emit(
+      "camera-error",
+      "This browser does not support camera capture. Falling back to file selection.",
+    );
+    return;
   }
 
   try {
-    stopCameraStream()
+    stopCameraStream();
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment' },
+      video: { facingMode: "environment" },
       audio: false,
-    })
+    });
 
-    cameraStreamRef.value = stream
-    await nextTick()
+    cameraStreamRef.value = stream;
+    await nextTick();
 
     if (cameraVideoRef.value) {
-      cameraVideoRef.value.srcObject = stream
-      await cameraVideoRef.value.play()
+      cameraVideoRef.value.srcObject = stream;
+      await cameraVideoRef.value.play();
     }
   } catch (error) {
-    emit('camera-error', 'Unable to access the camera. Please select a file instead.')
+    emit(
+      "camera-error",
+      "Unable to access the camera. Please select a file instead.",
+    );
   }
-}
+};
 
-watch(() => props.showCameraModal, async (visible) => {
-  if (visible) {
-    await startCameraStream()
-  } else {
-    stopCameraStream()
-  }
-})
+watch(
+  () => props.showCameraModal,
+  async (visible) => {
+    if (visible) {
+      await startCameraStream();
+    } else {
+      stopCameraStream();
+    }
+  },
+);
 
 const captureCameraPhoto = () => {
-  const video = cameraVideoRef.value
-  const canvas = cameraCanvasRef.value
+  const video = cameraVideoRef.value;
+  const canvas = cameraCanvasRef.value;
 
-  if (!video || !canvas) return
+  if (!video || !canvas) return;
 
-  const width = video.videoWidth || 1280
-  const height = video.videoHeight || 720
+  const width = video.videoWidth || 1280;
+  const height = video.videoHeight || 720;
 
-  canvas.width = width
-  canvas.height = height
-  const context = canvas.getContext('2d')
-  context?.drawImage(video, 0, 0, width, height)
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  context?.drawImage(video, 0, 0, width, height);
 
-  canvas.toBlob((blob) => {
-    if (!blob) return
+  canvas.toBlob(
+    (blob) => {
+      if (!blob) return;
 
-    const file = new File([blob], `camera-capture-${Date.now()}.jpg`, {
-      type: 'image/jpeg',
-    })
+      const file = new File([blob], `camera-capture-${Date.now()}.jpg`, {
+        type: "image/jpeg",
+      });
 
-    emit('capture-camera', file)
-    emit('close-camera')
-    stopCameraStream()
-  }, 'image/jpeg', 0.92)
-}
+      emit("capture-camera", file);
+      emit("close-camera");
+      stopCameraStream();
+    },
+    "image/jpeg",
+    0.92,
+  );
+};
 
 const openFilePicker = () => {
-  fileInputRef.value?.click()
-}
+  fileInputRef.value?.click();
+};
 
-defineExpose({ openFilePicker })
+defineExpose({ openFilePicker });
 </script>
 
 <style scoped>

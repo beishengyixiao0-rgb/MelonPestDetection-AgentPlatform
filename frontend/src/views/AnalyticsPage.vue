@@ -2,9 +2,7 @@
   <div class="analysis-page">
     <header class="analysis-header">
       <div class="header-left">
-        <router-link to="/" class="back-btn">
-          ←
-        </router-link>
+        <router-link to="/" class="back-btn"> ← </router-link>
 
         <div class="title-row">
           <div class="title-icon">🌿</div>
@@ -16,35 +14,24 @@
       </div>
 
       <div class="header-right">
-        <router-link
-          to="/ai-chat"
-          class="nav-btn"
-        >
-          🤖 AI Agent
-        </router-link>
+        <router-link to="/ai-chat" class="nav-btn"> 🤖 AI Agent </router-link>
 
-        <router-link
-          to="/history"
-          class="nav-btn"
-        >
-          🕒 History
-        </router-link>
+        <router-link to="/history" class="nav-btn"> 🕒 History </router-link>
       </div>
     </header>
 
     <div class="analysis-container">
       <section class="metrics-grid">
-        <div
-          v-for="metric in metrics"
-          :key="metric.label"
-          class="metric-card"
-        >
+        <div v-for="metric in metrics" :key="metric.label" class="metric-card">
           <div class="metric-top">
             <div class="metric-label">
               {{ metric.label }}
             </div>
-            <div class="metric-icon" :class="metric.up ? 'positive' : 'negative'">
-              {{ metric.up ? '↗' : '↘' }}
+            <div
+              class="metric-icon"
+              :class="metric.up ? 'positive' : 'negative'"
+            >
+              {{ metric.up ? "↗" : "↘" }}
             </div>
           </div>
 
@@ -74,10 +61,7 @@
           </div>
 
           <div class="distribution-list">
-            <VChart
-              class="chart"
-              :option="pieOption"
-            />
+            <VChart class="chart" :option="pieOption" />
 
             <div class="legend-list">
               <div
@@ -86,7 +70,10 @@
                 class="distribution-item"
               >
                 <div class="legend-left">
-                  <span class="legend-dot" :style="{ background: item.color }" />
+                  <span
+                    class="legend-dot"
+                    :style="{ background: item.color }"
+                  />
                   <span>{{ item.name }}</span>
                 </div>
                 <span class="legend-value">{{ item.value }}%</span>
@@ -106,10 +93,7 @@
             </div>
           </div>
 
-          <VChart
-            class="chart"
-            :option="lineOption"
-          />
+          <VChart class="chart" :option="lineOption" />
         </div>
       </section>
 
@@ -135,17 +119,25 @@
               <div class="rank-content">
                 <div class="rank-row">
                   <span class="rank-name">{{ disease.name }}</span>
-                  <span class="rank-change" :class="disease.change > 0 ? 'positive' : 'negative'">
-                    {{ disease.change > 0 ? '+' : '' }}{{ disease.change }}%
+                  <span
+                    class="rank-change"
+                    :class="disease.change > 0 ? 'positive' : 'negative'"
+                  >
+                    {{ disease.change > 0 ? "+" : "" }}{{ disease.change }}%
                   </span>
                 </div>
                 <div class="progress-bar compact">
                   <div
                     class="progress-fill"
-                    :style="{ width: `${(disease.count / 900) * 100}%`, background: disease.color }"
+                    :style="{
+                      width: `${(disease.count / (disease.max_count || 1)) * 100}%`,
+                      background: disease.color,
+                    }"
                   />
                 </div>
-                <span class="rank-meta">{{ disease.count.toLocaleString() }} cases</span>
+                <span class="rank-meta"
+                  >{{ disease.count.toLocaleString() }} cases</span
+                >
               </div>
             </div>
           </div>
@@ -232,16 +224,17 @@
 </template>
 
 <script setup>
-
-import { LineChart, PieChart } from 'echarts/charts'
+import request from "@/utils/request";
+import { LineChart, PieChart } from "echarts/charts";
 import {
   GridComponent,
   LegendComponent,
   TooltipComponent,
-} from 'echarts/components'
-import { use } from 'echarts/core'
-import { CanvasRenderer } from 'echarts/renderers'
-import VChart from 'vue-echarts'
+} from "echarts/components";
+import { use } from "echarts/core";
+import { CanvasRenderer } from "echarts/renderers";
+import { computed, onMounted, ref } from "vue";
+import VChart from "vue-echarts";
 
 use([
   CanvasRenderer,
@@ -250,113 +243,88 @@ use([
   TooltipComponent,
   LegendComponent,
   GridComponent,
-])
+]);
 
+const loading = ref(true);
 
-const metrics = [
+const summary = ref({
+  total_detections: 0,
+  detection_change: 0,
+  diseases_identified: 0,
+  identification_rate: 0,
+  model_accuracy: 0,
+  accuracy_change: 0,
+  avg_confidence: 0,
+  confidence_change: 0,
+});
+
+const diseaseDistribution = ref([]);
+const trendData = ref([]);
+const modelPerformance = ref([]);
+const topDiseases = ref([]);
+
+const severitySummary = ref([
+  { label: "High", value: 0, color: "#ef4444" },
+  { label: "Moderate", value: 0, color: "#f59e0b" },
+  { label: "Low", value: 0, color: "#16a34a" },
+]);
+
+const metrics = computed(() => [
   {
-    label: 'Total Detections',
-    value: '3,091',
-    sub: '+18% vs last month',
-    up: true,
+    label: "Total Detections",
+    value: summary.value.total_detections.toLocaleString(),
+    sub:
+      summary.value.detection_change !== 0
+        ? `${summary.value.detection_change > 0 ? "+" : ""}${summary.value.detection_change}% vs last month`
+        : "No change",
+    up: summary.value.detection_change >= 0,
   },
   {
-    label: 'Diseases Identified',
-    value: '2,804',
-    sub: '90.7% identification rate',
-    up: true,
+    label: "Diseases Identified",
+    value: summary.value.diseases_identified.toLocaleString(),
+    sub: `${summary.value.identification_rate}% identification rate`,
+    up: summary.value.identification_rate > 0,
   },
   {
-    label: 'Model Accuracy',
-    value: '94.2%',
-    sub: '+1.3% from last version',
-    up: true,
+    label: "Model Accuracy",
+    value: `${summary.value.model_accuracy}%`,
+    sub:
+      summary.value.accuracy_change !== 0
+        ? `${summary.value.accuracy_change > 0 ? "+" : ""}${summary.value.accuracy_change}% from last version`
+        : "No change",
+    up: summary.value.accuracy_change >= 0,
   },
   {
-    label: 'Avg Confidence',
-    value: '91.3%',
-    sub: '-0.4% this week',
-    up: false,
+    label: "Avg Confidence",
+    value: `${summary.value.avg_confidence}%`,
+    sub:
+      summary.value.confidence_change !== 0
+        ? `${summary.value.confidence_change > 0 ? "" : ""}${summary.value.confidence_change}% this week`
+        : "No change",
+    up: summary.value.confidence_change >= 0,
   },
-]
+]);
 
-const diseaseDistribution = [
-  { name: 'Tomato Late Blight', value: 28, color: '#16a34a' },
-  { name: 'Grape Black Rot', value: 19, color: '#0ea5e9' },
-  { name: 'Pepper Bacterial Spot', value: 17, color: '#f59e0b' },
-  { name: 'Apple Scab', value: 14, color: '#8b5cf6' },
-  { name: 'Strawberry Leaf Scorch', value: 12, color: '#ec4899' },
-  { name: 'Other', value: 10, color: '#94a3b8' },
-]
-
-const trendData = [
-  { month: 'Jan', detections: 124, identified: 112 },
-  { month: 'Feb', detections: 158, identified: 143 },
-  { month: 'Mar', detections: 203, identified: 187 },
-  { month: 'Apr', detections: 178, identified: 165 },
-  { month: 'May', detections: 241, identified: 228 },
-  { month: 'Jun', detections: 289, identified: 271 },
-  { month: 'Jul', detections: 312, identified: 298 },
-]
-
-const modelPerformance = [
-  { label: 'Precision', value: 92.8, color: '#16a34a' },
-  { label: 'Recall', value: 93.5, color: '#0ea5e9' },
-  { label: 'F1 Score', value: 93.1, color: '#8b5cf6' },
-  { label: 'Accuracy', value: 94.2, color: '#f59e0b' },
-]
-
-const topDiseases = [
-  { name: 'Tomato Late Blight', count: 847, change: 12, color: '#16a34a' },
-  { name: 'Grape Black Rot', count: 623, change: -4, color: '#0ea5e9' },
-  { name: 'Pepper Bacterial Spot', count: 541, change: 8, color: '#f59e0b' },
-  { name: 'Apple Scab', count: 418, change: 3, color: '#8b5cf6' },
-]
-
-const severitySummary = [
-  { label: 'High', value: 31, color: '#ef4444' },
-  { label: 'Moderate', value: 24, color: '#f59e0b' },
-  { label: 'Low', value: 45, color: '#16a34a' },
-]
-
-const recentDiagnoses = [
-  {
-    id: 1,
-    name: 'Tomato Late Blight',
-    confidence: 94.2,
-  },
-  {
-    id: 2,
-    name: 'Grape Black Rot',
-    confidence: 91.6,
-  },
-  {
-    id: 3,
-    name: 'Pepper Leaf Spot',
-    confidence: 89.7,
-  },
-]
-
-const pieOption = {
+const pieOption = computed(() => ({
   tooltip: {
-    trigger: 'item',
-    formatter: '{b}: {d}%',
+    trigger: "item",
+    formatter: "{b}: {d}%",
   },
   series: [
     {
-      type: 'pie',
-      radius: ['58%', '78%'],
-      center: ['50%', '50%'],
+      type: "pie",
+      radius: ["58%", "78%"],
+      center: ["50%", "50%"],
       emphasis: {
         scale: true,
         scaleSize: 8,
       },
       itemStyle: {
         borderRadius: 8,
-        borderColor: '#ffffff',
+        borderColor: "#ffffff",
         borderWidth: 2,
       },
-      data: diseaseDistribution.map((item) => ({
+      data: diseaseDistribution.value.map((item) => ({
         value: item.value,
         name: item.name,
         itemStyle: {
@@ -365,82 +333,115 @@ const pieOption = {
       })),
     },
   ],
-}
+}));
 
-const lineOption = {
+const lineOption = computed(() => ({
   tooltip: {
-    trigger: 'axis',
+    trigger: "axis",
     axisPointer: {
-      type: 'cross',
+      type: "cross",
     },
   },
   legend: {
     top: 0,
     textStyle: {
-      color: '#6b7280',
+      color: "#6b7280",
     },
   },
   grid: {
-    left: '8%',
-    right: '4%',
-    top: '18%',
-    bottom: '10%',
+    left: "8%",
+    right: "4%",
+    top: "18%",
+    bottom: "10%",
   },
   xAxis: {
-    type: 'category',
-    data: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
+    type: "category",
+    data: trendData.value.map((item) => item.month),
     axisLine: { show: false },
     axisTick: { show: false },
     axisLabel: {
-      color: '#6b7280',
+      color: "#6b7280",
     },
   },
   yAxis: {
-    type: 'value',
+    type: "value",
     axisLine: { show: false },
     axisTick: { show: false },
     splitLine: {
       lineStyle: {
-        color: 'rgba(0, 0, 0, 0.06)',
+        color: "rgba(0, 0, 0, 0.06)",
       },
     },
     axisLabel: {
-      color: '#6b7280',
+      color: "#6b7280",
     },
   },
   series: [
     {
-      name: 'Total Detections',
-      type: 'line',
+      name: "Total Detections",
+      type: "line",
       smooth: true,
       lineStyle: {
         width: 3,
-        color: '#16a34a',
+        color: "#16a34a",
       },
       itemStyle: {
-        color: '#16a34a',
+        color: "#16a34a",
       },
       areaStyle: {
-        color: 'rgba(22, 163, 74, 0.08)',
+        color: "rgba(22, 163, 74, 0.08)",
       },
-      data: [124, 158, 203, 178, 241, 289, 312],
+      data: trendData.value.map((item) => item.detections),
     },
     {
-      name: 'Identified',
-      type: 'line',
+      name: "Identified",
+      type: "line",
       smooth: true,
       lineStyle: {
         width: 3,
-        color: '#0ea5e9',
+        color: "#0ea5e9",
       },
       itemStyle: {
-        color: '#0ea5e9',
+        color: "#0ea5e9",
       },
-      data: [112, 143, 187, 165, 228, 271, 298],
+      data: trendData.value.map((item) => item.identified),
     },
   ],
+}));
+
+async function loadAnalyticsData() {
+  loading.value = true;
+  try {
+    const [summaryRes, distributionRes, trendRes, performanceRes, topRes] =
+      await Promise.all([
+        request.get("/analytics/summary"),
+        request.get("/analytics/disease-distribution"),
+        request.get("/analytics/detection-trend"),
+        request.get("/analytics/model-performance"),
+        request.get("/analytics/top-diseases"),
+      ]);
+
+    summary.value = summaryRes;
+    diseaseDistribution.value = distributionRes;
+    trendData.value = trendRes;
+    modelPerformance.value = performanceRes;
+    topDiseases.value = topRes;
+  } catch (error) {
+    console.error("加载分析数据失败", error);
+    diseaseDistribution.value = [
+      { name: "No Data", value: 100, color: "#94a3b8" },
+    ];
+    trendData.value = [];
+    modelPerformance.value = [];
+    topDiseases.value = [];
+  } finally {
+    loading.value = false;
+  }
 }
 
+onMounted(() => {
+  loadAnalyticsData();
+});
 </script>
 
 <style scoped>
@@ -508,7 +509,9 @@ const lineOption = {
   border-radius: 10px;
   color: #374151;
   text-decoration: none;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .back-btn:hover,

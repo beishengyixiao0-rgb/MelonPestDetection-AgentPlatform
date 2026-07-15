@@ -18,7 +18,11 @@
       />
       <div v-if="!isRunning" class="preview-placeholder">
         <span class="camera-icon">📹</span>
-        <p>{{ hasStopped ? '实时检测已停止' : '点击下方按钮允许摄像头并开始检测' }}</p>
+        <p>
+          {{
+            hasStopped ? "实时检测已停止" : "点击下方按钮允许摄像头并开始检测"
+          }}
+        </p>
       </div>
     </div>
 
@@ -48,12 +52,21 @@
         :key="`${detection.class_name || 'target'}-${index}`"
         class="detection-row"
       >
-        <span>{{ detection.class_name || detection.label || `目标 ${index + 1}` }}</span>
-        <strong>{{ toConfidencePercent(detection.confidence ?? detection.conf) }}%</strong>
+        <span>{{
+          detection.class_name || detection.label || `目标 ${index + 1}`
+        }}</span>
+        <strong
+          >{{
+            toConfidencePercent(detection.confidence ?? detection.conf)
+          }}%</strong
+        >
       </div>
     </div>
 
-    <div v-if="Object.keys(sessionClassCounts).length" class="class-distribution">
+    <div
+      v-if="Object.keys(sessionClassCounts).length"
+      class="class-distribution"
+    >
       <div class="section-title">本次检测类别累计</div>
       <div class="class-tags">
         <el-tag
@@ -70,7 +83,12 @@
     <div class="config-panel">
       <label>
         推理模式
-        <el-select v-model="detectMode" size="small" :disabled="isBusy" class="mode-select">
+        <el-select
+          v-model="detectMode"
+          size="small"
+          :disabled="isBusy"
+          class="mode-select"
+        >
           <el-option label="CPU 节能" value="cpu" />
           <el-option label="GPU 加速" value="gpu" />
         </el-select>
@@ -95,9 +113,11 @@
         :disabled="isConnecting"
         @click="startCamera"
       >
-        {{ hasStopped ? '重新开始检测' : '允许摄像头并开始' }}
+        {{ hasStopped ? "重新开始检测" : "允许摄像头并开始" }}
       </el-button>
-      <el-button v-else type="danger" @click="stopCamera(true)">停止并生成总结</el-button>
+      <el-button v-else type="danger" @click="stopCamera(true)"
+        >停止并生成总结</el-button
+      >
     </div>
 
     <p class="permission-hint">
@@ -107,74 +127,74 @@
 </template>
 
 <script setup>
-import { createCameraWs } from '@/utils/cameraWs'
-import { ElMessage } from 'element-plus'
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { createCameraWs } from "@/utils/cameraWs";
+import { ElMessage } from "element-plus";
+import { computed, onBeforeUnmount, ref } from "vue";
 
 const props = defineProps({
   item: {
     type: Object,
     default: () => ({}),
   },
-})
+});
 
-const emit = defineEmits(['finished'])
+const emit = defineEmits(["finished"]);
 
-const videoRef = ref(null)
-const canvasRef = ref(null)
-const isRunning = ref(false)
-const isConnecting = ref(false)
-const hasStopped = ref(false)
-const detectMode = ref(props.item.config?.mode || 'cpu')
-const confThreshold = ref(Number(props.item.config?.conf ?? 0.25))
-const currentFps = ref(0)
-const frameCount = ref(0)
-const inferenceTime = ref(0)
-const objectCount = ref(0)
-const currentDetections = ref([])
-const sessionClassCounts = ref({})
-const canvasWidth = ref(640)
-const canvasHeight = ref(480)
+const videoRef = ref(null);
+const canvasRef = ref(null);
+const isRunning = ref(false);
+const isConnecting = ref(false);
+const hasStopped = ref(false);
+const detectMode = ref(props.item.config?.mode || "cpu");
+const confThreshold = ref(Number(props.item.config?.conf ?? 0.25));
+const currentFps = ref(0);
+const frameCount = ref(0);
+const inferenceTime = ref(0);
+const objectCount = ref(0);
+const currentDetections = ref([]);
+const sessionClassCounts = ref({});
+const canvasWidth = ref(640);
+const canvasHeight = ref(480);
 
-let cameraWs = null
-let mediaStream = null
-let sessionStartedAt = 0
-let inferenceTotal = 0
-let fpsTotal = 0
-let resultSamples = 0
-let peakObjectCount = 0
+let cameraWs = null;
+let mediaStream = null;
+let sessionStartedAt = 0;
+let inferenceTotal = 0;
+let fpsTotal = 0;
+let resultSamples = 0;
+let peakObjectCount = 0;
 
-const isBusy = computed(() => isRunning.value || isConnecting.value)
+const isBusy = computed(() => isRunning.value || isConnecting.value);
 const statusText = computed(() => {
-  if (isConnecting.value) return '连接中'
-  if (isRunning.value) return '运行中'
-  if (hasStopped.value) return '已停止'
-  return '待启动'
-})
+  if (isConnecting.value) return "连接中";
+  if (isRunning.value) return "运行中";
+  if (hasStopped.value) return "已停止";
+  return "待启动";
+});
 const statusTagType = computed(() => {
-  if (isConnecting.value) return 'warning'
-  if (isRunning.value) return 'success'
-  return 'info'
-})
+  if (isConnecting.value) return "warning";
+  if (isRunning.value) return "success";
+  return "info";
+});
 
 const resetSessionStats = () => {
-  currentFps.value = 0
-  frameCount.value = 0
-  inferenceTime.value = 0
-  objectCount.value = 0
-  currentDetections.value = []
-  sessionClassCounts.value = {}
-  inferenceTotal = 0
-  fpsTotal = 0
-  resultSamples = 0
-  peakObjectCount = 0
-}
+  currentFps.value = 0;
+  frameCount.value = 0;
+  inferenceTime.value = 0;
+  objectCount.value = 0;
+  currentDetections.value = [];
+  sessionClassCounts.value = {};
+  inferenceTotal = 0;
+  fpsTotal = 0;
+  resultSamples = 0;
+  peakObjectCount = 0;
+};
 
 const toConfidencePercent = (value) => {
-  const number = Number(value)
-  if (!Number.isFinite(number)) return 0
-  return Math.round((number <= 1 ? number * 100 : number) * 10) / 10
-}
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.round((number <= 1 ? number * 100 : number) * 10) / 10;
+};
 
 const createCameraWsInstance = () => {
   cameraWs = createCameraWs({
@@ -186,175 +206,193 @@ const createCameraWsInstance = () => {
     onConfigOk: handleConfigOk,
     onError: handleWsError,
     onClose: handleWsClose,
-  })
-}
+  });
+};
 
 async function startCamera() {
   if (!navigator.mediaDevices?.getUserMedia) {
-    ElMessage.error('当前浏览器或访问环境不支持摄像头实时检测')
-    return
+    ElMessage.error("当前浏览器或访问环境不支持摄像头实时检测");
+    return;
   }
 
   try {
-    isConnecting.value = true
-    hasStopped.value = false
-    resetSessionStats()
+    isConnecting.value = true;
+    hasStopped.value = false;
+    resetSessionStats();
 
     mediaStream = await navigator.mediaDevices.getUserMedia({
       video: {
         width: { ideal: 640 },
         height: { ideal: 480 },
-        facingMode: { ideal: 'environment' },
+        facingMode: { ideal: "environment" },
       },
       audio: false,
-    })
+    });
 
-    videoRef.value.srcObject = mediaStream
-    await videoRef.value.play()
-    canvasWidth.value = videoRef.value.videoWidth || 640
-    canvasHeight.value = videoRef.value.videoHeight || 480
+    videoRef.value.srcObject = mediaStream;
+    await videoRef.value.play();
+    canvasWidth.value = videoRef.value.videoWidth || 640;
+    canvasHeight.value = videoRef.value.videoHeight || 480;
 
-    createCameraWsInstance()
-    cameraWs.connect()
+    createCameraWsInstance();
+    cameraWs.connect();
   } catch (error) {
-    releaseResources()
-    isConnecting.value = false
-    ElMessage.error(`摄像头开启失败：${error.message || error}`)
+    releaseResources();
+    isConnecting.value = false;
+    ElMessage.error(`摄像头开启失败：${error.message || error}`);
   }
 }
 
 function handleConfigOk() {
-  isConnecting.value = false
-  isRunning.value = true
-  sessionStartedAt = Date.now()
-  requestAnimationFrame(sendSingleFrame)
+  isConnecting.value = false;
+  isRunning.value = true;
+  sessionStartedAt = Date.now();
+  requestAnimationFrame(sendSingleFrame);
 }
 
 function handleDetectionResult(data) {
-  renderAnnotatedFrame(data.annotatedFrame)
-  currentFps.value = Number(data.fps || 0).toFixed(1)
-  frameCount.value = data.frameCount || 0
-  inferenceTime.value = Number(data.inferenceTime || 0).toFixed(1)
-  objectCount.value = data.objectCount || 0
-  currentDetections.value = data.detections || []
+  renderAnnotatedFrame(data.annotatedFrame);
+  currentFps.value = Number(data.fps || 0).toFixed(1);
+  frameCount.value = data.frameCount || 0;
+  inferenceTime.value = Number(data.inferenceTime || 0).toFixed(1);
+  objectCount.value = data.objectCount || 0;
+  currentDetections.value = data.detections || [];
 
-  inferenceTotal += Number(data.inferenceTime || 0)
-  fpsTotal += Number(data.fps || 0)
-  resultSamples += 1
-  peakObjectCount = Math.max(peakObjectCount, Number(data.objectCount || 0))
+  inferenceTotal += Number(data.inferenceTime || 0);
+  fpsTotal += Number(data.fps || 0);
+  resultSamples += 1;
+  peakObjectCount = Math.max(peakObjectCount, Number(data.objectCount || 0));
 
-  const nextCounts = { ...sessionClassCounts.value }
+  const nextCounts = { ...sessionClassCounts.value };
   currentDetections.value.forEach((detection) => {
-    const name = detection.class_name || detection.label || '未知目标'
-    nextCounts[name] = (nextCounts[name] || 0) + 1
-  })
-  sessionClassCounts.value = nextCounts
+    const name = detection.class_name || detection.label || "未知目标";
+    nextCounts[name] = (nextCounts[name] || 0) + 1;
+  });
+  sessionClassCounts.value = nextCounts;
 }
 
 function handleWsError(message) {
-  isConnecting.value = false
-  isRunning.value = false
-  releaseResources()
-  ElMessage.error(message)
+  isConnecting.value = false;
+  isRunning.value = false;
+  releaseResources();
+  ElMessage.error(message);
 }
 
 function handleWsClose() {
-  isConnecting.value = false
+  isConnecting.value = false;
   if (isRunning.value) {
-    isRunning.value = false
-    releaseMediaStream()
+    isRunning.value = false;
+    releaseMediaStream();
   }
 }
 
 function sendSingleFrame() {
-  if (!cameraWs?.isConnected || !videoRef.value || videoRef.value.readyState < 2) return
+  if (
+    !cameraWs?.isConnected ||
+    !videoRef.value ||
+    videoRef.value.readyState < 2
+  )
+    return;
 
-  const targetSize = detectMode.value === 'cpu' ? 416 : 640
-  const tempCanvas = document.createElement('canvas')
-  tempCanvas.width = targetSize
-  tempCanvas.height = targetSize
-  const context = tempCanvas.getContext('2d')
-  const videoWidth = videoRef.value.videoWidth
-  const videoHeight = videoRef.value.videoHeight
-  const scale = Math.min(targetSize / videoWidth, targetSize / videoHeight)
-  const x = (targetSize - videoWidth * scale) / 2
-  const y = (targetSize - videoHeight * scale) / 2
+  const targetSize = detectMode.value === "cpu" ? 416 : 640;
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = targetSize;
+  tempCanvas.height = targetSize;
+  const context = tempCanvas.getContext("2d");
+  const videoWidth = videoRef.value.videoWidth;
+  const videoHeight = videoRef.value.videoHeight;
+  const scale = Math.min(targetSize / videoWidth, targetSize / videoHeight);
+  const x = (targetSize - videoWidth * scale) / 2;
+  const y = (targetSize - videoHeight * scale) / 2;
 
-  context.drawImage(videoRef.value, x, y, videoWidth * scale, videoHeight * scale)
-  const base64Data = tempCanvas.toDataURL('image/jpeg', 0.6).split(',')[1]
-  cameraWs.sendFrame(base64Data)
+  context.drawImage(
+    videoRef.value,
+    x,
+    y,
+    videoWidth * scale,
+    videoHeight * scale,
+  );
+  const base64Data = tempCanvas.toDataURL("image/jpeg", 0.6).split(",")[1];
+  cameraWs.sendFrame(base64Data);
 }
 
 function renderAnnotatedFrame(annotatedBase64) {
-  if (!canvasRef.value || !annotatedBase64) return
+  if (!canvasRef.value || !annotatedBase64) return;
 
-  const image = new Image()
+  const image = new Image();
   image.onload = () => {
-    if (!canvasRef.value || !isRunning.value) return
-    const context = canvasRef.value.getContext('2d')
-    canvasRef.value.width = image.width
-    canvasRef.value.height = image.height
-    context.drawImage(image, 0, 0)
-    requestAnimationFrame(sendSingleFrame)
-  }
-  image.src = annotatedBase64.startsWith('data:')
+    if (!canvasRef.value || !isRunning.value) return;
+    const context = canvasRef.value.getContext("2d");
+    canvasRef.value.width = image.width;
+    canvasRef.value.height = image.height;
+    context.drawImage(image, 0, 0);
+    requestAnimationFrame(sendSingleFrame);
+  };
+  image.src = annotatedBase64.startsWith("data:")
     ? annotatedBase64
-    : `data:image/jpeg;base64,${annotatedBase64}`
+    : `data:image/jpeg;base64,${annotatedBase64}`;
 }
 
 const releaseMediaStream = () => {
   if (mediaStream) {
-    mediaStream.getTracks().forEach((track) => track.stop())
-    mediaStream = null
+    mediaStream.getTracks().forEach((track) => track.stop());
+    mediaStream = null;
   }
-  if (videoRef.value) videoRef.value.srcObject = null
-}
+  if (videoRef.value) videoRef.value.srcObject = null;
+};
 
 const releaseResources = () => {
-  const ws = cameraWs
-  cameraWs = null
-  ws?.close()
-  releaseMediaStream()
-}
+  const ws = cameraWs;
+  cameraWs = null;
+  ws?.close();
+  releaseMediaStream();
+};
 
 const createSessionSummary = (snapshot) => ({
-  type: 'camera',
-  filename: '实时摄像头检测',
+  type: "camera",
+  filename: "实时摄像头检测",
   duration_seconds: sessionStartedAt
     ? Number(((Date.now() - sessionStartedAt) / 1000).toFixed(1))
     : 0,
   processed_frames: frameCount.value,
-  average_fps: resultSamples ? Number((fpsTotal / resultSamples).toFixed(1)) : 0,
-  inference_time: resultSamples ? Number((inferenceTotal / resultSamples).toFixed(1)) : 0,
+  average_fps: resultSamples
+    ? Number((fpsTotal / resultSamples).toFixed(1))
+    : 0,
+  inference_time: resultSamples
+    ? Number((inferenceTotal / resultSamples).toFixed(1))
+    : 0,
   total_objects: peakObjectCount,
-  total_detection_occurrences: Object.values(sessionClassCounts.value)
-    .reduce((sum, count) => sum + count, 0),
+  total_detection_occurrences: Object.values(sessionClassCounts.value).reduce(
+    (sum, count) => sum + count,
+    0,
+  ),
   class_counts: { ...sessionClassCounts.value },
   annotated_image_url: snapshot,
-})
+});
 
 function stopCamera(shouldEmitSummary = false) {
-  const hadSession = Boolean(sessionStartedAt && resultSamples)
-  const snapshot = canvasRef.value && resultSamples
-    ? canvasRef.value.toDataURL('image/jpeg', 0.86)
-    : ''
+  const hadSession = Boolean(sessionStartedAt && resultSamples);
+  const snapshot =
+    canvasRef.value && resultSamples
+      ? canvasRef.value.toDataURL("image/jpeg", 0.86)
+      : "";
 
-  releaseResources()
-  isRunning.value = false
-  isConnecting.value = false
-  hasStopped.value = true
+  releaseResources();
+  isRunning.value = false;
+  isConnecting.value = false;
+  hasStopped.value = true;
 
   if (shouldEmitSummary && hadSession) {
-    emit('finished', createSessionSummary(snapshot))
-    ElMessage.success('实时检测已停止，已生成检测总结')
+    emit("finished", createSessionSummary(snapshot));
+    ElMessage.success("实时检测已停止，已生成检测总结");
   }
 
-  sessionStartedAt = 0
+  sessionStartedAt = 0;
 }
 
 onBeforeUnmount(() => {
-  stopCamera(false)
-})
+  stopCamera(false);
+});
 </script>
 
 <style scoped>

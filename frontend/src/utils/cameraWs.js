@@ -54,15 +54,11 @@ class CameraWs {
       return;
     }
 
-    const protocol =
-      window.location.protocol === "https:"
-        ? "wss:"
-        : "ws:";
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 
     const host = window.location.host;
 
-    const wsUrl =
-      `${protocol}//${host}/api/detection/camera`;
+    const wsUrl = `${protocol}//${host}/api/detection/camera`;
 
     this.ws = new WebSocket(wsUrl);
 
@@ -78,7 +74,7 @@ class CameraWs {
           conf: this.conf,
           iou: this.iou,
           scene_id: this.sceneId,
-        })
+        }),
       );
     };
 
@@ -87,10 +83,7 @@ class CameraWs {
         const data = JSON.parse(event.data);
         this._handleMessage(data);
       } catch (err) {
-        console.error(
-          "[CameraWs] 消息解析失败:",
-          err
-        );
+        console.error("[CameraWs] 消息解析失败:", err);
       }
     };
 
@@ -103,14 +96,9 @@ class CameraWs {
     };
 
     this.ws.onerror = (err) => {
-      console.error(
-        "[CameraWs] 连接错误:",
-        err
-      );
+      console.error("[CameraWs] 连接错误:", err);
 
-      this.onError(
-        "WebSocket 连接失败，请检查后端服务"
-      );
+      this.onError("WebSocket 连接失败，请检查后端服务");
     };
   }
 
@@ -121,10 +109,7 @@ class CameraWs {
    * 不包含 data:image/... 前缀
    */
   sendFrame(base64Data) {
-    if (
-      !this.ws ||
-      this.ws.readyState !== WebSocket.OPEN
-    ) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       console.warn("[CameraWs] 连接未建立");
       return false;
     }
@@ -137,7 +122,7 @@ class CameraWs {
       JSON.stringify({
         type: "frame",
         data: base64Data,
-      })
+      }),
     );
 
     return true;
@@ -151,7 +136,7 @@ class CameraWs {
       this.ws.send(
         JSON.stringify({
           type: "close",
-        })
+        }),
       );
 
       this.ws.close();
@@ -194,28 +179,19 @@ class CameraWs {
         break;
 
       case "config_ok":
-        console.log(
-          "[CameraWs] 配置确认:",
-          data.message
-        );
+        console.log("[CameraWs] 配置确认:", data.message);
 
         this.onConfigOk(data);
         break;
 
       case "error":
-        console.error(
-          "[CameraWs] 服务端错误:",
-          data.message
-        );
+        console.error("[CameraWs] 服务端错误:", data.message);
 
         this.onError(data.message);
         break;
 
       default:
-        console.warn(
-          "[CameraWs] 未知消息类型:",
-          data.type
-        );
+        console.warn("[CameraWs] 未知消息类型:", data.type);
     }
   }
 }

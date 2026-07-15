@@ -35,7 +35,12 @@
         </el-form-item>
 
         <el-form-item>
-          <el-button type="primary" class="login-btn" :loading="loading" @click="handleLogin">
+          <el-button
+            type="primary"
+            class="login-btn"
+            :loading="loading"
+            @click="handleLogin"
+          >
             登 录
           </el-button>
         </el-form-item>
@@ -53,57 +58,57 @@
 </template>
 
 <script setup>
-import { useUserStore } from '@/stores/user'
-import { ElMessage } from 'element-plus'
-import { reactive, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useUserStore } from "@/stores/user";
+import { ElMessage } from "element-plus";
+import { reactive, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
-const router = useRouter()
-const route = useRoute()
-const userStore = useUserStore()
+const router = useRouter();
+const route = useRoute();
+const userStore = useUserStore();
 
-const formRef = ref(null)
-const loading = ref(false)
+const formRef = ref(null);
+const loading = ref(false);
 
 /** 登录表单数据 */
 const loginForm = reactive({
-  username: '',
-  password: '',
-})
+  username: "",
+  password: "",
+});
 
 /** 表单验证规则 */
 const loginRules = {
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 50, message: '用户名长度为 3-50 个字符', trigger: 'blur' },
+    { required: true, message: "请输入用户名", trigger: "blur" },
+    { min: 3, max: 50, message: "用户名长度为 3-50 个字符", trigger: "blur" },
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码至少 6 个字符', trigger: 'blur' },
+    { required: true, message: "请输入密码", trigger: "blur" },
+    { min: 6, message: "密码至少 6 个字符", trigger: "blur" },
   ],
-}
+};
 
 /** 处理登录 */
 async function handleLogin() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  const valid = await formRef.value.validate().catch(() => false);
+  if (!valid) return;
 
-  loading.value = true
+  loading.value = true;
   try {
     await userStore.login({
       username: loginForm.username,
       password: loginForm.password,
-    })
+    });
 
-    ElMessage.success('登录成功')
+    ElMessage.success("登录成功");
 
     // 跳转到目标页面（如果有 redirect 参数）或首页
-    const redirect = route.query.redirect || '/'
-    router.push(redirect)
+    const redirect = route.query.redirect || "/";
+    router.push(redirect);
   } catch {
     // 错误已在 Axios 拦截器中统一处理
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 </script>

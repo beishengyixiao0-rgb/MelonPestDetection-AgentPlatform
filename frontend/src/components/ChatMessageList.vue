@@ -6,14 +6,16 @@
       <h1>Plant Disease Diagnosis</h1>
 
       <p class="welcome-desc">
-        Upload a photo, batch images, a video or use the camera<br>
+        Upload a photo, batch images, a video or use the camera<br />
         to get instant AI diagnosis and treatment recommendations.
       </p>
 
       <div class="suggestions-grid">
         <div
           class="suggestion-card"
-          @click="$emit('use-suggestion', 'What disease is affecting my tomato leaf?')"
+          @click="
+            $emit('use-suggestion', 'What disease is affecting my tomato leaf?')
+          "
         >
           What disease is affecting my tomato leaf?
         </div>
@@ -27,19 +29,22 @@
 
         <div
           class="suggestion-card"
-          @click="$emit('use-suggestion', 'Why are my pepper leaves turning yellow?')"
+          @click="
+            $emit('use-suggestion', 'Why are my pepper leaves turning yellow?')
+          "
         >
           Why are my pepper leaves turning yellow?
         </div>
 
         <div
           class="suggestion-card"
-          @click="$emit('use-suggestion', 'Identify disease in my strawberry plant.')"
+          @click="
+            $emit('use-suggestion', 'Identify disease in my strawberry plant.')
+          "
         >
           Identify disease in my strawberry plant.
         </div>
       </div>
-
     </div>
 
     <div v-else class="chat-messages">
@@ -49,15 +54,27 @@
         :class="['message-row', item.role]"
       >
         <div class="message-avatar">
-          {{ item.role === 'assistant' ? '🌿' : 'You' }}
+          {{ item.role === "assistant" ? "🌿" : "You" }}
         </div>
 
-        <div v-if="item.type === 'image' || item.imagePreview" class="image-message">
-          <img :src="item.imageUrl || item.imagePreview" class="chat-image" alt="uploaded image" />
-          <div v-if="item.content" class="media-caption">{{ item.content }}</div>
+        <div
+          v-if="item.type === 'image' || item.imagePreview"
+          class="image-message"
+        >
+          <img
+            :src="item.imageUrl || item.imagePreview"
+            class="chat-image"
+            alt="uploaded image"
+          />
+          <div v-if="item.content" class="media-caption">
+            {{ item.content }}
+          </div>
         </div>
 
-        <div v-else-if="item.images?.length" class="image-message batch-message">
+        <div
+          v-else-if="item.images?.length"
+          class="image-message batch-message"
+        >
           <div class="batch-grid">
             <img
               v-for="(image, imageIndex) in item.images"
@@ -72,7 +89,9 @@
 
         <div v-else-if="item.type === 'video'" class="video-message">
           <video :src="item.videoUrl" class="chat-video" controls playsinline />
-          <div v-if="item.content" class="media-caption">{{ item.content }}</div>
+          <div v-if="item.content" class="media-caption">
+            {{ item.content }}
+          </div>
         </div>
 
         <RealtimeDetectionCard
@@ -86,7 +105,11 @@
           :item="item"
         />
 
-        <div v-else class="message-bubble" :class="{ loading: item.loading, error: item.error }">
+        <div
+          v-else
+          class="message-bubble"
+          :class="{ loading: item.loading, error: item.error }"
+        >
           <span v-if="item.loading" class="loading-dot" />
           {{ item.content }}
         </div>
@@ -97,29 +120,29 @@
 </template>
 
 <script setup>
-import DiagnosisCard from '@/components/DiagnosisCard.vue'
-import RealtimeDetectionCard from '@/components/RealtimeDetectionCard.vue'
-import { ref } from 'vue'
+import DiagnosisCard from "@/components/DiagnosisCard.vue";
+import RealtimeDetectionCard from "@/components/RealtimeDetectionCard.vue";
+import { ref } from "vue";
 
 const props = defineProps({
   messages: {
     type: Array,
     default: () => [],
   },
-})
+});
 
-defineEmits(['use-suggestion', 'realtime-finished'])
+defineEmits(["use-suggestion", "realtime-finished"]);
 
-const messageEndRef = ref(null)
+const messageEndRef = ref(null);
 
 const scrollToBottom = () => {
   messageEndRef.value?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'end',
-  })
-}
+    behavior: "smooth",
+    block: "end",
+  });
+};
 
-defineExpose({ scrollToBottom })
+defineExpose({ scrollToBottom });
 </script>
 
 <style scoped>
@@ -264,7 +287,10 @@ defineExpose({ scrollToBottom })
 }
 
 @keyframes pulse {
-  to { opacity: 0.25; transform: scale(0.75); }
+  to {
+    opacity: 0.25;
+    transform: scale(0.75);
+  }
 }
 
 .image-message,

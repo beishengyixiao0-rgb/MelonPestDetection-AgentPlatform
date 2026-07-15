@@ -2,7 +2,9 @@
   <div class="diagnosis-card">
     <div class="diagnosis-header">
       <div>
-        <div class="diagnosis-label">{{ hasApiResult ? 'YOLO检测结果' : 'Detected Disease' }}</div>
+        <div class="diagnosis-label">
+          {{ hasApiResult ? "YOLO检测结果" : "Detected Disease" }}
+        </div>
         <h3>{{ diseaseName }}</h3>
         <p>{{ plantName }}</p>
       </div>
@@ -33,7 +35,9 @@
 
     <div v-if="isCameraResult" class="camera-summary">
       <el-tag type="info">持续：{{ resultData.duration_seconds ?? 0 }}s</el-tag>
-      <el-tag type="info">处理帧：{{ resultData.processed_frames ?? 0 }}</el-tag>
+      <el-tag type="info"
+        >处理帧：{{ resultData.processed_frames ?? 0 }}</el-tag
+      >
       <el-tag type="info">平均 FPS：{{ resultData.average_fps ?? 0 }}</el-tag>
       <el-tag type="success">
         累计检测：{{ resultData.total_detection_occurrences ?? 0 }} 次
@@ -47,19 +51,20 @@
       </div>
 
       <div class="progress-bar">
-        <div
-          class="progress-fill"
-          :style="{ width: confidence + '%' }"
-        />
+        <div class="progress-fill" :style="{ width: confidence + '%' }" />
       </div>
     </div>
 
     <!-- 视频检测结果：优先播放标注视频，缺失时展示关键帧 -->
     <div v-if="isVideoResult" class="video-result">
       <div class="video-info">
-        <el-tag type="info">时长：{{ resultData.duration_seconds ?? 0 }}s</el-tag>
+        <el-tag type="info"
+          >时长：{{ resultData.duration_seconds ?? 0 }}s</el-tag
+        >
         <el-tag type="info">FPS：{{ resultData.fps ?? 0 }}</el-tag>
-        <el-tag type="info">采样帧：{{ resultData.processed_frames ?? 0 }}</el-tag>
+        <el-tag type="info"
+          >采样帧：{{ resultData.processed_frames ?? 0 }}</el-tag
+        >
         <el-tag type="success">目标：{{ totalObjects }}</el-tag>
       </div>
 
@@ -92,7 +97,12 @@
 
             <span class="frame-info">
               <span>{{ frame.timestamp ?? 0 }}s</span>
-              <span>{{ frame.object_count ?? frame.detections?.length ?? 0 }} 个目标</span>
+              <span
+                >{{
+                  frame.object_count ?? frame.detections?.length ?? 0
+                }}
+                个目标</span
+              >
             </span>
           </button>
         </div>
@@ -121,7 +131,10 @@
     </div>
 
     <!-- 批量检测：逐张展示后端返回的标注图片 -->
-    <div v-if="isBatchResult && batchImages.length" class="batch-results-section">
+    <div
+      v-if="isBatchResult && batchImages.length"
+      class="batch-results-section"
+    >
       <div class="section-title">逐图检测结果（{{ batchImages.length }}）</div>
       <div class="batch-results-grid">
         <button
@@ -135,13 +148,18 @@
           <span class="batch-result-info">
             <strong :title="image.name">{{ image.name }}</strong>
             <span>{{ image.objectCount }} 个目标</span>
-            <span v-if="image.inferenceTime !== null">{{ image.inferenceTime }} ms</span>
+            <span v-if="image.inferenceTime !== null"
+              >{{ image.inferenceTime }} ms</span
+            >
           </span>
         </button>
       </div>
     </div>
 
-    <div v-if="annotatedImage && !isBatchResult" class="diagnosis-image-section">
+    <div
+      v-if="annotatedImage && !isBatchResult"
+      class="diagnosis-image-section"
+    >
       <img
         :src="annotatedImage"
         class="diagnosis-image"
@@ -156,7 +174,11 @@
     <div v-if="classCountItems.length && !isVideoResult" class="class-summary">
       <div class="section-title">类别统计</div>
       <div class="class-tags">
-        <span v-for="item in classCountItems" :key="item.name" class="class-tag">
+        <span
+          v-for="item in classCountItems"
+          :key="item.name"
+          class="class-tag"
+        >
           {{ item.name }} <strong>{{ item.count }}</strong>
         </span>
       </div>
@@ -164,7 +186,11 @@
 
     <div v-if="detections.length" class="detection-list">
       <div class="section-title">检测目标（{{ totalObjects }}）</div>
-      <div v-for="(detection, index) in detections" :key="index" class="detection-item">
+      <div
+        v-for="(detection, index) in detections"
+        :key="index"
+        class="detection-item"
+      >
         <div class="detection-main">
           <span class="detection-index">#{{ index + 1 }}</span>
           <span>{{ getDetectionName(detection, index) }}</span>
@@ -181,7 +207,11 @@
 
     <details v-if="hasBoundingBoxes" class="technical-details">
       <summary>查看检测框坐标</summary>
-      <div v-for="(detection, index) in detections" :key="index" class="bbox-row">
+      <div
+        v-for="(detection, index) in detections"
+        :key="index"
+        class="bbox-row"
+      >
         <span>#{{ index + 1 }} {{ getDetectionName(detection, index) }}</span>
         <code>{{ formatBoundingBox(detection.bbox) }}</code>
       </div>
@@ -198,8 +228,12 @@
     </div>
 
     <div v-if="hasApiResult" class="result-meta">
-      <span v-if="resultData.task_uuid">模型任务：{{ resultData.task_uuid }}</span>
-      <span v-if="resultData.filename">输入文件：{{ resultData.filename }}</span>
+      <span v-if="resultData.task_uuid"
+        >模型任务：{{ resultData.task_uuid }}</span
+      >
+      <span v-if="resultData.filename"
+        >输入文件：{{ resultData.filename }}</span
+      >
     </div>
 
     <div
@@ -210,237 +244,302 @@
       :aria-label="previewImageTitle || '检测图片预览'"
       @click.self="closeVideoFramePreview"
     >
-      <button type="button" class="preview-close" @click="closeVideoFramePreview">×</button>
+      <button
+        type="button"
+        class="preview-close"
+        @click="closeVideoFramePreview"
+      >
+        ×
+      </button>
       <div class="preview-content">
-        <img :src="previewFrameUrl" :alt="previewImageTitle || '检测图片预览'" />
-        <div v-if="previewImageTitle" class="preview-title">{{ previewImageTitle }}</div>
+        <img
+          :src="previewFrameUrl"
+          :alt="previewImageTitle || '检测图片预览'"
+        />
+        <div v-if="previewImageTitle" class="preview-title">
+          {{ previewImageTitle }}
+        </div>
       </div>
     </div>
-
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref } from "vue";
 
 const props = defineProps({
   item: {
     type: Object,
     required: true,
   },
-})
+});
 
-const apiResult = computed(() => props.item.detectionResult || null)
-const hasApiResult = computed(() => Boolean(apiResult.value))
-const resultData = computed(() => apiResult.value?.data || apiResult.value || {})
-const isVideoResult = computed(() => resultData.value.type === 'video')
-const isCameraResult = computed(() => resultData.value.type === 'camera')
-const isBatchResult = computed(() => (
-  Array.isArray(resultData.value.annotated_images)
-  || resultData.value.total_images > 1
-  || resultData.value.source === 'zip'
-))
+const apiResult = computed(() => props.item.detectionResult || null);
+const hasApiResult = computed(() => Boolean(apiResult.value));
+const resultData = computed(
+  () => apiResult.value?.data || apiResult.value || {},
+);
+const isVideoResult = computed(() => resultData.value.type === "video");
+const isCameraResult = computed(() => resultData.value.type === "camera");
+const isBatchResult = computed(
+  () =>
+    Array.isArray(resultData.value.annotated_images) ||
+    resultData.value.total_images > 1 ||
+    resultData.value.source === "zip",
+);
 
 const detections = computed(() => {
-  const result = resultData.value
-  const direct = result.detections || result.predictions || result.objects
-  if (Array.isArray(direct)) return direct
+  const result = resultData.value;
+  const direct = result.detections || result.predictions || result.objects;
+  if (Array.isArray(direct)) return direct;
 
   if (Array.isArray(result.results)) {
-    return result.results.flatMap((entry) => (
+    return result.results.flatMap((entry) =>
       Array.isArray(entry?.detections)
-        ? entry.detections.map((detection) => ({ ...detection, filename: entry.filename || entry.file_name }))
-        : [entry]
-    ))
+        ? entry.detections.map((detection) => ({
+            ...detection,
+            filename: entry.filename || entry.file_name,
+          }))
+        : [entry],
+    );
   }
 
-  return []
-})
+  return [];
+});
 
-const totalObjects = computed(() => (
-  resultData.value.total_objects ?? detections.value.length
-))
+const totalObjects = computed(
+  () => resultData.value.total_objects ?? detections.value.length,
+);
 
 const classCountItems = computed(() => {
-  const counts = resultData.value.class_counts
-  if (counts && typeof counts === 'object') {
-    return Object.entries(counts).map(([name, count]) => ({ name, count }))
+  const counts = resultData.value.class_counts;
+  if (counts && typeof counts === "object") {
+    return Object.entries(counts).map(([name, count]) => ({ name, count }));
   }
 
   const derivedCounts = detections.value.reduce((result, detection, index) => {
-    const name = getDetectionName(detection, index)
-    result[name] = (result[name] || 0) + 1
-    return result
-  }, {})
-  return Object.entries(derivedCounts).map(([name, count]) => ({ name, count }))
-})
-const classCountsArray = computed(() => classCountItems.value.map((item) => ({
-  className: item.name,
-  count: item.count,
-})))
+    const name = getDetectionName(detection, index);
+    result[name] = (result[name] || 0) + 1;
+    return result;
+  }, {});
+  return Object.entries(derivedCounts).map(([name, count]) => ({
+    name,
+    count,
+  }));
+});
+const classCountsArray = computed(() =>
+  classCountItems.value.map((item) => ({
+    className: item.name,
+    count: item.count,
+  })),
+);
 
-const categoryCount = computed(() => classCountItems.value.length)
-const inferenceTime = computed(() => (
-  (resultData.value.inference_time ?? resultData.value.total_inference_time) != null
+const categoryCount = computed(() => classCountItems.value.length);
+const inferenceTime = computed(() =>
+  (resultData.value.inference_time ?? resultData.value.total_inference_time) !=
+  null
     ? `${Number(resultData.value.inference_time ?? resultData.value.total_inference_time).toFixed(1)} ms`
-    : '-'
-))
-const hasBoundingBoxes = computed(() => detections.value.some((item) => Array.isArray(item.bbox)))
+    : "-",
+);
+const hasBoundingBoxes = computed(() =>
+  detections.value.some((item) => Array.isArray(item.bbox)),
+);
 
-const firstDetection = computed(() => detections.value[0] || {})
-const diseaseName = computed(() => (
-  props.item.disease
-  || firstDetection.value.class_name
-  || firstDetection.value.disease_name
-  || firstDetection.value.label
-  || (hasApiResult.value ? `检测完成，共 ${totalObjects.value} 个目标` : '未知病害')
-))
-const plantName = computed(() => (
-  props.item.plant
-  || resultData.value.plant
-  || resultData.value.crop
-  || (hasApiResult.value ? resultData.value.filename : props.item.content)
-  || ''
-))
-const severity = computed(() => props.item.severity || resultData.value.severity || '')
+const firstDetection = computed(() => detections.value[0] || {});
+const diseaseName = computed(
+  () =>
+    props.item.disease ||
+    firstDetection.value.class_name ||
+    firstDetection.value.disease_name ||
+    firstDetection.value.label ||
+    (hasApiResult.value
+      ? `检测完成，共 ${totalObjects.value} 个目标`
+      : "未知病害"),
+);
+const plantName = computed(
+  () =>
+    props.item.plant ||
+    resultData.value.plant ||
+    resultData.value.crop ||
+    (hasApiResult.value ? resultData.value.filename : props.item.content) ||
+    "",
+);
+const severity = computed(
+  () => props.item.severity || resultData.value.severity || "",
+);
 
 const toPercent = (value) => {
-  const number = Number(value)
-  if (!Number.isFinite(number)) return null
-  return Math.round((number <= 1 ? number * 100 : number) * 10) / 10
-}
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  return Math.round((number <= 1 ? number * 100 : number) * 10) / 10;
+};
 
-const confidence = computed(() => toPercent(
-  props.item.confidence
-  ?? firstDetection.value.confidence
-  ?? firstDetection.value.conf
-  ?? resultData.value.confidence,
-))
+const confidence = computed(() =>
+  toPercent(
+    props.item.confidence ??
+      firstDetection.value.confidence ??
+      firstDetection.value.conf ??
+      resultData.value.confidence,
+  ),
+);
 
-const annotatedImage = computed(() => (
-  props.item.annotatedImage
-  || resultData.value.annotated_image_url
-  || resultData.value.result_image_url
-  || resultData.value.image_url
-  || (resultData.value.annotated_image
-    ? `data:image/jpeg;base64,${resultData.value.annotated_image}`
-    : '')
-  || ''
-))
-const description = computed(() => props.item.description || (hasApiResult.value ? props.item.content : ''))
-const treatments = computed(() => props.item.treatments || resultData.value.treatments || resultData.value.suggestions || [])
-const annotatedVideoUrl = computed(() => (
-  resultData.value.annotated_video_url
-  || resultData.value.result_video_url
-  || resultData.value.video_url
-  || ''
-))
-const videoFrames = computed(() => (
+const annotatedImage = computed(
+  () =>
+    props.item.annotatedImage ||
+    resultData.value.annotated_image_url ||
+    resultData.value.result_image_url ||
+    resultData.value.image_url ||
+    (resultData.value.annotated_image
+      ? `data:image/jpeg;base64,${resultData.value.annotated_image}`
+      : "") ||
+    "",
+);
+const description = computed(
+  () =>
+    props.item.description || (hasApiResult.value ? props.item.content : ""),
+);
+const treatments = computed(
+  () =>
+    props.item.treatments ||
+    resultData.value.treatments ||
+    resultData.value.suggestions ||
+    [],
+);
+const annotatedVideoUrl = computed(
+  () =>
+    resultData.value.annotated_video_url ||
+    resultData.value.result_video_url ||
+    resultData.value.video_url ||
+    "",
+);
+const videoFrames = computed(() =>
   Array.isArray(resultData.value.key_frames)
     ? resultData.value.key_frames
     : Array.isArray(resultData.value.frames)
       ? resultData.value.frames
-      : []
-))
-const thumbnailFrames = computed(() => videoFrames.value.slice(0, 12))
-const previewFrameUrl = ref('')
-const previewImageTitle = ref('')
+      : [],
+);
+const thumbnailFrames = computed(() => videoFrames.value.slice(0, 12));
+const previewFrameUrl = ref("");
+const previewImageTitle = ref("");
 
-const getBaseName = (path = '') => String(path).split(/[\\/]/).pop() || ''
+const getBaseName = (path = "") => String(path).split(/[\\/]/).pop() || "";
 
 const getAnnotatedImageSource = (image = {}) => {
-  const source = image.annotated_image_url
-    || image.result_image_url
-    || image.image_url
-    || image.annotated_image_base64
-    || image.annotated_image
-    || image.image_base64
-    || ''
+  const source =
+    image.annotated_image_url ||
+    image.result_image_url ||
+    image.image_url ||
+    image.annotated_image_base64 ||
+    image.annotated_image ||
+    image.image_base64 ||
+    "";
 
-  if (!source || source.startsWith('data:') || source.startsWith('http') || source.startsWith('/')) {
-    return source
+  if (
+    !source ||
+    source.startsWith("data:") ||
+    source.startsWith("http") ||
+    source.startsWith("/")
+  ) {
+    return source;
   }
 
-  return `data:image/jpeg;base64,${source}`
-}
+  return `data:image/jpeg;base64,${source}`;
+};
 
 const batchImages = computed(() => {
   const images = Array.isArray(resultData.value.annotated_images)
     ? resultData.value.annotated_images
-    : []
+    : [];
 
-  return images.map((image, index) => {
-    const backendName = image.image_path || image.filename || image.file_name || ''
-    const name = image.original_filename || backendName || `图片 ${index + 1}`
-    const imageDetections = detections.value.filter((detection) => {
-      const detectionName = detection.image_path || detection.filename || detection.file_name || ''
-      return getBaseName(detectionName) === getBaseName(backendName)
+  return images
+    .map((image, index) => {
+      const backendName =
+        image.image_path || image.filename || image.file_name || "";
+      const name =
+        image.original_filename || backendName || `图片 ${index + 1}`;
+      const imageDetections = detections.value.filter((detection) => {
+        const detectionName =
+          detection.image_path ||
+          detection.filename ||
+          detection.file_name ||
+          "";
+        return getBaseName(detectionName) === getBaseName(backendName);
+      });
+      const perImageInference =
+        image.inference_time ?? imageDetections[0]?.inference_time ?? null;
+
+      return {
+        name: getBaseName(name) || `图片 ${index + 1}`,
+        src: getAnnotatedImageSource(image),
+        objectCount:
+          image.object_count ?? image.total_objects ?? imageDetections.length,
+        inferenceTime:
+          perImageInference == null
+            ? null
+            : Number(perImageInference).toFixed(1),
+      };
     })
-    const perImageInference = image.inference_time
-      ?? imageDetections[0]?.inference_time
-      ?? null
-
-    return {
-      name: getBaseName(name) || `图片 ${index + 1}`,
-      src: getAnnotatedImageSource(image),
-      objectCount: image.object_count ?? image.total_objects ?? imageDetections.length,
-      inferenceTime: perImageInference == null ? null : Number(perImageInference).toFixed(1),
-    }
-  }).filter((image) => image.src)
-})
+    .filter((image) => image.src);
+});
 
 const getVideoFrameImage = (frame) => {
-  const source = frame.annotated_image_base64
-    || frame.image_base64
-    || frame.annotated_image_url
-    || frame.image_url
-    || ''
+  const source =
+    frame.annotated_image_base64 ||
+    frame.image_base64 ||
+    frame.annotated_image_url ||
+    frame.image_url ||
+    "";
 
-  if (!source || source.startsWith('data:') || source.startsWith('http') || source.startsWith('/')) {
-    return source
+  if (
+    !source ||
+    source.startsWith("data:") ||
+    source.startsWith("http") ||
+    source.startsWith("/")
+  ) {
+    return source;
   }
 
-  return `data:image/jpeg;base64,${source}`
-}
+  return `data:image/jpeg;base64,${source}`;
+};
 
 const previewVideoFrame = (frame) => {
-  previewFrameUrl.value = getVideoFrameImage(frame)
-  previewImageTitle.value = `关键帧 ${frame.frame_index ?? ''}`.trim()
-}
+  previewFrameUrl.value = getVideoFrameImage(frame);
+  previewImageTitle.value = `关键帧 ${frame.frame_index ?? ""}`.trim();
+};
 
 const previewBatchImage = (image) => {
-  previewFrameUrl.value = image.src
-  previewImageTitle.value = image.name
-}
+  previewFrameUrl.value = image.src;
+  previewImageTitle.value = image.name;
+};
 
 const closeVideoFramePreview = () => {
-  previewFrameUrl.value = ''
-  previewImageTitle.value = ''
-}
+  previewFrameUrl.value = "";
+  previewImageTitle.value = "";
+};
 
-const getDetectionName = (detection, index) => (
-  detection.class_name
-  || detection.disease_name
-  || detection.label
-  || detection.name
-  || detection.filename
-  || `目标 ${index + 1}`
-)
+const getDetectionName = (detection, index) =>
+  detection.class_name ||
+  detection.disease_name ||
+  detection.label ||
+  detection.name ||
+  detection.filename ||
+  `目标 ${index + 1}`;
 
-const getDetectionConfidence = (detection) => toPercent(detection.confidence ?? detection.conf)
+const getDetectionConfidence = (detection) =>
+  toPercent(detection.confidence ?? detection.conf);
 
 const getConfidenceLevel = (detection) => {
-  const value = getDetectionConfidence(detection)
-  if (value >= 90) return 'high'
-  if (value >= 70) return 'medium'
-  return 'low'
-}
+  const value = getDetectionConfidence(detection);
+  if (value >= 90) return "high";
+  if (value >= 70) return "medium";
+  return "low";
+};
 
-const formatBoundingBox = (bbox) => (
+const formatBoundingBox = (bbox) =>
   Array.isArray(bbox)
-    ? `[${bbox.map((value) => Number(value).toFixed(0)).join(', ')}]`
-    : '-'
-)
+    ? `[${bbox.map((value) => Number(value).toFixed(0)).join(", ")}]`
+    : "-";
 </script>
 
 <style scoped>
@@ -452,7 +551,7 @@ const formatBoundingBox = (bbox) => (
   border: 1px solid #e5e7eb;
   border-radius: 20px;
   padding: 20px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
 }
 
 .diagnosis-header {
@@ -690,7 +789,9 @@ const formatBoundingBox = (bbox) => (
   background: white;
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .batch-result-card:hover {

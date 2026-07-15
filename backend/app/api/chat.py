@@ -67,7 +67,8 @@ async def chat_stream(
     请求体：
     {
         "message": "检测这张图片",
-        "image_path": "/tmp/uploads/xxx.jpg",  // 可选，快捷按钮传入
+        "image_path": "/tmp/uploads/xxx.jpg",  // 单附件（图片或 ZIP）
+        "image_paths": ["/tmp/uploads/a.jpg", "/tmp/uploads/b.jpg"],  // 多图附件
         "session_id": 123                        // 可选，会话 ID
     }
 
@@ -77,18 +78,26 @@ async def chat_stream(
     body = await request.json()
     message = body.get("message", "")
     image_path = body.get("image_path")
+    image_paths = body.get("image_paths")
     session_id = body.get("session_id")
 
     if not message:
         raise HTTPException(status_code=400, detail="消息内容不能为空")
     if image_path and not str(image_path).startswith(UPLOAD_DIR):
         raise HTTPException(status_code=400, detail="图片路径无效")
+    if image_paths is not None:
+        if not isinstance(image_paths, list) or not image_paths:
+            raise HTTPException(status_code=400, detail="图片路径列表无效")
+        if image_path:
+            raise HTTPException(status_code=400, detail="不能同时传入 image_path 和 image_paths")
+        if any(not isinstance(path, str) or not path.startswith(UPLOAD_DIR) for path in image_paths):
+            raise HTTPException(status_code=400, detail="图片路径无效")
 
     logger.info(
         "用户 %s 发起对话: message=%s, image=%s",
         current_user.username,
         message[:50],
-        "有" if image_path else "无",
+        "多图" if image_paths else ("有" if image_path else "无"),
     )
     # StreamingResponse 开始执行时，鉴权依赖的数据库 Session 可能已关闭。
     user_id = current_user.id
@@ -100,6 +109,7 @@ async def chat_stream(
             async for event in detection_agent.chat_stream(
                 message=message,
                 image_path=image_path,
+                image_paths=image_paths,
                 user_id=user_id,
                 scene_id=body.get("scene_id"),
             ):

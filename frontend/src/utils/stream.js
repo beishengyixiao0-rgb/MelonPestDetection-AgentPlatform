@@ -37,15 +37,11 @@
  * @returns {Function} stop
  */
 export function streamChat(url, body, callbacks = {}) {
-  const {
-    onMessage,
-    onDone,
-    onError,
-  } = callbacks
+  const { onMessage, onDone, onError } = callbacks;
 
-  const token = localStorage.getItem("rsod_token")
+  const token = localStorage.getItem("rsod_token");
 
-  const controller = new AbortController()
+  const controller = new AbortController();
 
   fetch(url, {
     method: "POST",
@@ -62,61 +58,56 @@ export function streamChat(url, body, callbacks = {}) {
   })
     .then(async (response) => {
       if (!response.ok) {
-        throw new Error(
-          `HTTP ${response.status}: ${response.statusText}`,
-        )
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder("utf-8")
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
 
       // SSE 缓冲区
-      let buffer = ""
+      let buffer = "";
 
       while (true) {
-        const { done, value } = await reader.read()
+        const { done, value } = await reader.read();
 
         if (done) {
           if (buffer.trim()) {
-            processSSEMessage(buffer, onMessage)
+            processSSEMessage(buffer, onMessage);
           }
 
-          onDone?.()
-          break
+          onDone?.();
+          break;
         }
 
         buffer += decoder.decode(value, {
           stream: true,
-        })
+        });
 
         // SSE 消息以空行分隔
-        const messages = buffer.split("\n\n")
+        const messages = buffer.split("\n\n");
 
         // 最后一段可能不完整
-        buffer = messages.pop() || ""
+        buffer = messages.pop() || "";
 
         for (const message of messages) {
-          if (!message.trim()) continue
+          if (!message.trim()) continue;
 
-          const shouldStop = processSSEMessage(
-            message,
-            onMessage,
-          )
+          const shouldStop = processSSEMessage(message, onMessage);
 
           if (shouldStop) {
-            onDone?.()
-            return
+            onDone?.();
+            return;
           }
         }
       }
     })
     .catch((err) => {
       if (err.name !== "AbortError") {
-        onError?.(err)
+        onError?.(err);
       }
-    })
+    });
 
-  return () => controller.abort()
+  return () => controller.abort();
 }
 
 /**
@@ -128,35 +119,32 @@ export function streamChat(url, body, callbacks = {}) {
  * @returns {boolean}
  */
 function processSSEMessage(message, onMessage) {
-  const lines = message.split("\n")
+  const lines = message.split("\n");
 
   for (const line of lines) {
     if (!line.startsWith("data: ")) {
-      continue
+      continue;
     }
 
-    const data = line.slice(6)
+    const data = line.slice(6);
 
     if (data === "[DONE]") {
-      return true
+      return true;
     }
 
     try {
-      const parsed = JSON.parse(data)
+      const parsed = JSON.parse(data);
 
-      onMessage?.(parsed)
+      onMessage?.(parsed);
     } catch {
-      console.warn(
-        "[SSE] JSON parse failed:",
-        data.length,
-      )
+      console.warn("[SSE] JSON parse failed:", data.length);
 
       onMessage?.({
         type: "text_chunk",
         content: data,
-      })
+      });
     }
   }
 
-  return false
+  return false;
 }

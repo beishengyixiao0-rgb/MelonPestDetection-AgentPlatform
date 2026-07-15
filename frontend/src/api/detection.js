@@ -59,7 +59,6 @@ export function getDetectionStatus(taskId) {
   return request.get(`/detection/status/${taskId}`);
 }
 
-
 /**
  * 视频检测
  * @param {FormData} formData - 包含视频文件的 FormData

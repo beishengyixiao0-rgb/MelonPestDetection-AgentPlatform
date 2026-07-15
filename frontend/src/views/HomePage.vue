@@ -1,9 +1,7 @@
 <template>
   <div class="home-page">
     <header class="navbar">
-      <div class="logo">
-        🌿 <span>AgriAgent</span>
-      </div>
+      <div class="logo">🌿 <span>AgriAgent</span></div>
 
       <div class="nav-actions">
         <div class="nav-links">
@@ -13,11 +11,15 @@
           <button @click="go('/training')">Training</button>
         </div>
 
-        <div class="user-menu" @mouseenter="showUserMenu = true" @mouseleave="showUserMenu = false">
+        <div
+          class="user-menu"
+          @mouseenter="showUserMenu = true"
+          @mouseleave="showUserMenu = false"
+        >
           <button class="user-trigger" @click="toggleUserMenu">
             <span class="avatar">{{ userInitial }}</span>
             <span class="user-meta">
-              <strong>{{ userStore.username || 'User' }}</strong>
+              <strong>{{ userStore.username || "User" }}</strong>
               <small>{{ roleLabel }}</small>
             </span>
           </button>
@@ -26,7 +28,9 @@
             <div class="dropdown-header">
               <div class="avatar large">{{ userInitial }}</div>
               <div>
-                <div class="dropdown-name">{{ userStore.username || 'User' }}</div>
+                <div class="dropdown-name">
+                  {{ userStore.username || "User" }}
+                </div>
                 <div class="dropdown-role">{{ roleLabel }}</div>
               </div>
             </div>
@@ -34,7 +38,7 @@
             <div class="dropdown-body">
               <div class="info-row">
                 <span>邮箱</span>
-                <strong>{{ userStore.user?.email || '—' }}</strong>
+                <strong>{{ userStore.user?.email || "—" }}</strong>
               </div>
               <div class="info-row">
                 <span>角色</span>
@@ -68,12 +72,20 @@
             placeholder="描述作物问题、上传图片，或直接告诉我您想分析什么……"
             @keydown.enter.exact.prevent="startConversation"
           />
-          <button class="prompt-submit" type="submit" :disabled="!prompt.trim()" aria-label="Send to AgriAgent">
+          <button
+            class="prompt-submit"
+            type="submit"
+            :disabled="!prompt.trim()"
+            aria-label="Send to AgriAgent"
+          >
             ➤
           </button>
         </form>
 
-        <p class="prompt-hint">Press Enter to start a conversation · Add images after entering AI Agent</p>
+        <p class="prompt-hint">
+          Press Enter to start a conversation · Add images after entering AI
+          Agent
+        </p>
 
         <div class="suggestion-list" aria-label="Suggested questions">
           <button
@@ -91,28 +103,41 @@
         <div class="section-heading">
           <div>
             <span class="section-kicker">Workspace</span>
-            <h2 id="workspace-title">Manage and review your AgriAgent system</h2>
+            <h2 id="workspace-title">
+              Manage and review your AgriAgent system
+            </h2>
           </div>
-          <button class="history-btn" @click="go('/history')">View Detection History →</button>
+          <button class="history-btn" @click="go('/history')">
+            View Detection History →
+          </button>
         </div>
 
         <div class="card-grid">
           <div class="entry-card" @click="go('/ai-chat')">
             <div class="icon">🤖</div>
             <h3>AI Agent</h3>
-            <p>Continue a conversation, upload plant images, or run a quick diagnosis.</p>
+            <p>
+              Continue a conversation, upload plant images, or run a quick
+              diagnosis.
+            </p>
           </div>
 
           <div class="entry-card" @click="go('/data-analysis')">
             <div class="icon">📊</div>
             <h3>Data Analytics</h3>
-            <p>Explore disease patterns, detection trends, and model performance metrics.</p>
+            <p>
+              Explore disease patterns, detection trends, and model performance
+              metrics.
+            </p>
           </div>
 
           <div class="entry-card" @click="go('/training')">
             <div class="icon">🧠</div>
             <h3>Training Records</h3>
-            <p>Review imported models, training records, evaluation metrics, and test predictions.</p>
+            <p>
+              Review imported models, training records, evaluation metrics, and
+              test predictions.
+            </p>
           </div>
         </div>
       </section>
@@ -125,57 +150,61 @@
       </div>
     </main>
 
-    <footer>
-      AgriAgent © 2026 — Smart Farming with Conversational AI
-    </footer>
+    <footer>AgriAgent © 2026 — Smart Farming with Conversational AI</footer>
   </div>
 </template>
 
 <script setup>
-import { useAgentStore } from '@/stores/agent'
-import { useUserStore } from '@/stores/user'
-import { ElMessage } from 'element-plus'
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useAgentStore } from "@/stores/agent";
+import { useUserStore } from "@/stores/user";
+import { ElMessage } from "element-plus";
+import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
 
-const router = useRouter()
-const userStore = useUserStore()
-const agentStore = useAgentStore()
+const router = useRouter();
+const userStore = useUserStore();
+const agentStore = useAgentStore();
 
-const roleLabel = computed(() => (userStore.isSuperuser ? 'Administrator' : 'User'))
-const userInitial = computed(() => (userStore.username || 'U').charAt(0).toUpperCase())
-const showUserMenu = ref(false)
-const prompt = ref('')
+const roleLabel = computed(() =>
+  userStore.isSuperuser ? "Administrator" : "User",
+);
+const userInitial = computed(() =>
+  (userStore.username || "U").charAt(0).toUpperCase(),
+);
+const showUserMenu = ref(false);
+const prompt = ref("");
 
 const suggestions = [
-  '帮我分析一张叶片图片',
-  '我有哪些可用的检测模型？',
-  '查看最近的检测结果',
-]
+  "帮我分析一张叶片图片",
+  "我有哪些可用的检测模型？",
+  "查看最近的检测结果",
+];
 
 const go = (path) => {
-  router.push(path)
-}
+  router.push(path);
+};
 
-const startConversation = (suggestion = '') => {
-  const content = (typeof suggestion === 'string' && suggestion ? suggestion : prompt.value).trim()
-  if (!content) return
+const startConversation = (suggestion = "") => {
+  const content = (
+    typeof suggestion === "string" && suggestion ? suggestion : prompt.value
+  ).trim();
+  if (!content) return;
 
-  agentStore.queueHomePrompt(content)
-  prompt.value = ''
-  router.push('/ai-chat')
-}
+  agentStore.queueHomePrompt(content);
+  prompt.value = "";
+  router.push("/ai-chat");
+};
 
 const toggleUserMenu = () => {
-  showUserMenu.value = !showUserMenu.value
-}
+  showUserMenu.value = !showUserMenu.value;
+};
 
 const handleLogout = () => {
-  userStore.logout()
-  showUserMenu.value = false
-  ElMessage.success('已退出登录')
-  router.push('/login')
-}
+  userStore.logout();
+  showUserMenu.value = false;
+  ElMessage.success("已退出登录");
+  router.push("/login");
+};
 </script>
 
 <style scoped>
@@ -268,7 +297,7 @@ const handleLogout = () => {
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
-  box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
   padding: 14px;
   z-index: 20;
 }
@@ -371,7 +400,7 @@ h1 span {
 
 .entry-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
 }
 
 .icon {
@@ -450,7 +479,9 @@ footer {
   border-radius: 22px;
   background: white;
   box-shadow: 0 18px 45px rgba(22, 101, 52, 0.1);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .prompt-box:focus-within {
@@ -492,7 +523,9 @@ footer {
   color: white;
   cursor: pointer;
   font-size: 18px;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .prompt-submit:hover:not(:disabled) {

@@ -60,3 +60,28 @@ def test_chat_stream_emits_done(client):
     assert response.status_code == 200
     assert "data: [DONE]" in response.text
     assert '"type": "text_chunk"' in response.text
+
+
+def test_chat_stream_passes_multiple_image_paths_to_agent(client, monkeypatch):
+    """Agent SSE 通道应保留所有多图附件路径，而不是只传第一张。"""
+    from app.agent.detection_agent import detection_agent
+    from app.api.chat import UPLOAD_DIR
+
+    headers = auth_headers(client, "day8_multi_image_user")
+    captured = {}
+
+    async def fake_chat_stream(**kwargs):
+        captured.update(kwargs)
+        yield {"type": "text_chunk", "content": "批量检测完成"}
+
+    monkeypatch.setattr(detection_agent, "chat_stream", fake_chat_stream)
+    image_paths = [f"{UPLOAD_DIR}/one.jpg", f"{UPLOAD_DIR}/two.jpg"]
+    response = client.post(
+        "/api/chat/stream",
+        headers=headers,
+        json={"message": "检测这些图片", "image_paths": image_paths},
+    )
+
+    assert response.status_code == 200
+    assert captured["image_paths"] == image_paths
+    assert captured["image_path"] is None

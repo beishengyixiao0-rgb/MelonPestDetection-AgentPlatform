@@ -51,9 +51,10 @@ class UserBrief(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    """登录成功响应"""
+    """登录成功响应（兼容OAuth2标准格式）"""
     access_token: str
     token_type: str = "bearer"
+    expires_in: int = 1800
     user: UserBrief
 
 
@@ -417,6 +418,51 @@ class ModelValidateResponse(BaseModel):
     per_class: dict
     model_version_id: Optional[int] = None
     model_version: Optional[str] = None
+
+
+class AnalyticsSummary(BaseModel):
+    """分析概览响应"""
+    total_detections: int
+    detection_change: float
+    diseases_identified: int
+    identification_rate: float
+    model_accuracy: float
+    accuracy_change: float
+    avg_confidence: float
+    data_updated_at: datetime
+
+
+class DiseaseDistributionItem(BaseModel):
+    """疾病分布项"""
+    class_name: str
+    class_name_cn: str
+    count: int
+    percentage: float
+
+
+class DetectionTrendItem(BaseModel):
+    """检测趋势项"""
+    month: str
+    detection_count: int
+    object_count: int
+
+
+class ModelPerformanceItem(BaseModel):
+    """模型性能项"""
+    model_version: str
+    precision: float
+    recall: float
+    f1_score: float
+    map50: float
+    created_at: datetime
+
+
+class TopDiseaseItem(BaseModel):
+    """热门疾病排行项"""
+    class_name: str
+    class_name_cn: str
+    count: int
+    change_rate: float
 
 
 # ══════════════════════════════════════════════════════════════
