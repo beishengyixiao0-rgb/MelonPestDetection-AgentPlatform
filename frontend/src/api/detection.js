@@ -3,7 +3,7 @@
  *
  * 快捷按钮直接调用这些接口（跳过 LLM），结果渲染在对话中
  */
-import request from '@/utils/request'
+import request from "@/utils/request";
 
 /**
  * 单图检测
@@ -12,7 +12,7 @@ import request from '@/utils/request'
  */
 export function detectSingle(formData) {
   // 不设置 Content-Type，让 axios 自动添加 multipart/form-data + boundary
-  return request.post('/detection/single', formData, { timeout: 60000 })
+  return request.post("/detection/single", formData, { timeout: 60000 });
 }
 
 /**
@@ -21,7 +21,7 @@ export function detectSingle(formData) {
  * @returns {Promise} - 批量检测结果
  */
 export function detectBatch(formData) {
-  return request.post('/detection/batch', formData, { timeout: 120000 })
+  return request.post("/detection/batch", formData, { timeout: 120000 });
 }
 
 /**
@@ -30,7 +30,7 @@ export function detectBatch(formData) {
  * @returns {Promise} - ZIP 解压后的批量检测结果
  */
 export function detectZip(formData) {
-  return request.post('/detection/zip', formData, { timeout: 180000 })
+  return request.post("/detection/zip", formData, { timeout: 180000 });
 }
 
 /**
@@ -39,5 +39,25 @@ export function detectZip(formData) {
  * @returns {Promise} - 任务状态和结果
  */
 export function getDetectionStatus(taskId) {
-  return request.get(`/detection/status/${taskId}`)
+  return request.get(`/detection/status/${taskId}`);
+}
+
+/**
+ * 视频检测
+ * @param {FormData} formData - 包含 file 字段的 FormData（视频文件）
+ * @returns {Promise} - { task_id, status, message }
+ */
+export function detectVideo(formData) {
+  return request.post("/detection/video", formData, {
+    timeout: 120000, // 视频上传可能较慢
+  });
+}
+
+/**
+ * 查询视频检测进度
+ * @param {number} taskId - 视频检测任务 ID
+ * @returns {Promise} - { status, progress, result, ... }
+ */
+export function getVideoStatus(taskId) {
+  return request.get(`/detection/video/status/${taskId}`);
 }

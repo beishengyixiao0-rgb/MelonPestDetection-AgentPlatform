@@ -8,13 +8,13 @@ from app.config.settings import settings
 from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
 from app.api.health import router as health_router
-
 from app.api.training import router as training_router
-
 from app.api.dataset import router as dataset_router
 from app.api.detection import router as detection_router
+from app.api.user import router as user_router
 from app.core.exceptions import register_exception_handlers
 from app.middleware.request_logger import RequestLogMiddleware
+from app.middleware.rate_limiter import RateLimiterMiddleware
 
 
 
@@ -32,11 +32,9 @@ def init_minio():
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """应用生命周期管理"""
-    # 启动时执行
     print("正在初始化服务...")
     init_minio()
     yield
-    # 关闭时执行（如果需要）
     print("服务已关闭")
 
 
@@ -58,14 +56,14 @@ def custom_openapi():
         return app.openapi_schema
     openapi_schema = original_openapi()
     openapi_schema["components"]["securitySchemes"] = {
-        "Bearer": {
-            "type": "http",
-            "scheme": "bearer",
-            "bearerFormat": "JWT",
-            "description": "使用登录后生成的 JWT Token 进行验证，格式：Bearer <your_access_token>",
+        "BearerAuth": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "Authorization",
+            "description": "请输入完整的Authorization头，格式: Bearer <token>",
         }
     }
-    openapi_schema["security"] = [{"Bearer": []}]
+    openapi_schema["security"] = [{"BearerAuth": []}]
     app.openapi_schema = openapi_schema
     return openapi_schema
 
@@ -79,7 +77,13 @@ register_exception_handlers(app)
 
 # ── 注册中间件（注意顺序）──────────────────────────────
 # 中间件执行顺序：后添加的先执行（洋葱模型）
-# 1. CORS 中间件（最先执行，处理跨域）
+# 1. 速率限制中间件
+app.add_middleware(RateLimiterMiddleware)
+
+# 2. 请求日志中间件
+app.add_middleware(RequestLogMiddleware)
+
+# 3. CORS 中间件必须最后注册，使限流的 429 响应也带上跨域响应头。
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -89,19 +93,14 @@ app.add_middleware(
 )
 
 
-# 2. 请求日志中间件（在 CORS 之后执行）
-app.add_middleware(RequestLogMiddleware)
-
-
 # 注册路由
 app.include_router(auth_router)
 app.include_router(chat_router)
-
 app.include_router(health_router)
 app.include_router(dataset_router)
 app.include_router(detection_router)
-
 app.include_router(training_router)
+app.include_router(user_router)
 
 
 @app.get("/")

@@ -125,24 +125,9 @@ class TestTrainingAPI:
     # ==================== Fixtures ====================
 
     @pytest.fixture
-    def auth_headers(self, client):
-        """提供认证请求头"""
-        client.post(
-            "/api/auth/register",
-            json={
-                "username": "testuser",
-                "email": "test@example.com",
-                "password": "test123",
-            },
-        )
-
-        login_resp = client.post(
-            "/api/auth/login",
-            json={"username": "testuser", "password": "test123"},
-        )
-        assert login_resp.status_code == 200
-        token = login_resp.json()["access_token"]
-        return {"Authorization": f"Bearer {token}"}
+    def auth_headers(self, admin_headers):
+        """训练和模型接口均为管理员专用。"""
+        return admin_headers
 
     def _get_error_message(self, response):
         """从响应中安全提取错误消息"""
@@ -169,36 +154,26 @@ class TestTrainingAPI:
         assert "total" in data
         assert isinstance(data["items"], list)
 
-    def test_list_training_tasks_empty(self, client, auth_headers):
-        """负向：新用户无任务时返回空列表"""
-        register_resp = client.post(
-            "/api/auth/register",
-            json={
-                "username": "empty_task_user_001",
-                "email": "empty_task@test.com",
-                "password": "test123",
-            },
-        )
-        assert register_resp.status_code == 201
+    def test_admin_lists_tasks_created_by_other_users(self, client, db_session, admin_headers):
+        """平台模型归管理员统一管理，管理员可查看其他账户归属的历史任务。"""
+        create_test_user(client, "imported_task_owner")
+        task = create_completed_training_task(db_session, "imported_task_owner")
 
-        login_resp = client.post(
-            "/api/auth/login",
-            json={"username": "empty_task_user_001", "password": "test123"},
-        )
-        token = login_resp.json()["access_token"]
-        new_headers = {"Authorization": f"Bearer {token}"}
-
-        response = client.get("/api/training/tasks", headers=new_headers)
+        response = client.get("/api/training/tasks", headers=admin_headers)
         assert response.status_code == 200
-        data = response.json()
-        assert data["total"] == 0
-        assert data["items"] == []
+        assert task.id in [item["id"] for item in response.json()["items"]]
+
+    def test_training_requires_admin(self, client, user_headers):
+        """普通用户不具备模型和训练管理权限。"""
+        response = client.get("/api/training/tasks", headers=user_headers)
+        assert response.status_code == 403
 
     # ==================== 2. 训练状态 ====================
 
-    def test_get_training_status_success(self, client, db_session):
+    def test_get_training_status_success(self, client, db_session, admin_headers):
         """正向：有效 task_id 查询训练状态"""
-        headers = create_test_user(client, "status_success_user")
+        create_test_user(client, "status_success_user")
+        headers = admin_headers
         task = create_completed_training_task(db_session, "status_success_user")
 
         response = client.get(f"/api/training/status/{task.id}", headers=headers)
@@ -216,9 +191,10 @@ class TestTrainingAPI:
 
     # ==================== 3. 训练指标 ====================
 
-    def test_get_training_metrics_success(self, client, db_session):
+    def test_get_training_metrics_success(self, client, db_session, admin_headers):
         """正向：有效 task_id 获取所有 epoch 指标"""
-        headers = create_test_user(client, "metrics_success_user")
+        create_test_user(client, "metrics_success_user")
+        headers = admin_headers
         task = create_completed_training_task(db_session, "metrics_success_user")
 
         response = client.get(f"/api/training/metrics/{task.id}", headers=headers)
@@ -238,9 +214,10 @@ class TestTrainingAPI:
 
     # ==================== 4. 停止训练 ====================
 
-    def test_stop_completed_task(self, client, db_session):
+    def test_stop_completed_task(self, client, db_session, admin_headers):
         """负向：停止已完成的训练任务 → 400"""
-        headers = create_test_user(client, "stop_completed_user")
+        create_test_user(client, "stop_completed_user")
+        headers = admin_headers
         task = create_completed_training_task(db_session, "stop_completed_user")
 
         response = client.post(f"/api/training/stop/{task.id}", headers=headers)
@@ -257,9 +234,10 @@ class TestTrainingAPI:
 
     # ==================== 5. 获取 results.csv ====================
 
-    def test_get_results_csv_success(self, client, db_session, monkeypatch, tmp_path):
+    def test_get_results_csv_success(self, client, db_session, monkeypatch, tmp_path, admin_headers):
         """正向：有效 task_uuid 下载 results.csv"""
-        headers = create_test_user(client, "results_success_user")
+        create_test_user(client, "results_success_user")
+        headers = admin_headers
         task = create_completed_training_task(db_session, "results_success_user")
 
         results_file = tmp_path / "results.csv"
@@ -292,9 +270,10 @@ class TestTrainingAPI:
 
     # ==================== 6. 模型评估 ====================
 
-    def test_validate_model_success(self, client, db_session, monkeypatch, tmp_path):
+    def test_validate_model_success(self, client, db_session, monkeypatch, tmp_path, admin_headers):
         """正向：对已完成训练的模型执行评估"""
-        headers = create_test_user(client, "validate_success_user")
+        create_test_user(client, "validate_success_user")
+        headers = admin_headers
         task = create_completed_training_task(db_session, "validate_success_user")
 
         def mock_validate_model(db, task_id, split="val", conf=0.001, iou=0.6):
@@ -341,9 +320,10 @@ class TestTrainingAPI:
 
     # ==================== 7. 模型导出 ====================
 
-    def test_export_model_success(self, client, db_session, monkeypatch, tmp_path):
+    def test_export_model_success(self, client, db_session, monkeypatch, tmp_path, admin_headers):
         """正向：导出训练好的模型为正式版本"""
-        headers = create_test_user(client, "export_success_user")
+        create_test_user(client, "export_success_user")
+        headers = admin_headers
         task = create_completed_training_task(db_session, "export_success_user")
 
         results_file = tmp_path / "results.csv"
@@ -386,9 +366,10 @@ class TestTrainingAPI:
         exported_model = tmp_path / "models" / data["model_path"].split("/")[-2] / "best.pt"
         assert exported_model.exists()
 
-    def test_export_not_completed_task(self, client, db_session):
+    def test_export_not_completed_task(self, client, db_session, admin_headers):
         """负向：导出未完成的训练任务 → 400"""
-        headers = create_test_user(client, "export_not_completed_user")
+        create_test_user(client, "export_not_completed_user")
+        headers = admin_headers
         
         user = db_session.query(User).filter(User.username == "export_not_completed_user").first()
         scene = DetectionScene(
@@ -447,9 +428,10 @@ class TestTrainingAPI:
 
     # ==================== 8. 下载模型 ====================
 
-    def test_download_model_success(self, client, db_session, monkeypatch, tmp_path):
+    def test_download_model_success(self, client, db_session, monkeypatch, tmp_path, admin_headers):
         """正向：下载模型权重文件（.pt）"""
-        headers = create_test_user(client, "download_success_user")
+        create_test_user(client, "download_success_user")
+        headers = admin_headers
         task = create_completed_training_task(db_session, "download_success_user")
 
         weight_file = tmp_path / "best.pt"

@@ -35,7 +35,6 @@ PROJECT_ROOT = BACKEND_DIR.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from app.core.security import hash_password  # noqa: E402
 from app.database.session import SessionLocal  # noqa: E402
 from app.entity.db_models import (  # noqa: E402
     DetectionScene,
@@ -43,6 +42,7 @@ from app.entity.db_models import (  # noqa: E402
     TrainingTask,
     User,
 )
+from app.services.user_service import user_service  # noqa: E402
 from app.training.training_service import TrainingService  # noqa: E402
 
 
@@ -203,26 +203,46 @@ def sync_export_dir(
     return exported_weight
 
 
-def ensure_user(db) -> User:
+def ensure_admin_user(db) -> User:
     """
-    创建一个系统导入用户。
+    获取或创建平台管理员账号，并确保其拥有 admin 角色。
 
-    training_tasks.user_id 不允许为空；该用户只用于标记模型来源，
-    不需要真实登录使用。
+    已训练模型是平台级资产，归属于管理员账号而非导入专用账号。
     """
-    user = db.query(User).filter(User.username == "imported_model_user").first()
-    if user:
-        return user
-    user = User(
-        username="imported_model_user",
-        email="imported_model@example.com",
-        hashed_password=hash_password("imported_model_123456"),
-        is_active=True,
-    )
-    db.add(user)
+    user = db.query(User).filter(User.username == "admin").first()
+    if not user:
+        user = user_service.register(
+            db=db,
+            username="admin",
+            email="admin@example.com",
+            password="admin123",
+        )
+    user.is_active = True
+    user_service.assign_single_role(db, user, "admin")
     db.commit()
     db.refresh(user)
     return user
+
+
+def migrate_legacy_imported_owner(db, admin_user: User) -> dict[str, int]:
+    """将旧导入账户关联的模型任务和场景迁移给管理员，并禁用旧账户。"""
+    legacy_user = db.query(User).filter(User.username == "imported_model_user").first()
+    if not legacy_user or legacy_user.id == admin_user.id:
+        return {"training_tasks": 0, "scenes": 0}
+
+    task_count = (
+        db.query(TrainingTask)
+        .filter(TrainingTask.user_id == legacy_user.id)
+        .update({"user_id": admin_user.id}, synchronize_session=False)
+    )
+    scene_count = (
+        db.query(DetectionScene)
+        .filter(DetectionScene.created_by == legacy_user.id)
+        .update({"created_by": admin_user.id}, synchronize_session=False)
+    )
+    legacy_user.is_active = False
+    db.commit()
+    return {"training_tasks": task_count, "scenes": scene_count}
 
 
 def ensure_scene(db, user: User, scene_name: str, data_yaml: Path) -> DetectionScene:
@@ -230,6 +250,7 @@ def ensure_scene(db, user: User, scene_name: str, data_yaml: Path) -> DetectionS
     scene = db.query(DetectionScene).filter(DetectionScene.name == scene_name).first()
     class_names = parse_class_names(data_yaml)
     if scene:
+        scene.created_by = user.id
         scene.class_names = class_names
         scene.display_name = "植物病害检测"
         scene.category = "agriculture"
@@ -399,7 +420,8 @@ def main():
 
     db = SessionLocal()
     try:
-        user = ensure_user(db)
+        user = ensure_admin_user(db)
+        migrated = migrate_legacy_imported_owner(db, user)
         scene = ensure_scene(db, user, args.scene, data_yaml)
         task = ensure_training_task(
             db,
@@ -441,6 +463,7 @@ def main():
             "model_version_id": model_version.id,
             "model_path": model_version.model_path,
             "export_dir": relative_to_project(export_dir),
+            "migrated": migrated,
         }
     finally:
         db.close()
@@ -455,6 +478,11 @@ def main():
     )
     print(f"  模型路径: {summary['model_path']}")
     print(f"  导出目录: {summary['export_dir']}")
+    print(
+        "  历史导入记录迁移: "
+        f"训练任务 {summary['migrated']['training_tasks']} 个，"
+        f"检测场景 {summary['migrated']['scenes']} 个"
+    )
 
 
 if __name__ == "__main__":

@@ -11,8 +11,7 @@
 """
 
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import APIRouter, Depends, HTTPException, Header
 from jose import JWTError
 from sqlalchemy.orm import Session
 
@@ -38,18 +37,19 @@ router = APIRouter(prefix="/api/auth", tags=["认证"])
 
 import logging
 
-bearer_scheme = HTTPBearer(auto_error=False)
-
 logger = logging.getLogger(__name__)
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    authorization: str = Header(None),
     db: Session = Depends(get_db),
 ):
     """
     从 JWT Token 中解析当前用户
     在需要认证的路由中通过 Depends(get_current_user) 使用
+    支持两种格式的Authorization头：
+    1. Bearer <token>（标准格式）
+    2. 直接输入token（Swagger UI授权时使用）
     """
     credentials_exception = HTTPException(
         status_code=401,
@@ -57,14 +57,15 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    logger.debug(f"credentials: {credentials}")
-
-    if credentials is None:
+    if authorization is None:
         logger.error("未提供 Authorization 头")
         raise credentials_exception
 
     try:
-        token = credentials.credentials
+        token = authorization.strip()
+        if token.lower().startswith("bearer "):
+            token = token[7:]
+
         logger.debug(f"token length: {len(token)}, token preview: {token[:20]}...")
 
         payload = decode_access_token(token)
@@ -88,9 +89,24 @@ async def get_current_user(
     if user is None:
         logger.error(f"用户不存在: user_id={user_id}")
         raise credentials_exception
+    if not user.is_active:
+        logger.warning(f"已禁用账号请求接口: user_id={user_id}")
+        raise HTTPException(status_code=403, detail="账号已被禁用")
 
     logger.debug(f"认证成功: username={user.username}")
     return user
+
+
+def require_admin(current_user=Depends(get_current_user)):
+    """
+    管理员权限验证依赖
+    仅 admin 角色可通过；is_superuser 不再作为独立业务权限。
+    """
+    roles = [ur.role.name for ur in current_user.user_roles]
+    if "admin" not in roles:
+        raise HTTPException(status_code=403, detail="需要管理员权限")
+
+    return current_user
 
 
 # ══════════════════════════════════════════════════════════════
@@ -117,9 +133,9 @@ async def register(request: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(request: UserLogin, db: Session = Depends(get_db)):
+async def login_json(request: UserLogin, db: Session = Depends(get_db)):
     """
-    用户登录
+    用户登录（JSON格式）
 
     - 支持用户名或邮箱登录
     - 返回 JWT access_token（有效期 30 分钟）
@@ -137,6 +153,7 @@ async def login(request: UserLogin, db: Session = Depends(get_db)):
     return {
         "access_token": access_token,
         "token_type": "bearer",
+        "expires_in": 1800,
         "user": {
             "id": user.id,
             "username": user.username,

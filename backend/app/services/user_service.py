@@ -11,11 +11,40 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, hash_password, verify_password
-from app.entity.db_models import DetectionTask, User
+from app.entity.db_models import DetectionTask, Role, User, UserRole
 
 
 class UserService:
     """用户服务"""
+
+    BUILTIN_ROLES = {
+        "admin": {"display_name": "管理员", "description": "系统管理员，拥有管理功能"},
+        "user": {"display_name": "普通用户", "description": "普通用户，仅拥有检测和智能对话功能"},
+    }
+
+    @staticmethod
+    def ensure_builtin_roles(db: Session) -> dict[str, Role]:
+        """确保系统仅有的两种业务角色存在，并返回角色对象。"""
+        roles = {}
+        for name, values in UserService.BUILTIN_ROLES.items():
+            role = db.query(Role).filter(Role.name == name).first()
+            if not role:
+                role = Role(name=name, is_system=True, **values)
+                db.add(role)
+                db.flush()
+            roles[name] = role
+        return roles
+
+    @staticmethod
+    def assign_single_role(db: Session, user: User, role_name: str) -> None:
+        """将用户设置为唯一业务角色，避免 admin/user 角色并存。"""
+        roles = UserService.ensure_builtin_roles(db)
+        role = roles.get(role_name)
+        if not role:
+            raise HTTPException(status_code=400, detail=f"角色不存在: {role_name}")
+        db.query(UserRole).filter(UserRole.user_id == user.id).delete()
+        db.add(UserRole(user_id=user.id, role_id=role.id))
+        db.flush()
 
     @staticmethod
     def register(db: Session, username: str, email: str, password: str) -> User:
@@ -44,13 +73,18 @@ class UserService:
         if existing_email:
             raise HTTPException(status_code=400, detail="邮箱已被注册")
 
-        # 创建新用户
+        # 角色种子可能尚未通过管理脚本初始化；注册时兜底保证 user 角色存在。
+        roles = UserService.ensure_builtin_roles(db)
+
+        # 创建新用户并默认分配 user 角色。
         new_user = User(
             username=username,
             email=email,
             hashed_password=hash_password(password),
         )
         db.add(new_user)
+        db.flush()
+        db.add(UserRole(user_id=new_user.id, role_id=roles["user"].id))
         db.commit()
         db.refresh(new_user)
 
@@ -82,6 +116,9 @@ class UserService:
         )
         if not user:
             raise HTTPException(status_code=401, detail="用户名或密码错误")
+
+        if not user.is_active:
+            raise HTTPException(status_code=403, detail="账号已被禁用")
 
         if not verify_password(password, user.hashed_password):
             raise HTTPException(status_code=401, detail="用户名或密码错误")

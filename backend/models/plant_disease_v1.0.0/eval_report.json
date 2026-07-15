@@ -6,21 +6,21 @@
   "evaluation": {
     "split": "val",
     "overall": {
-      "precision": 0.64789,
-      "recall": 0.65543,
-      "map50": 0.68123,
-      "map50_95": 0.51653
+      "precision": 0.70802,
+      "recall": 0.65808,
+      "map50": 0.69474,
+      "map50_95": 0.53148
     },
     "per_class": {}
   },
   "training_config": {
-    "epochs": 50,
+    "epochs": 80,
     "batch_size": 16,
     "img_size": 640,
     "optimizer": "SGD",
     "lr0": 0.01,
     "device": "cpu"
   },
-  "exported_at": "2026-07-14T10:56:04.238933",
+  "exported_at": "2026-07-15T00:30:38.971331",
   "source": "backend/runs/train/task_001"
 }
