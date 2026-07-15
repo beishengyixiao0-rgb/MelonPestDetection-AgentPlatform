@@ -151,7 +151,11 @@ function previewVideoFrame(frame) {
 }
 
 /** 类别统计转为数组（用于 el-table） */
-const classCountsArray = computed(() => Object.entries(props.result.class_counts || {}).map(([className, count]) => ({ className, count })))
+const classCountsArray = computed(() =>
+  Object.entries(props.result.class_counts_display || props.result.class_counts || {}).map(
+    ([className, count]) => ({ className, count }),
+  ),
+)
 </script>
 
 <style lang="scss" scoped>

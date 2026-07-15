@@ -32,6 +32,7 @@ from app.entity.schemas import (
     ModelExportRequest,
     TrainingTaskCreate,
 )
+from app.services.detection_service import detection_service
 from app.training.training_service import training_service
 
 logger = get_logger(__name__)
@@ -369,31 +370,24 @@ async def predict_test_image(
         result = results[0]
         detections = []
         total_objects = 0
+        scene_class_names_cn = detection_service._get_scene_class_names_cn(db, task.scene_id)
 
         if result.boxes is not None and len(result.boxes) > 0:
             for box in result.boxes:
-                cls_id = int(box.cls[0])
-                cls_name = model.names.get(cls_id, f"class_{cls_id}")
-                confidence = float(box.conf[0])
-                x1, y1, x2, y2 = box.xyxy[0].tolist()
-
                 detections.append(
-                    {
-                        "class_name": cls_name,
-                        "class_id": cls_id,
-                        "confidence": round(confidence, 4),
-                        "bbox": [
-                            round(x1, 1),
-                            round(y1, 1),
-                            round(x2, 1),
-                            round(y2, 1),
-                        ],
-                    }
+                    detection_service._detection_from_box(
+                        box, model, scene_class_names_cn
+                    )
                 )
                 total_objects += 1
 
         # 生成标注图
-        annotated_img = result.plot()
+        source_frame = cv2.imread(tmp_path)
+        annotated_img = (
+            detection_service._draw_detections_on_frame(source_frame, detections)
+            if source_frame is not None
+            else result.plot()
+        )
 
         # 将标注图编码为 base64
         _, buffer = cv2.imencode(".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
@@ -401,9 +395,12 @@ async def predict_test_image(
 
         # 统计各类别数量
         class_counts = {}
+        class_counts_display = {}
         for det in detections:
             name = det["class_name"]
             class_counts[name] = class_counts.get(name, 0) + 1
+            display_name = det["class_name_display"]
+            class_counts_display[display_name] = class_counts_display.get(display_name, 0) + 1
 
         return {
             "task_id": task_id,
@@ -412,6 +409,7 @@ async def predict_test_image(
             "total_objects": total_objects,
             "detections": detections,
             "class_counts": class_counts,
+            "class_counts_display": class_counts_display,
             "annotated_image": annotated_base64,
             "inference_time": round(float(result.speed.get("inference", 0)), 2),
         }

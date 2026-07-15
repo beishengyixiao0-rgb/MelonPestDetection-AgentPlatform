@@ -19,23 +19,33 @@
 import asyncio
 import contextvars
 import json
+from pathlib import Path
 from typing import AsyncGenerator
 
 import httpx
+from app.config.settings import settings
+from app.core.logger import get_logger
+from app.services.detection_service import detection_service
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 
-from app.config.settings import settings
-from app.core.logger import get_logger
-from app.services.detection_service import detection_service
-
 logger = get_logger(__name__)
 
 # Tool 函数没有 HTTP 请求上下文，使用 ContextVar 安全传递当前用户和场景。
-_tool_user_id: contextvars.ContextVar[int | None] = contextvars.ContextVar("tool_user_id", default=None)
-_tool_scene_id: contextvars.ContextVar[int | None] = contextvars.ContextVar("tool_scene_id", default=None)
+_tool_user_id: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    "tool_user_id", default=None
+)
+_tool_scene_id: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    "tool_scene_id", default=None
+)
+
+VIDEO_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv"}
+
+
+def _is_video_path(path: str) -> bool:
+    return Path(path).suffix.lower() in VIDEO_SUFFIXES
 
 
 # ══════════════════════════════════════════════════════════════
@@ -67,7 +77,9 @@ def detect_single_image(image_path: str, conf: float = 0.25, iou: float = 0.45) 
 
 
 @tool
-def detect_batch_images(image_paths: list[str], conf: float = 0.25, iou: float = 0.45) -> str:
+def detect_batch_images(
+    image_paths: list[str], conf: float = 0.25, iou: float = 0.45
+) -> str:
     """
     批量检测多张图片中的目标物体。
 
@@ -110,8 +122,40 @@ def detect_zip_images_file(zip_path: str, conf: float = 0.25, iou: float = 0.45)
     return json.dumps(result, ensure_ascii=False)
 
 
+@tool
+def detect_video_file(
+    video_path: str, conf: float = 0.25, frame_sample_rate: int = 5
+) -> str:
+    """
+    检测视频文件中的目标物体。对视频进行帧采样后逐帧检测。
+
+    Args:
+        video_path: 视频文件路径（mp4/avi/mov 等）
+        conf: 置信度阈值，默认 0.25
+        frame_sample_rate: 帧采样间隔，每 N 帧取 1 帧，默认 5
+
+    Returns:
+        JSON 字符串，包含视频检测结果（关键帧、目标统计、时长信息）
+    """
+    result = detection_service.detect_video(
+        video_path,
+        conf=conf,
+        frame_sample_rate=frame_sample_rate,
+        scene_id=_tool_scene_id.get(),
+        user_id=_tool_user_id.get(),
+    )
+    # 标记结果类型，前端据此渲染视频播放器或关键帧降级预览。
+    result["type"] = "video"
+    return json.dumps(result, ensure_ascii=False)
+
+
 # 工具列表（绑定到 Agent）
-DETECTION_TOOLS = [detect_single_image, detect_batch_images, detect_zip_images_file]
+DETECTION_TOOLS = [
+    detect_single_image,
+    detect_batch_images,
+    detect_zip_images_file,
+    detect_video_file,
+]
 
 
 # ══════════════════════════════════════════════════════════════
@@ -134,7 +178,9 @@ def create_llm():
     # 优先使用通义千问（国内访问快，有免费额度）
     qwen_api_key = getattr(settings, "QWEN_API_KEY", "")
     api_key = qwen_api_key
-    base_url = getattr(settings, "QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+    base_url = getattr(
+        settings, "QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    )
     model_name = getattr(settings, "QWEN_MODEL", "qwen-plus")
 
     # 未配置 Key 时不初始化远程客户端，后续由本地 Tool 降级链路处理。
@@ -180,20 +226,20 @@ class DetectionAgent:
 
 重要规则：
 - 当用户消息中包含 [附件图片路径: xxx] 时，xxx 就是图片的服务器路径，你应直接使用它调用检测工具
-- 当用户消息中包含 [附件图片路径列表: [...]] 时，必须将列表中的全部路径传给 detect_batch_images 的 image_paths 参数
+- 当用户消息中包含 [附件视频路径: xxx] 时，xxx 就是视频的服务器路径，你应直接使用它调用视频检测工具
 - 不要要求用户再次提供路径，直接使用附件中给出的路径
 - 对于单张图片，调用 detect_single_image 工具
-- 对于多张图片，调用 detect_batch_images；对于 ZIP 文件，调用 detect_zip_images_file
+- 对于多张图片或 ZIP 文件，调用 detect_batch_images 或 detect_zip_images_file 工具
+- 对于视频文件，调用 detect_video_file 工具
 
 工作流程：
 1. 理解用户意图
-2. 如果有附件图片路径，直接调用检测工具
+2. 如果有附件路径，直接调用对应检测工具
 3. 调用工具获取检测结果
 4. 用自然语言总结检测结果
 
 回复格式要求：
-- 先报告检测到的目标总数
-- 列出各类别的数量统计
+- 对于视频检测，还要报告视频时长和处理的帧数
 - 如果有标注图，告知用户可以在结果卡片中查看
 - 简洁专业，不要过度解释"""
 
@@ -225,17 +271,25 @@ class DetectionAgent:
         logger.info("DetectionAgent 初始化完成，绑定 %d 个工具", len(DETECTION_TOOLS))
 
     @staticmethod
-    def _attachment_message(message: str, image_path: str | None = None, image_paths: list[str] | None = None) -> tuple[str, list[str]]:
+    def _attachment_message(
+        message: str,
+        image_path: str | None = None,
+        image_paths: list[str] | None = None,
+    ) -> tuple[str, list[str]]:
         """标准化单附件和多附件输入，并生成供 Agent 读取的路径提示。"""
         attachment_paths = image_paths or ([image_path] if image_path else [])
         if len(attachment_paths) == 1:
-            return f"{message}\n[附件图片路径: {attachment_paths[0]}]", attachment_paths
+            label = "视频" if _is_video_path(attachment_paths[0]) else "图片"
+            return f"{message}\n[附件{label}路径: {attachment_paths[0]}]", attachment_paths
         if attachment_paths:
             paths_json = json.dumps(attachment_paths, ensure_ascii=False)
-            return f"{message}\n[附件图片路径列表: {paths_json}]", attachment_paths
+            label = "视频" if all(_is_video_path(path) for path in attachment_paths) else "图片"
+            return f"{message}\n[附件{label}路径列表: {paths_json}]", attachment_paths
         return message, attachment_paths
 
-    async def chat(self, message: str, image_path: str = None, image_paths: list[str] | None = None) -> dict:
+    async def chat(
+        self, message: str, image_path: str = None, image_paths: list[str] | None = None
+    ) -> dict:
         """
         处理用户对话消息
 
@@ -285,7 +339,9 @@ class DetectionAgent:
         Yields:
             SSE 事件数据字典
         """
-        message, attachment_paths = self._attachment_message(message, image_path, image_paths)
+        message, attachment_paths = self._attachment_message(
+            message, image_path, image_paths
+        )
 
         user_token = _tool_user_id.set(user_id)
         scene_token = _tool_scene_id.set(scene_id)
@@ -295,7 +351,9 @@ class DetectionAgent:
                     yield event
                 return
 
-            async for event in self.executor.astream_events({"input": message}, version="v2"):
+            async for event in self.executor.astream_events(
+                {"input": message}, version="v2"
+            ):
                 event_kind = event["event"]
 
                 if event_kind == "on_chat_model_stream":
@@ -308,7 +366,9 @@ class DetectionAgent:
                     # Agent 开始调用工具
                     tool_name = event["name"]
                     tool_input = event["data"].get("input", {})
-                    logger.info("工具调用: %s, 输入: %s", tool_name, str(tool_input)[:200])
+                    logger.info(
+                        "工具调用: %s, 输入: %s", tool_name, str(tool_input)[:200]
+                    )
                     yield {"type": "tool_call", "tool": tool_name, "input": tool_input}
 
                 elif event_kind == "on_tool_end":
@@ -345,14 +405,27 @@ class DetectionAgent:
             return "请先上传叶片图片完成检测。确认病害类别后，再结合当地登记农药标签、作物生育期和农技部门建议制定防治方案。"
         return "我是果蔬病害检测助手。你可以上传一张或多张叶片图片，也可以上传 ZIP 图片包，我会识别病害并返回标注图和统计结果。"
 
-    async def _local_stream(self, message: str, image_paths: list[str]) -> AsyncGenerator:
+    async def _local_stream(
+        self, message: str, image_paths: list[str]
+    ) -> AsyncGenerator:
         """无 LLM Key 时保留与指导书相同的 Tool/SSE 事件协议。"""
         if not image_paths:
             for chunk in self._text_chunks(self._fallback_reply(message)):
                 yield {"type": "text_chunk", "content": chunk}
             return
 
-        if len(image_paths) > 1:
+        video_paths = [path for path in image_paths if _is_video_path(path)]
+        if video_paths and len(image_paths) > 1:
+            reply = "一次只能上传一个视频附件，视频不能和图片或其他视频混合上传。"
+            for chunk in self._text_chunks(reply):
+                yield {"type": "text_chunk", "content": chunk}
+            return
+
+        if len(image_paths) == 1 and video_paths:
+            tool_function = detect_video_file
+            tool_name = "detect_video_file"
+            tool_input = {"video_path": image_paths[0]}
+        elif len(image_paths) > 1:
             tool_function = detect_batch_images
             tool_name = "detect_batch_images"
             tool_input = {"image_paths": image_paths}
@@ -372,7 +445,12 @@ class DetectionAgent:
         if result.get("error"):
             reply = f"检测未完成：{result['error']}"
         else:
-            summary = "、".join(f"{name} {count} 个" for name, count in result.get("class_counts", {}).items())
+            display_counts = result.get("class_counts_display") or result.get(
+                "class_counts", {}
+            )
+            summary = "、".join(
+                f"{name} {count} 个" for name, count in display_counts.items()
+            )
             reply = f"检测完成，共发现 {result.get('total_objects', 0)} 个目标"
             reply += f"，包括 {summary}" if summary else ""
             reply += "。标注图和详细统计已生成。"

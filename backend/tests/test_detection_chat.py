@@ -4,6 +4,14 @@
 避免单元测试加载数百 MB 模型权重。
 """
 
+import json
+
+from app.agent.detection_agent import (
+    DetectionAgent,
+    _tool_scene_id,
+    _tool_user_id,
+    detect_video_file,
+)
 from app.services.detection_service import detection_service
 
 
@@ -85,3 +93,52 @@ def test_chat_stream_passes_multiple_image_paths_to_agent(client, monkeypatch):
     assert response.status_code == 200
     assert captured["image_paths"] == image_paths
     assert captured["image_path"] is None
+
+
+def test_chat_upload_accepts_video_attachment(client):
+    headers = auth_headers(client, "day8_video_upload_user")
+    response = client.post(
+        "/api/chat/upload",
+        headers=headers,
+        files={"file": ("clip.mp4", b"fake-video", "video/mp4")},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["file_type"] == "video"
+    assert data["file_path"].lower().endswith(".mp4")
+
+
+def test_agent_marks_video_attachment_and_passes_context(monkeypatch):
+    message, paths = DetectionAgent._attachment_message(
+        "检测这个视频", image_path="C:/tmp/clip.mp4"
+    )
+    assert "附件视频路径" in message
+    assert paths == ["C:/tmp/clip.mp4"]
+
+    captured = {}
+
+    def fake_detect_video(**kwargs):
+        captured.update(kwargs)
+        return {"task_id": 1, "total_objects": 0, "key_frames": []}
+
+    monkeypatch.setattr(detection_service, "detect_video", fake_detect_video)
+    user_token = _tool_user_id.set(7)
+    scene_token = _tool_scene_id.set(3)
+    try:
+        result = json.loads(
+            detect_video_file.invoke(
+                {
+                    "video_path": "C:/tmp/clip.mp4",
+                    "conf": 0.25,
+                    "frame_sample_rate": 5,
+                }
+            )
+        )
+    finally:
+        _tool_user_id.reset(user_token)
+        _tool_scene_id.reset(scene_token)
+
+    assert result["type"] == "video"
+    assert captured["user_id"] == 7
+    assert captured["scene_id"] == 3

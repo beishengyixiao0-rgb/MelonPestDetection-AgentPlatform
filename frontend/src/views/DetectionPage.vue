@@ -92,7 +92,7 @@
               class="detection-item"
             >
               <div class="det-info">
-                <span class="det-class">{{ det.class_name }}</span>
+                <span class="det-class">{{ det.class_name_display || det.class_name_cn || det.class_name }}</span>
                 <el-progress
                   :percentage="Math.round(det.confidence * 100)"
                   :stroke-width="6"
@@ -228,7 +228,8 @@ const statusTagType = computed(() => {
 const classDistribution = computed(() => {
   const dist = {};
   for (const det of currentDetections.value) {
-    dist[det.class_name] = (dist[det.class_name] || 0) + 1;
+    const name = det.class_name_display || det.class_name_cn || det.class_name;
+    dist[name] = (dist[name] || 0) + 1;
   }
   return dist;
 });
@@ -257,13 +258,21 @@ async function startCamera() {
     canvasHeight.value = videoRef.value.videoHeight || 480;
 
     // 4. 建立 WebSocket 连接
-    connectWebSocket();
+    await connectWebSocket();
 
     isRunning.value = true;
     ElMessage.success("摄像头已开启");
   } catch (err) {
     console.error("[摄像头开启失败]", err);
     ElMessage.error(`摄像头开启失败: ${err.message}`);
+    if (ws) {
+      ws.close();
+      ws = null;
+    }
+    if (mediaStream) {
+      mediaStream.getTracks().forEach((track) => track.stop());
+      mediaStream = null;
+    }
     isConnecting.value = false;
   }
 }
@@ -273,61 +282,92 @@ function connectWebSocket() {
   // 构造 WebSocket URL
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const host = window.location.host; // 开发环境通过 Vite proxy 转发
-  const wsUrl = `${protocol}//${host}/api/detection/camera`;
-
   // 获取 Token
   const token = localStorage.getItem("rsod_token");
+  if (!token) {
+    return Promise.reject(new Error("请先登录后再使用摄像头检测"));
+  }
+  const wsUrl = `${protocol}//${host}/api/detection/camera?token=${encodeURIComponent(token)}`;
 
-  ws = new WebSocket(wsUrl);
-
-  ws.onopen = () => {
-    console.log("[WebSocket] 连接已建立");
-
-    ws.send(
-      JSON.stringify({
-        type: "config",
-        mode: detectMode.value,
-        conf: confThreshold.value,
-      }),
-    );
-  };
-
-  ws.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-
-      if (data.type === "result") {
-        // 收到标注帧
-        renderAnnotatedFrame(data.annotated_frame);
-
-        // 更新统计信息
-        currentFps.value = data.fps || 0;
-        frameCount.value = data.frame_count || 0;
-        inferenceTime.value = data.inference_time || 0;
-        objectCount.value = data.object_count || 0;
-        currentDetections.value = data.detections || [];
-      } else if (data.type === "config_ok") {
-        console.log("[WebSocket] 配置确认:", data.message);
-        requestAnimationFrame(sendSingleFrame);
-      } else if (data.type === "error") {
-        console.error("[WebSocket] 服务端错误:", data.message);
-        ElMessage.error(data.message);
+  return new Promise((resolve, reject) => {
+    let configured = false;
+    let settled = false;
+    const rejectConnection = (message) => {
+      if (!settled) {
+        settled = true;
+        reject(new Error(message));
       }
-    } catch (err) {
-      console.error("[WebSocket] 消息解析失败:", err);
-    }
-  };
+    };
 
-  ws.onclose = () => {
-    console.log("[WebSocket] 连接已关闭");
-    isConnecting.value = false;
-  };
+    ws = new WebSocket(wsUrl);
 
-  ws.onerror = (err) => {
-    console.error("[WebSocket] 连接错误:", err);
-    ElMessage.error("WebSocket 连接失败，请检查后端服务");
-    isConnecting.value = false;
-  };
+    ws.onopen = () => {
+      console.log("[WebSocket] 连接已建立");
+
+      ws.send(
+        JSON.stringify({
+          type: "config",
+          mode: detectMode.value,
+          conf: confThreshold.value,
+          iou: 0.45,
+        }),
+      );
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "result") {
+          // 收到标注帧
+          renderAnnotatedFrame(data.annotated_frame);
+
+          // 更新统计信息
+          currentFps.value = data.fps || 0;
+          frameCount.value = data.frame_count || 0;
+          inferenceTime.value = data.inference_time || 0;
+          objectCount.value = data.object_count || 0;
+          currentDetections.value = data.detections || [];
+        } else if (data.type === "config_ok") {
+          console.log("[WebSocket] 配置确认:", data.message);
+          configured = true;
+          isConnecting.value = false;
+          if (!settled) {
+            settled = true;
+            resolve();
+          }
+          requestAnimationFrame(sendSingleFrame);
+        } else if (data.type === "error") {
+          console.error("[WebSocket] 服务端错误:", data.message);
+          ElMessage.error(data.message);
+          if (!configured) rejectConnection(data.message || "摄像头配置失败");
+        }
+      } catch (err) {
+        console.error("[WebSocket] 消息解析失败:", err);
+        if (!configured) rejectConnection("WebSocket 消息解析失败");
+      }
+    };
+    ws.onclose = () => {
+      console.log("[WebSocket] 连接已关闭");
+      isConnecting.value = false;
+      if (configured) {
+        isRunning.value = false;
+        if (mediaStream) {
+          mediaStream.getTracks().forEach((track) => track.stop());
+          mediaStream = null;
+        }
+      } else {
+        rejectConnection("WebSocket 连接被服务器拒绝");
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error("[WebSocket] 连接错误:", err);
+      ElMessage.error("WebSocket 连接失败，请检查后端服务");
+      isConnecting.value = false;
+      rejectConnection("WebSocket 连接失败，请检查后端服务");
+    };
+  });
 }
 
 /** 发送单帧 */

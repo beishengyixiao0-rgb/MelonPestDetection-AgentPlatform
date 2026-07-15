@@ -405,7 +405,11 @@
               class="predict-table"
               max-height="220"
             >
-              <el-table-column prop="class_name" label="类别" width="140" />
+              <el-table-column label="类别" width="140">
+                <template #default="{ row }">
+                  {{ row.class_name_display || row.class_name_cn || row.class_name }}
+                </template>
+              </el-table-column>
               <el-table-column label="置信度" width="100">
                 <template #default="{ row }">
                   {{ formatPercent(row.confidence) }}
@@ -553,8 +557,9 @@ const evalMetricCards = computed(() => {
 
 // ── Day 7：每类 AP 表格数据 ──
 const perClassData = computed(() => {
-  if (!evalReport.value?.per_class) return [];
-  return Object.entries(evalReport.value.per_class)
+  const perClass = evalReport.value?.per_class_display || evalReport.value?.per_class;
+  if (!perClass) return [];
+  return Object.entries(perClass)
     .map(([name, m]) => ({
       class_name: name,
       ap50: Number(m.ap50 ?? 0),
@@ -651,7 +656,10 @@ async function fetchMetrics() {
   try {
     const taskId = selectedTask.value.id || selectedTask.value.task?.id;
     const res = await request.get(`/training/metrics/${taskId}`);
-    const metrics = res.metrics || [];
+    const maxEpochs = Number(selectedTask.value.epochs || Number.MAX_SAFE_INTEGER);
+    const metrics = (res.metrics || []).filter(
+      (metric) => Number(metric.epoch) >= 1 && Number(metric.epoch) <= maxEpochs,
+    );
 
     // 更新任务状态
     const statusRes = await request.get(`/training/status/${taskId}`);

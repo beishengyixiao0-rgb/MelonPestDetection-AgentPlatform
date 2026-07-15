@@ -21,6 +21,7 @@ from typing import Any, Dict
 
 import yaml
 
+from app.config.detection import DetectionConfig
 from app.config.settings import settings
 from app.core.logger import get_logger
 from app.database.session import SessionLocal
@@ -92,7 +93,8 @@ class TrainingService:
         row = {str(k).strip(): str(v).strip() for k, v in row.items()}
         return TrainingMetric(
             task_id=task_id,
-            epoch=int(float(row.get("epoch", 0))) + 1,
+            # Ultralytics results.csv 已经使用 1-based epoch，不能再次加 1。
+            epoch=int(float(row.get("epoch", 0))),
             box_loss=TrainingService._safe_float(row.get("train/box_loss", "")),
             cls_loss=TrainingService._safe_float(row.get("train/cls_loss", "")),
             dfl_loss=TrainingService._safe_float(row.get("train/dfl_loss", "")),
@@ -115,6 +117,15 @@ class TrainingService:
             logger.warning("results.csv 不存在: %s", csv_path)
             return 0
 
+        task = db.query(TrainingTask).filter(TrainingTask.id == task_id).first()
+        max_epochs = task.epochs if task and task.epochs else None
+        # 清理旧版本导入逻辑产生的 task.epochs 之后的脏指标，兼容已有任务。
+        if max_epochs:
+            db.query(TrainingMetric).filter(
+                TrainingMetric.task_id == task_id,
+                TrainingMetric.epoch > max_epochs,
+            ).delete(synchronize_session=False)
+
         existing_epochs = {
             m.epoch
             for m in db.query(TrainingMetric)
@@ -126,6 +137,8 @@ class TrainingService:
             reader = csv.DictReader(f)
             for row in reader:
                 metric = TrainingService._metric_from_row(task_id, row)
+                if metric.epoch < 1 or (max_epochs and metric.epoch > max_epochs):
+                    continue
                 if metric.epoch in existing_epochs:
                     continue
                 db.add(metric)
@@ -275,7 +288,13 @@ class TrainingService:
             # 5. 注册训练回调
             def on_train_epoch_end(trainer):
                 try:
+                    total_epochs = config.get("epochs", 50)
                     epoch = trainer.epoch + 1
+                    if epoch < 1 or epoch > total_epochs:
+                        logger.warning(
+                            "忽略超出训练轮数的回调: epoch=%s/%s", epoch, total_epochs
+                        )
+                        return
                     metrics = trainer.metrics or {}
                     # 修复 Pylance 类型报错
                     box_loss_val = float(metrics.get("metrics/box_loss", 0))
@@ -299,10 +318,9 @@ class TrainingService:
                     )
                     db.add(metric_record)
 
-                    total_epochs = config.get("epochs", 50)
                     # 修复 Pylance 赋值报错
-                    task_obj.current_epoch = epoch  # type: ignore
-                    task_obj.progress = int((epoch / total_epochs) * 100)  # type: ignore
+                    task_obj.current_epoch = min(epoch, total_epochs)  # type: ignore
+                    task_obj.progress = min(100, int((epoch / total_epochs) * 100))  # type: ignore
                     db.commit()
 
                     logger.debug(
@@ -380,7 +398,10 @@ class TrainingService:
 
         latest_metric = (
             db.query(TrainingMetric)
-            .filter(TrainingMetric.task_id == task_id)
+            .filter(
+                TrainingMetric.task_id == task_id,
+                TrainingMetric.epoch <= (task_obj.epochs or TrainingMetric.epoch),
+            )
             .order_by(TrainingMetric.epoch.desc())
             .first()
         )
@@ -395,7 +416,7 @@ class TrainingService:
                 "status": task_obj.status,
                 "model_name": task_obj.model_name,
                 "epochs": task_obj.epochs,
-                "current_epoch": task_obj.current_epoch,
+                "current_epoch": min(task_obj.current_epoch or 0, task_obj.epochs or task_obj.current_epoch or 0),
                 "progress": task_obj.progress,
                 "device": task_obj.device,
                 "batch_size": task_obj.batch_size,
@@ -424,12 +445,14 @@ class TrainingService:
     @staticmethod
     def get_training_metrics(db, task_id: int) -> list:
         """获取训练任务的所有 epoch 指标"""
-        metrics = (
-            db.query(TrainingMetric)
-            .filter(TrainingMetric.task_id == task_id)
-            .order_by(TrainingMetric.epoch.asc())
-            .all()
+        task = db.query(TrainingTask).filter(TrainingTask.id == task_id).first()
+        max_epochs = task.epochs if task and task.epochs else None
+        metrics_query = db.query(TrainingMetric).filter(
+            TrainingMetric.task_id == task_id
         )
+        if max_epochs:
+            metrics_query = metrics_query.filter(TrainingMetric.epoch <= max_epochs)
+        metrics = metrics_query.order_by(TrainingMetric.epoch.asc()).all()
         return [
             {
                 "epoch": m.epoch,
@@ -486,7 +509,7 @@ class TrainingService:
                 "status": t.status,
                 "model_name": t.model_name,
                 "epochs": t.epochs,
-                "current_epoch": t.current_epoch,
+                "current_epoch": min(t.current_epoch or 0, t.epochs or t.current_epoch or 0),
                 "progress": t.progress,
                 "device": t.device,
                 "created_at": str(t.created_at),
@@ -619,14 +642,18 @@ class TrainingService:
             }
 
             per_class = {}
+            per_class_display = {}
             if results.box.ap is not None:
                 for i, ap50 in enumerate(results.box.ap50):
                     class_name = model.names.get(i, f"class_{i}")
+                    display_name = DetectionConfig.display_class_name(class_name)
                     ap50_95 = results.box.ap[i] if i < len(results.box.ap) else 0.0
-                    per_class[class_name] = {
+                    metrics = {
                         "ap50": round(float(ap50), 4),
                         "ap50_95": round(float(ap50_95), 4),
                     }
+                    per_class[class_name] = metrics
+                    per_class_display[display_name] = metrics
 
             report = {
                 "task_id": task_id,
@@ -634,6 +661,7 @@ class TrainingService:
                 "split": split,
                 "overall": overall,
                 "per_class": per_class,
+                "per_class_display": per_class_display,
             }
 
             # ── 更新或创建 ModelVersion 记录 ──

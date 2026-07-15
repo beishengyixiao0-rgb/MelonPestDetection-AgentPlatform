@@ -31,6 +31,8 @@ from datetime import datetime
 from pathlib import Path
 
 import cv2
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy.orm import Session
 from ultralytics import YOLO
 
@@ -151,6 +153,89 @@ class DetectionService:
             return scene.id if scene else None
         scene = db.query(DetectionScene).filter(DetectionScene.is_active.is_(True)).first()
         return scene.id if scene else None
+
+    @staticmethod
+    def _get_scene_class_names_cn(db: Session, scene_id: int | None) -> dict:
+        if not scene_id:
+            return {}
+        scene = db.query(DetectionScene).filter(DetectionScene.id == scene_id).first()
+        return scene.class_names_cn if scene and isinstance(scene.class_names_cn, dict) else {}
+
+    @staticmethod
+    def _detection_from_box(box, model: YOLO, class_names_cn: dict | None = None) -> dict:
+        cls_id = int(box.cls[0])
+        class_name = model.names.get(cls_id, f"class_{cls_id}")
+        class_name_display = DetectionConfig.display_class_name(class_name, class_names_cn)
+        confidence = float(box.conf[0])
+        x1, y1, x2, y2 = box.xyxy[0].tolist()
+        return {
+            "class_name": class_name,
+            "class_name_cn": class_name_display if class_name_display != class_name else None,
+            "class_name_display": class_name_display,
+            "class_id": cls_id,
+            "confidence": round(confidence, 4),
+            "bbox": [round(x1, 1), round(y1, 1), round(x2, 1), round(y2, 1)],
+        }
+
+    @staticmethod
+    def _load_label_font(size: int):
+        candidates = [
+            DetectionConfig.font_path,
+            "C:/Windows/Fonts/msyh.ttc",
+            "C:/Windows/Fonts/simhei.ttf",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        ]
+        for candidate in candidates:
+            if candidate and Path(candidate).exists():
+                try:
+                    return ImageFont.truetype(candidate, size)
+                except OSError:
+                    continue
+        return None
+
+    @classmethod
+    def _draw_detections_on_frame(cls, frame, detections: list) :
+        """绘制支持中文的检测框；OpenCV Hershey 字体不支持中文，因此使用 Pillow。"""
+        annotated = frame.copy()
+        color_bgr = (0, 200, 0)
+        for det in detections:
+            x1, y1, x2, y2 = [int(value) for value in det["bbox"]]
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), color_bgr, 2)
+
+        font = cls._load_label_font(max(16, round(min(frame.shape[:2]) / 40)))
+        if font is None:
+            for det in detections:
+                x1, y1, _, _ = [int(value) for value in det["bbox"]]
+                label = f"{det.get('class_name_display', det['class_name'])} {det['confidence']:.2f}"
+                cv2.putText(annotated, label, (x1, max(18, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color_bgr, 2)
+            return annotated
+
+        image = Image.fromarray(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
+        draw = ImageDraw.Draw(image)
+        for det in detections:
+            x1, y1, _, _ = [int(value) for value in det["bbox"]]
+            label = f"{det.get('class_name_display', det['class_name'])} {det['confidence']:.2f}"
+            left, top, right, bottom = draw.textbbox((0, 0), label, font=font)
+            text_width = right - left
+            text_height = bottom - top
+            text_y = max(0, y1 - text_height - 6)
+            draw.rectangle((x1, text_y, x1 + text_width + 8, text_y + text_height + 6), fill=(0, 120, 0))
+            draw.text((x1 + 4, text_y + 2), label, font=font, fill=(255, 255, 255))
+        return cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+
+    @staticmethod
+    def _bbox_iou(box_a: list[float], box_b: list[float]) -> float:
+        """计算两个边界框的 IoU，供跟踪器无 ID 时做轻量降级匹配。"""
+        ax1, ay1, ax2, ay2 = box_a
+        bx1, by1, bx2, by2 = box_b
+        intersection = max(0.0, min(ax2, bx2) - max(ax1, bx1)) * max(
+            0.0, min(ay2, by2) - max(ay1, by1)
+        )
+        area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
+        area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
+        union = area_a + area_b - intersection
+        return intersection / union if union > 0 else 0.0
 
     @staticmethod
     def _set_video_progress(
@@ -276,6 +361,7 @@ class DetectionService:
 
             # ── 加载模型 ──
             scene_id = self._resolve_scene_id(db, scene_id)
+            scene_class_names_cn = self._get_scene_class_names_cn(db, scene_id)
             model = self._get_model(scene_id)
 
             # ── YOLO 推理 ──
@@ -295,31 +381,29 @@ class DetectionService:
 
             if result.boxes is not None and len(result.boxes) > 0:
                 for box in result.boxes:
-                    cls_id = int(box.cls[0])
-                    cls_name = model.names.get(cls_id, f"class_{cls_id}")
-                    confidence = float(box.conf[0])
-                    x1, y1, x2, y2 = box.xyxy[0].tolist()
-
                     detections.append(
-                        {
-                            "class_name": cls_name,
-                            "class_id": cls_id,
-                            "confidence": round(confidence, 4),
-                            "bbox": [round(x1, 1), round(y1, 1), round(x2, 1), round(y2, 1)],
-                        }
+                        self._detection_from_box(box, model, scene_class_names_cn)
                     )
                     total_objects += 1
 
             # ── 生成标注图 ──
-            annotated_img = result.plot()
+            source_frame = cv2.imread(image_path)
+            annotated_img = (
+                self._draw_detections_on_frame(source_frame, detections)
+                if source_frame is not None
+                else result.plot()
+            )
             _, buffer = cv2.imencode(".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
             annotated_base64 = base64.b64encode(buffer).decode("utf-8")
 
             # ── 统计各类别数量 ──
             class_counts = {}
+            class_counts_display = {}
             for det in detections:
                 name = det["class_name"]
                 class_counts[name] = class_counts.get(name, 0) + 1
+                display_name = det["class_name_display"]
+                class_counts_display[display_name] = class_counts_display.get(display_name, 0) + 1
 
             # ── 持久化到数据库 ──
             task_id = None
@@ -345,6 +429,7 @@ class DetectionService:
             return {
                 "total_objects": total_objects,
                 "class_counts": class_counts,
+                "class_counts_display": class_counts_display,
                 "detections": detections,
                 "annotated_image_base64": annotated_base64,
                 "annotated_image_url": annotated_image_url,
@@ -394,6 +479,7 @@ class DetectionService:
                 return {"error": "数据库中没有可用的检测场景，请先创建检测场景"}
             if not user_id:
                 return {"error": "检测操作需要登录用户"}
+            scene_class_names_cn = self._get_scene_class_names_cn(db, scene_id)
             model = self._get_model(scene_id)
 
             # ── 创建批量检测任务 ──
@@ -414,6 +500,7 @@ class DetectionService:
             total_objects = 0
             total_inference_time = 0
             class_counts = {}
+            class_counts_display = {}
 
             for i, image_path in enumerate(image_paths):
                 if Path(image_path).suffix.lower() not in ALLOWED_IMAGE_SUFFIXES:
@@ -423,29 +510,34 @@ class DetectionService:
                 inference_time = float(result.speed.get("inference", 0))
                 total_inference_time += inference_time
 
-                # 生成标注图 base64
-                annotated_img = result.plot()
-                _, buffer = cv2.imencode(".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
-                annotated_images.append({"image_path": os.path.basename(image_path), "annotated_image_base64": base64.b64encode(buffer).decode("utf-8")})
-
+                image_detections = []
                 if result.boxes is not None and len(result.boxes) > 0:
                     for box in result.boxes:
-                        cls_id = int(box.cls[0])
-                        cls_name = model.names.get(cls_id, f"class_{cls_id}")
-                        confidence = float(box.conf[0])
-                        x1, y1, x2, y2 = box.xyxy[0].tolist()
-
-                        det = {"image_path": image_path, "class_name": cls_name, "class_id": cls_id, "confidence": round(confidence, 4), "bbox": [round(x1, 1), round(y1, 1), round(x2, 1), round(y2, 1)], "inference_time": inference_time}
+                        det = self._detection_from_box(box, model, scene_class_names_cn)
+                        det.update({"image_path": image_path, "inference_time": inference_time})
+                        image_detections.append(det)
                         all_detections.append(det)
                         total_objects += 1
 
                         # 统计类别计数
-                        class_counts[cls_name] = class_counts.get(cls_name, 0) + 1
+                        class_name = det["class_name"]
+                        class_counts[class_name] = class_counts.get(class_name, 0) + 1
+                        display_name = det["class_name_display"]
+                        class_counts_display[display_name] = class_counts_display.get(display_name, 0) + 1
+
+                # 生成使用中文显示名的标注图
+                source_frame = cv2.imread(image_path)
+                annotated_img = (
+                    self._draw_detections_on_frame(source_frame, image_detections)
+                    if source_frame is not None
+                    else result.plot()
+                )
+                _, buffer = cv2.imencode(".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                annotated_images.append({"image_path": os.path.basename(image_path), "annotated_image_base64": base64.b64encode(buffer).decode("utf-8")})
 
                     # 保存检测结果到数据库
-                    for det in all_detections:
-                        if det["image_path"] == image_path:
-                            db.add(DetectionResult(task_id=task.id, image_path=image_path, class_name=det["class_name"], class_id=det["class_id"], confidence=det["confidence"], bbox=det["bbox"], inference_time=inference_time))
+                for det in image_detections:
+                    db.add(DetectionResult(task_id=task.id, image_path=image_path, class_name=det["class_name"], class_name_cn=det.get("class_name_cn"), class_id=det["class_id"], confidence=det["confidence"], bbox=det["bbox"], inference_time=inference_time))
 
             task.status = "completed"
             task.total_objects = total_objects
@@ -455,7 +547,7 @@ class DetectionService:
 
             logger.info("批量检测完成: %d 张图, 共 %d 个目标, 总耗时 %.2fms", len(image_paths), total_objects, total_inference_time)
 
-            return {"task_id": task.id, "total_images": len(image_paths), "total_objects": total_objects, "class_counts": class_counts, "total_inference_time": round(total_inference_time, 2), "detections": all_detections, "annotated_images": annotated_images}
+            return {"task_id": task.id, "total_images": len(image_paths), "total_objects": total_objects, "class_counts": class_counts, "class_counts_display": class_counts_display, "total_inference_time": round(total_inference_time, 2), "detections": all_detections, "annotated_images": annotated_images}
 
         except Exception as e:
             db.rollback()
@@ -699,32 +791,22 @@ class DetectionService:
                 db.commit()
 
             sample_set = set(sample_indices)
+            scene_class_names_cn = self._get_scene_class_names_cn(db, scene_id)
             key_frames = []
             total_objects = 0
             total_inference_time = 0
             class_counts = {}
+            class_counts_display = {}
             sampled_count = 0
             sampled_frames_seen = 0
             last_detections = []
-            last_frame = None
+            seen_track_ids = set()
+            fallback_tracks = {}
+            next_fallback_track_id = 1
+            tracking_enabled = True
 
             def draw_detections_on_frame(frame, detections):
-                annotated = frame.copy()
-                for det in detections:
-                    x1, y1, x2, y2 = det["bbox"]
-                    color = (0, 255, 0)
-                    cv2.rectangle(annotated, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
-                    label = f"{det['class_name']} {det['confidence']:.2f}"
-                    cv2.putText(
-                        annotated,
-                        label,
-                        (int(x1), int(y1) - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5,
-                        color,
-                        2,
-                    )
-                return annotated
+                return self._draw_detections_on_frame(frame, detections)
 
             output_tmp = tempfile.NamedTemporaryFile(
                 suffix=".mp4", delete=False
@@ -752,21 +834,34 @@ class DetectionService:
                     frame_idx += 1
                     continue
 
-                current_frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                current_frame_gray = cv2.resize(current_frame_gray, (100, 100))
-
-                scene_changed = False
-                if last_frame is not None:
-                    frame_diff = cv2.absdiff(last_frame, current_frame_gray)
-                    diff_score = frame_diff.mean()
-                    if diff_score > 10:
-                        scene_changed = True
+                # 采样只减少推理次数，不能直接把每个采样帧的检测数量相加。
+                # ByteTrack 会为连续出现的目标保持同一个 track ID，首次出现时立即计数。
+                if tracking_enabled:
+                    try:
+                        results = model.track(
+                            source=frame,
+                            conf=conf,
+                            iou=iou,
+                            imgsz=DetectionConfig.image_size,
+                            device=DetectionConfig.device,
+                            tracker="bytetrack.yaml",
+                            persist=True,
+                            save=False,
+                            verbose=False,
+                        )
+                    except Exception as exc:
+                        tracking_enabled = False
+                        logger.warning("视频跟踪器不可用，降级为检测框匹配: %s", exc)
+                        results = model.predict(
+                            source=frame,
+                            conf=conf,
+                            iou=iou,
+                            imgsz=DetectionConfig.image_size,
+                            device=DetectionConfig.device,
+                            save=False,
+                            verbose=False,
+                        )
                 else:
-                    scene_changed = True
-
-                last_frame = current_frame_gray.copy()
-
-                if scene_changed:
                     results = model.predict(
                         source=frame,
                         conf=conf,
@@ -776,87 +871,113 @@ class DetectionService:
                         save=False,
                         verbose=False,
                     )
-                    result = results[0]
 
-                    frame_detections = []
-                    if result.boxes is not None and len(result.boxes) > 0:
-                        for box in result.boxes:
-                            cls_id = int(box.cls[0])
-                            cls_name = model.names.get(cls_id, f"class_{cls_id}")
-                            confidence = float(box.conf[0])
-                            x1, y1, x2, y2 = box.xyxy[0].tolist()
+                result = results[0]
+                frame_detections = []
+                current_fallback_tracks = set()
+                if result.boxes is not None and len(result.boxes) > 0:
+                    for box in result.boxes:
+                        det = self._detection_from_box(box, model, scene_class_names_cn)
+                        native_track_id = None
+                        if getattr(box, "id", None) is not None:
+                            native_track_id = int(box.id[0])
+                        det["track_id"] = native_track_id
 
-                            det = {
-                                "class_name": cls_name,
-                                "class_id": cls_id,
-                                "confidence": round(confidence, 4),
-                                "bbox": [
-                                    round(x1, 1),
-                                    round(y1, 1),
-                                    round(x2, 1),
-                                    round(y2, 1),
-                                ],
+                        if native_track_id is not None:
+                            identity = f"track:{native_track_id}"
+                        else:
+                            # 极少数情况下跟踪器没有返回 ID，使用相邻采样帧的
+                            # 同类别框做降级匹配，避免同一目标反复计数。
+                            identity = None
+                            best_iou = 0.3
+                            for fallback_id, previous in fallback_tracks.items():
+                                if fallback_id in current_fallback_tracks:
+                                    continue
+                                if previous["class_id"] != det["class_id"]:
+                                    continue
+                                if sampled_count - previous["sample_index"] > 2:
+                                    continue
+                                overlap = self._bbox_iou(previous["bbox"], det["bbox"])
+                                if overlap >= best_iou:
+                                    identity = fallback_id
+                                    best_iou = overlap
+                            if identity is None:
+                                identity = f"fallback:{next_fallback_track_id}"
+                                next_fallback_track_id += 1
+                            current_fallback_tracks.add(identity)
+                            fallback_tracks[identity] = {
+                                "class_id": det["class_id"],
+                                "bbox": det["bbox"],
+                                "sample_index": sampled_count,
                             }
-                            frame_detections.append(det)
+
+                        is_new_object = identity not in seen_track_ids
+                        det["is_new_object"] = is_new_object
+                        if is_new_object:
+                            seen_track_ids.add(identity)
                             total_objects += 1
-                            class_counts[cls_name] = (
-                                class_counts.get(cls_name, 0) + 1
-                            )
+                            class_name = det["class_name"]
+                            class_counts[class_name] = class_counts.get(class_name, 0) + 1
+                            display_name = det["class_name_display"]
+                            class_counts_display[display_name] = class_counts_display.get(display_name, 0) + 1
+                        frame_detections.append(det)
 
-                    last_detections = frame_detections
-                    sampled_count += 1
-                    inference_time = float(result.speed.get("inference", 0))
-                    total_inference_time += inference_time
+                last_detections = frame_detections
+                sampled_count += 1
+                inference_time = float(result.speed.get("inference", 0))
+                total_inference_time += inference_time
 
-                    annotated_img = draw_detections_on_frame(frame, frame_detections)
-                    video_writer.write(annotated_img)
+                annotated_img = draw_detections_on_frame(frame, frame_detections)
+                video_writer.write(annotated_img)
 
-                    annotated_base64 = None
-                    if len(key_frames) < 6:
-                        _, buffer = cv2.imencode(
-                            ".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 70]
-                        )
-                        annotated_base64 = base64.b64encode(buffer).decode("utf-8")
-
-                    key_frames.append(
-                        {
-                            "frame_index": frame_idx,
-                            "timestamp": round(frame_idx / fps, 2),
-                            "annotated_image_base64": annotated_base64,
-                            "object_count": len(frame_detections),
-                            "detections": frame_detections,
-                            "inference_time": round(inference_time, 2),
-                        }
+                annotated_base64 = None
+                if len(key_frames) < 6:
+                    _, buffer = cv2.imencode(
+                        ".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 70]
                     )
+                    annotated_base64 = base64.b64encode(buffer).decode("utf-8")
 
-                    for det in frame_detections:
-                        db_result = DetectionResult(
-                            task_id=task_id,
-                            image_path=f"frame_{frame_idx}.jpg",
-                            class_name=det["class_name"],
-                            class_id=det["class_id"],
-                            confidence=det["confidence"],
-                            bbox=det["bbox"],
-                            inference_time=inference_time,
-                        )
-                        db.add(db_result)
+                key_frames.append(
+                    {
+                        "frame_index": frame_idx,
+                        "timestamp": round(frame_idx / fps, 2),
+                        "annotated_image_base64": annotated_base64,
+                        "object_count": len(frame_detections),
+                        "new_object_count": sum(
+                            1 for det in frame_detections if det["is_new_object"]
+                        ),
+                        "detections": frame_detections,
+                        "inference_time": round(inference_time, 2),
+                    }
+                )
 
-                    if task:
-                        task.total_objects = total_objects
-                        db.commit()
-
-                    logger.debug(
-                        "视频检测进度: %d 场景, 帧号 %d, 检测到 %d 个目标",
-                        sampled_count,
-                        frame_idx,
-                        len(frame_detections),
+                # 数据库只保存每个唯一目标首次出现的记录，避免历史查询再次按帧重复统计。
+                for det in frame_detections:
+                    if not det["is_new_object"]:
+                        continue
+                    db_result = DetectionResult(
+                        task_id=task_id,
+                        image_path=f"frame_{frame_idx}.jpg",
+                        class_name=det["class_name"],
+                        class_name_cn=det.get("class_name_cn"),
+                        class_id=det["class_id"],
+                        confidence=det["confidence"],
+                        bbox=det["bbox"],
+                        inference_time=inference_time,
                     )
-                else:
-                    if last_detections:
-                        annotated_frame = draw_detections_on_frame(frame, last_detections)
-                        video_writer.write(annotated_frame)
-                    else:
-                        video_writer.write(frame)
+                    db.add(db_result)
+
+                if task:
+                    task.total_objects = total_objects
+                    db.commit()
+
+                logger.debug(
+                    "视频检测进度: %d 采样帧, 帧号 %d, 当前目标 %d, 新增唯一目标 %d",
+                    sampled_count,
+                    frame_idx,
+                    len(frame_detections),
+                    sum(1 for det in frame_detections if det["is_new_object"]),
+                )
 
                 sampled_frames_seen += 1
                 progress = min(
@@ -945,6 +1066,7 @@ class DetectionService:
                 "video_resolution": {"width": width, "height": height},
                 "total_objects": total_objects,
                 "class_counts": class_counts,
+                "class_counts_display": class_counts_display,
                 "key_frames": key_frames,
                 "source_video_url": source_video_url,
                 "annotated_video_url": annotated_video_url,

@@ -94,7 +94,7 @@
       <input
         ref="fileInputRef"
         type="file"
-        accept="image/*,.zip"
+        accept="image/*,video/*,.zip"
         multiple
         style="display: none"
         @change="handleFileSelect"
@@ -188,6 +188,9 @@ async function sendMessage() {
   const imagePreviews = filesToSend
     .filter((file) => file.type.startsWith("image/"))
     .map((file) => URL.createObjectURL(file));
+  const videoPreviews = filesToSend
+    .filter((file) => isVideoFile(file))
+    .map((file) => URL.createObjectURL(file));
 
   // 添加用户消息到列表
   agentStore.addMessage({
@@ -199,6 +202,7 @@ async function sendMessage() {
         : null,
     imagePreview: imagePreviews[0] || null,
     images: filesToSend.length > 1 ? imagePreviews : null,
+    videoUrl: filesToSend.length === 1 ? videoPreviews[0] || null : null,
   });
 
   // 清空输入
@@ -221,12 +225,12 @@ async function sendMessage() {
         formData.append("file", file);
         // 不设置 Content-Type，让 axios 自动添加 boundary
         const uploadResult = await request.post("/chat/upload", formData);
-        serverImagePaths.push(uploadResult.image_path);
+        serverImagePaths.push(uploadResult.file_path || uploadResult.image_path);
       }
     } catch (err) {
-      console.error("[图片上传失败]", err.response?.data || err.message || err);
+      console.error("[附件上传失败]", err.response?.data || err.message || err);
       const lastMsg = agentStore.messages[agentStore.messages.length - 1];
-      lastMsg.content = `图片上传失败：${err.response?.data?.detail || err.message || "未知错误"}，请重试`;
+      lastMsg.content = `附件上传失败：${err.response?.data?.detail || err.message || "未知错误"}，请重试`;
       lastMsg.loading = false;
       lastMsg.error = true;
       agentStore.setLoading(false);
@@ -283,7 +287,22 @@ async function sendMessage() {
             "detections:",
             result.detections?.length,
           );
-          if (result.detections || result.annotated_images) {
+          if (
+            result.type === "video" ||
+            result.task_type === "video" ||
+            result.detections ||
+            result.annotated_images ||
+            result.key_frames
+          ) {
+            if (result.source_video_url) {
+              const userVideoMessage = [...agentStore.messages]
+                .reverse()
+                .find((message) => message.role === "user" && message.videoUrl);
+              if (userVideoMessage) {
+                // Agent 路径也使用后端转码后的源视频，避免浏览器直接播放原始编码黑屏。
+                userVideoMessage.sourceVideoUrl = result.source_video_url;
+              }
+            }
             // 有检测结果，设置到消息中
             lastMsg.detectionResult = result;
             lastMsg.loading = false;
@@ -350,6 +369,11 @@ function handleFileSelect(event) {
   const containsZip = files.some((file) =>
     file.name.toLowerCase().endsWith(".zip"),
   );
+  const videoFiles = files.filter((file) => isVideoFile(file));
+  if (videoFiles.length && (files.length > 1 || containsZip)) {
+    ElMessage.warning("视频附件请单独选择；图片可以多选");
+    return;
+  }
   if (containsZip && files.length > 1) {
     ElMessage.warning("ZIP 文件请单独选择；多图检测请选择多张图片");
     return;
@@ -359,7 +383,14 @@ function handleFileSelect(event) {
   ElMessage.info(
     files.length === 1
       ? `${files[0].name} 已选择`
-      : `已选择 ${files.length} 张图片`,
+      : `已选择 ${files.length} 个图片附件`,
+  );
+}
+
+function isVideoFile(file) {
+  if (file.type?.startsWith("video/")) return true;
+  return [".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv"].some((suffix) =>
+    file.name.toLowerCase().endsWith(suffix),
   );
 }
 
