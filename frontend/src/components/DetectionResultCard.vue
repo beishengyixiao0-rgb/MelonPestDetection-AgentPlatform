@@ -10,7 +10,7 @@
 
     <div class="card-body">
       <!-- 单图模式：标注图 -->
-      <div class="result-image" v-if="annotatedImageSrc && !isBatch">
+      <div class="result-image" v-if="annotatedImageSrc && !isBatch && !isVideo">
         <img :src="annotatedImageSrc" alt="检测标注图" @click="showFullImage = true" />
       </div>
 
@@ -24,13 +24,13 @@
 
       <!-- 视频检测结果：标注视频播放器 -->
       <div
-        v-if="result.type === 'video'"
+        v-if="isVideo"
         class="video-result"
       >
         <div class="video-info">
           <el-tag type="info">时长: {{ result.duration_seconds }}s</el-tag>
           <el-tag type="info">FPS: {{ result.fps }}</el-tag>
-          <el-tag type="info">采样帧: {{ result.processed_frames }}</el-tag>
+          <el-tag type="info">采样帧: {{ result.sampled_frames ?? result.processed_frames }}</el-tag>
           <el-tag type="success">目标: {{ result.total_objects }}</el-tag>
         </div>
         <!-- 标注视频播放器 -->
@@ -42,7 +42,7 @@
           ></video>
         </div>
         <!-- 降级：如果视频 URL 不可用，展示少量关键帧缩略图 -->
-        <div v-else-if="result.key_frames" class="frames-fallback">
+        <div v-else-if="thumbnailFrames.length > 0" class="frames-fallback">
           <p class="fallback-hint">标注视频生成中或上传失败，以下为关键帧预览：</p>
           <div class="frames-container">
             <div
@@ -115,6 +115,7 @@ const previewSrc = ref(null)
 
 /** 判断是否为批量检测结果 */
 const isBatch = computed(() => Array.isArray(props.result.annotated_images) && props.result.annotated_images.length > 1)
+const isVideo = computed(() => props.result.type === 'video' || props.result.task_type === 'video')
 
 /** 单图模式：标注图 URL（优先使用 MinIO URL，否则用 base64） */
 const annotatedImageSrc = computed(() => {
@@ -132,9 +133,20 @@ const batchImages = computed(() => {
   }))
 })
 
+const thumbnailFrames = computed(() =>
+  Array.isArray(props.result.key_frames)
+    ? props.result.key_frames.filter((frame) => frame.annotated_image_base64).slice(0, 6)
+    : [],
+)
+
 /** 点击预览图片 */
 function previewImage(img) {
   previewSrc.value = img.src
+  showFullImage.value = true
+}
+
+function previewVideoFrame(frame) {
+  previewSrc.value = `data:image/jpeg;base64,${frame.annotated_image_base64}`
   showFullImage.value = true
 }
 
