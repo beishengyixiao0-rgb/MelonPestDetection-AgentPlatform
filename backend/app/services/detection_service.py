@@ -153,12 +153,20 @@ class DetectionService:
         return scene.id if scene else None
 
     @staticmethod
-    def _set_video_progress(task_id: int, progress: int, message: str) -> None:
+    def _set_video_progress(
+        task_id: int,
+        progress: int,
+        message: str,
+        source_video_url: str | None = None,
+    ) -> None:
         """写入短生命周期的轮询进度；Redis 不可用时由客户端自动降级。"""
         try:
+            payload = {"status": "processing", "progress": progress, "message": message}
+            if source_video_url:
+                payload["source_video_url"] = source_video_url
             redis_client.set_json(
                 f"video_task:{task_id}",
-                {"status": "processing", "progress": progress, "message": message},
+                payload,
                 expire=3600,
             )
         except Exception as exc:
@@ -574,6 +582,8 @@ class DetectionService:
         video_writer = None
         output_video_path = None
         converted_video_path = None
+        source_video_path = None
+        source_video_url = None
         try:
             if not 0 <= conf <= 1 or not 0 <= iou <= 1:
                 raise ValueError("conf 和 iou 必须在 0 到 1 之间")
@@ -607,6 +617,55 @@ class DetectionService:
                 db.add(task)
                 db.flush()
                 task_id = task.id
+
+            # 将原视频统一转为浏览器可播放的 H.264/AAC，再提供给右侧播放器。
+            ffmpeg_path = shutil.which("ffmpeg")
+            source_upload_path = video_path
+            if ffmpeg_path:
+                source_video_path = f"{video_path}.source.h264.mp4"
+                try:
+                    subprocess.run(
+                        [
+                            ffmpeg_path,
+                            "-y",
+                            "-i",
+                            video_path,
+                            "-map",
+                            "0:v:0",
+                            "-map",
+                            "0:a?",
+                            "-c:v",
+                            "libx264",
+                            "-pix_fmt",
+                            "yuv420p",
+                            "-c:a",
+                            "aac",
+                            "-movflags",
+                            "+faststart",
+                            source_video_path,
+                        ],
+                        check=True,
+                        capture_output=True,
+                        timeout=120,
+                    )
+                    source_upload_path = source_video_path
+                except (OSError, subprocess.SubprocessError) as exc:
+                    logger.warning("原视频转码失败，使用上传原文件: %s", exc)
+
+            try:
+                minio_client = MinIOClient()
+                source_object_name = f"detections/{task_id}/source_video.mp4"
+                source_video_url = minio_client.upload_file(
+                    source_object_name, source_upload_path, content_type="video/mp4"
+                )
+                self._set_video_progress(
+                    task_id,
+                    1,
+                    "原视频已准备完成，正在检测...",
+                    source_video_url,
+                )
+            except Exception as exc:
+                logger.warning("原视频上传 MinIO 失败: %s", exc)
 
             model = self._get_model(scene_id)
             cap = cv2.VideoCapture(video_path)
@@ -808,6 +867,7 @@ class DetectionService:
                     task_id,
                     progress,
                     f"视频处理中，已采样 {sampled_frames_seen}/{len(sample_indices)} 帧",
+                    source_video_url,
                 )
                 frame_idx += 1
 
@@ -818,7 +878,6 @@ class DetectionService:
 
             annotated_video_url = None
             upload_video_path = output_video_path
-            ffmpeg_path = shutil.which("ffmpeg")
             if ffmpeg_path:
                 converted_video_path = f"{output_video_path}.h264.mp4"
                 try:
@@ -847,7 +906,7 @@ class DetectionService:
                 minio_client = MinIOClient()
                 object_name = f"detections/{task_id}/annotated_video.mp4"
                 annotated_video_url = minio_client.upload_file(
-                    object_name, upload_video_path
+                    object_name, upload_video_path, content_type="video/mp4"
                 )
                 logger.info("标注视频已上传: %s", object_name)
             except Exception as e:
@@ -887,6 +946,7 @@ class DetectionService:
                 "total_objects": total_objects,
                 "class_counts": class_counts,
                 "key_frames": key_frames,
+                "source_video_url": source_video_url,
                 "annotated_video_url": annotated_video_url,
                 "total_inference_time": round(total_inference_time, 2),
             }
@@ -908,7 +968,7 @@ class DetectionService:
                 cap.release()
             if video_writer is not None:
                 video_writer.release()
-            for path in (output_video_path, converted_video_path):
+            for path in (output_video_path, converted_video_path, source_video_path):
                 if path and os.path.exists(path):
                     try:
                         os.unlink(path)
