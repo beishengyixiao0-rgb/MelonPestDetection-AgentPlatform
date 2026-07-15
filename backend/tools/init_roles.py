@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-初始化系统角色和默认超级管理员
+初始化系统角色和默认管理员
 
 使用方式：
     cd backend
@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def init_roles():
-    """初始化角色和默认管理员"""
+    """初始化 admin/user 两种业务角色和默认管理员账号。"""
     from app.database.session import get_db
     from app.entity.db_models import Role, User, UserRole
     from app.services.user_service import user_service
@@ -22,36 +22,13 @@ def init_roles():
     db = next(get_db())
 
     print("=== 初始化系统角色 ===")
+    roles = user_service.ensure_builtin_roles(db)
+    admin_role = roles["admin"]
+    user_role = roles["user"]
+    db.commit()
+    print("✓ admin / user 角色已就绪")
 
-    admin_role = db.query(Role).filter(Role.name == "admin").first()
-    if not admin_role:
-        admin_role = Role(
-            name="admin",
-            display_name="管理员",
-            description="系统管理员，拥有所有权限",
-            is_system=True,
-        )
-        db.add(admin_role)
-        db.commit()
-        print("✓ 创建管理员角色")
-    else:
-        print("✓ 管理员角色已存在")
-
-    user_role = db.query(Role).filter(Role.name == "user").first()
-    if not user_role:
-        user_role = Role(
-            name="user",
-            display_name="普通用户",
-            description="普通用户，仅拥有检测和智能体功能",
-            is_system=True,
-        )
-        db.add(user_role)
-        db.commit()
-        print("✓ 创建普通用户角色")
-    else:
-        print("✓ 普通用户角色已存在")
-
-    print("\n=== 初始化默认超级管理员 ===")
+    print("\n=== 初始化默认管理员 ===")
 
     admin_user = db.query(User).filter(User.username == "admin").first()
     if not admin_user:
@@ -61,27 +38,31 @@ def init_roles():
             email="admin@example.com",
             password="admin123",
         )
-        admin_user.is_superuser = True
         admin_user.is_active = True
-
-        existing_ur = db.query(UserRole).filter(
-            UserRole.user_id == admin_user.id,
-            UserRole.role_id == admin_role.id
-        ).first()
-        if not existing_ur:
-            db.add(UserRole(user_id=admin_user.id, role_id=admin_role.id))
-
+        user_service.assign_single_role(db, admin_user, "admin")
         db.commit()
-        print("✓ 创建默认超级管理员")
+        print("✓ 创建默认管理员")
         print("  - 用户名: admin")
         print("  - 密码: admin123")
         print("  - 邮箱: admin@example.com")
     else:
-        if not admin_user.is_superuser:
-            admin_user.is_superuser = True
-            db.commit()
-            print("✓ 更新为超级管理员")
-        print("✓ 默认超级管理员已存在")
+        admin_user.is_active = True
+        user_service.assign_single_role(db, admin_user, "admin")
+        db.commit()
+        print("✓ 默认管理员已存在")
+
+    # 为已有但没有角色的账户补上默认 user 角色。
+    unassigned_users = (
+        db.query(User)
+        .outerjoin(UserRole, UserRole.user_id == User.id)
+        .filter(UserRole.id.is_(None))
+        .all()
+    )
+    for user in unassigned_users:
+        db.add(UserRole(user_id=user.id, role_id=user_role.id))
+    if unassigned_users:
+        db.commit()
+        print(f"✓ 为 {len(unassigned_users)} 个已有账户分配 user 角色")
 
     print("\n=== 初始化完成 ===")
 

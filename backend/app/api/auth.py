@@ -89,20 +89,19 @@ async def get_current_user(
     if user is None:
         logger.error(f"用户不存在: user_id={user_id}")
         raise credentials_exception
+    if not user.is_active:
+        logger.warning(f"已禁用账号请求接口: user_id={user_id}")
+        raise HTTPException(status_code=403, detail="账号已被禁用")
 
     logger.debug(f"认证成功: username={user.username}")
     return user
 
 
-def require_admin(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+def require_admin(current_user=Depends(get_current_user)):
     """
     管理员权限验证依赖
-    - 超级管理员直接通过（is_superuser=True）
-    - 普通管理员需要拥有 admin 角色
+    仅 admin 角色可通过；is_superuser 不再作为独立业务权限。
     """
-    if current_user.is_superuser:
-        return current_user
-
     roles = [ur.role.name for ur in current_user.user_roles]
     if "admin" not in roles:
         raise HTTPException(status_code=403, detail="需要管理员权限")

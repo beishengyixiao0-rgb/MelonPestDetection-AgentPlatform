@@ -279,9 +279,7 @@ def export_dataset(
 
 
 @router.get("/disease/class", response_model=List[DiseaseClassResponse])
-def get_disease_classes(
-    current_user=Depends(require_admin),
-):
+def get_disease_classes():
     """获取病害类别列表"""
     classes = dataset_service.get_disease_classes()
     return [

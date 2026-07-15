@@ -117,6 +117,7 @@ class TestLogin:
         assert "access_token" in data
         assert data["token_type"] == "bearer"
         assert data["user"]["username"] == "login_user"
+        assert data["user"]["roles"] == ["user"]
 
     def test_login_wrong_password(self, client):
         """密码错误"""

@@ -11,6 +11,9 @@ conftest.py 中的 fixtures 对所有测试文件可用，无需显式导入。
 
 import pytest
 from app.database.session import Base, get_db
+from app.core.security import create_access_token
+from app.entity.db_models import User
+from app.services.user_service import user_service
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -104,3 +107,46 @@ def db_session():
     finally:
         session.rollback()
         session.close()
+
+
+@pytest.fixture
+def admin_user(db_session):
+    """提供拥有 admin 角色的测试账户。"""
+    user_service.ensure_builtin_roles(db_session)
+    user = db_session.query(User).filter(User.username == "test_admin").first()
+    if not user:
+        user = user_service.register(
+            db_session,
+            username="test_admin",
+            email="test_admin@example.com",
+            password="123456",
+        )
+    user.is_active = True
+    user_service.assign_single_role(db_session, user, "admin")
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+def admin_headers(admin_user):
+    return {"Authorization": f"Bearer {create_access_token({'sub': str(admin_user.id)})}"}
+
+
+@pytest.fixture
+def user_headers(db_session):
+    """提供拥有 user 角色的测试账户。"""
+    user_service.ensure_builtin_roles(db_session)
+    user = db_session.query(User).filter(User.username == "test_user").first()
+    if not user:
+        user = user_service.register(
+            db_session,
+            username="test_user",
+            email="test_user@example.com",
+            password="123456",
+        )
+    user.is_active = True
+    user_service.assign_single_role(db_session, user, "user")
+    db_session.commit()
+    db_session.refresh(user)
+    return {"Authorization": f"Bearer {create_access_token({'sub': str(user.id)})}"}

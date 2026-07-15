@@ -20,6 +20,15 @@ from app.services.user_service import user_service
 router = APIRouter(prefix="/api/user", tags=["用户管理"])
 
 
+def _is_admin(user: User) -> bool:
+    return any(user_role.role.name == "admin" for user_role in user.user_roles)
+
+
+def _active_admin_count(db: Session) -> int:
+    users = db.query(User).filter(User.is_active.is_(True)).all()
+    return sum(_is_admin(user) for user in users)
+
+
 @router.get("/list", response_model=ApiResponse)
 def list_users(
     db: Session = Depends(get_db),
@@ -38,7 +47,6 @@ def list_users(
             "phone": user.phone,
             "avatar": user.avatar,
             "is_active": user.is_active,
-            "is_superuser": user.is_superuser,
             "roles": roles,
             "last_login_at": user.last_login_at,
             "created_at": user.created_at,
@@ -63,15 +71,6 @@ def create_user(
 
     user = user_service.register(db=db, username=username, email=email, password=password)
     user.phone = phone
-
-    role = db.query(Role).filter(Role.name == "user").first()
-    if role:
-        existing_ur = db.query(UserRole).filter(
-            UserRole.user_id == user.id,
-            UserRole.role_id == role.id
-        ).first()
-        if not existing_ur:
-            db.add(UserRole(user_id=user.id, role_id=role.id))
 
     db.commit()
 
@@ -112,12 +111,11 @@ def update_user(
         user.avatar = avatar
 
     if role_name:
-        role = db.query(Role).filter(Role.name == role_name).first()
-        if not role:
-            raise HTTPException(status_code=400, detail=f"角色 {role_name} 不存在")
-
-        db.query(UserRole).filter(UserRole.user_id == user_id).delete()
-        db.add(UserRole(user_id=user_id, role_id=role.id))
+        if role_name not in {"admin", "user"}:
+            raise HTTPException(status_code=400, detail="角色仅支持 admin 或 user")
+        if _is_admin(user) and role_name != "admin" and _active_admin_count(db) <= 1:
+            raise HTTPException(status_code=400, detail="系统至少需要保留一个启用的管理员")
+        user_service.assign_single_role(db, user, role_name)
 
     db.commit()
     return ApiResponse(message="更新成功")
@@ -129,7 +127,7 @@ def delete_user(
     db: Session = Depends(get_db),
     current_user=Depends(require_admin),
 ):
-    """删除用户"""
+    """禁用用户账户，保留其训练、检测和对话历史。"""
     if current_user.id == user_id:
         raise HTTPException(status_code=400, detail="不能删除自己")
 
@@ -137,6 +135,9 @@ def delete_user(
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
 
-    db.delete(user)
+    if _is_admin(user) and _active_admin_count(db) <= 1:
+        raise HTTPException(status_code=400, detail="系统至少需要保留一个启用的管理员")
+
+    user.is_active = False
     db.commit()
-    return ApiResponse(message="删除成功")
+    return ApiResponse(message="账户已禁用")

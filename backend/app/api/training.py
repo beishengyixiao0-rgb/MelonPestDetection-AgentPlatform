@@ -121,8 +121,8 @@ async def list_training_tasks(
     db: Session = Depends(get_db),
     current_user=Depends(require_admin),
 ):
-    """获取当前用户的训练任务列表"""
-    tasks = training_service.get_task_list(db, user_id=current_user.id)
+    """获取平台全部已导入或创建的训练任务（管理员专用）。"""
+    tasks = training_service.get_task_list(db, user_id=None)
     return {"total": len(tasks), "items": tasks}
 
 
