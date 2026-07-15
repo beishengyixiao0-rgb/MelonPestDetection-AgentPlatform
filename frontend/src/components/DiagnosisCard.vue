@@ -59,7 +59,12 @@
       <div class="video-info">
         <el-tag type="info">时长：{{ resultData.duration_seconds ?? 0 }}s</el-tag>
         <el-tag type="info">FPS：{{ resultData.fps ?? 0 }}</el-tag>
-        <el-tag type="info">采样帧：{{ resultData.processed_frames ?? 0 }}</el-tag>
+        <el-tag type="info">总帧：{{ resultData.total_frames ?? 0 }}</el-tag>
+        <el-tag type="info">处理帧：{{ resultData.processed_frames ?? 0 }}</el-tag>
+        <el-tag v-if="resultData.sampled_frames != null" type="info">
+          采样帧：{{ resultData.sampled_frames }}
+        </el-tag>
+        <el-tag v-if="videoResolution" type="info">分辨率：{{ videoResolution }}</el-tag>
         <el-tag type="success">目标：{{ totalObjects }}</el-tag>
       </div>
 
@@ -96,6 +101,10 @@
             </span>
           </button>
         </div>
+      </div>
+
+      <div v-else class="video-output-missing">
+        检测任务已经完成，但后端暂未返回标注视频或可预览的关键帧。
       </div>
 
       <div class="result-stats">
@@ -342,7 +351,6 @@ const videoFrames = computed(() => (
       ? resultData.value.frames
       : []
 ))
-const thumbnailFrames = computed(() => videoFrames.value.slice(0, 12))
 const previewFrameUrl = ref('')
 const previewImageTitle = ref('')
 
@@ -402,6 +410,15 @@ const getVideoFrameImage = (frame) => {
 
   return `data:image/jpeg;base64,${source}`
 }
+
+const thumbnailFrames = computed(() => (
+  videoFrames.value.filter((frame) => Boolean(getVideoFrameImage(frame))).slice(0, 12)
+))
+const videoResolution = computed(() => {
+  const resolution = resultData.value.video_resolution
+  if (!resolution || resolution.width == null || resolution.height == null) return ''
+  return `${resolution.width} × ${resolution.height}`
+})
 
 const previewVideoFrame = (frame) => {
   previewFrameUrl.value = getVideoFrameImage(frame)
@@ -761,6 +778,17 @@ const formatBoundingBox = (bbox) => (
   color: #92400e;
   font-size: 13px;
   line-height: 1.5;
+}
+
+.video-output-missing {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .frames-container {

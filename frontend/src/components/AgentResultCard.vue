@@ -6,8 +6,7 @@
           <span class="agent-icon">✦</span>
           AI Agent 病害分析
         </div>
-        <h3>{{ resultTitle }}</h3>
-        <p>LLM 理解问题 · YOLO 检测 · LLM 结果解读</p>
+
       </div>
       <span class="agent-badge">Agent</span>
     </header>
@@ -101,7 +100,7 @@
     </section>
 
     <!-- LLM 解读固定放在检测目标之后，避免与原始检测数据混在一起。 -->
-    <section v-if="hasResult && (item.modelThinking || item.content) && !item.error" class="analysis-section">
+    <section v-if="item.content && !item.error" class="analysis-section">
       <div class="analysis-title">
         <span class="analysis-icon">AI</span>
         <div>
@@ -110,24 +109,7 @@
         </div>
       </div>
 
-      <div v-if="item.modelThinking" class="model-thinking" role="status" aria-live="polite">
-        <div class="thinking-orbit">
-          <span />
-          <span />
-          <span />
-        </div>
-        <div class="thinking-copy">
-          <strong>大模型正在思考</strong>
-          <p>YOLO 检测已完成，正在结合检测类别与置信度生成分析…</p>
-          <div class="thinking-lines" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </div>
-        </div>
-      </div>
-
-      <div v-if="item.content && !item.modelThinking" class="formatted-answer">
+      <div class="formatted-answer">
         <template v-for="(block, index) in contentBlocks" :key="index">
           <h5 v-if="block.type === 'heading'">{{ block.text }}</h5>
           <ul v-else-if="block.type === 'list'">
@@ -373,18 +355,6 @@ const openPreview = (src) => {
 .analysis-title { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .analysis-title p { margin: 2px 0 0; color: #9ca3af; font-size: 11px; }
 .analysis-icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 10px; background: #ede9fe; color: #6d28d9; font-size: 11px; font-weight: 800; }
-.model-thinking { display: flex; align-items: flex-start; gap: 13px; padding: 13px; border: 1px solid #ede9fe; border-radius: 12px; background: linear-gradient(135deg, #faf5ff, #f5f3ff); }
-.thinking-orbit { display: flex; align-items: center; gap: 3px; min-width: 34px; height: 28px; }
-.thinking-orbit span { width: 7px; height: 7px; border-radius: 50%; background: #8b5cf6; animation: thinking-bounce 1.1s infinite ease-in-out; }
-.thinking-orbit span:nth-child(2) { animation-delay: .14s; }
-.thinking-orbit span:nth-child(3) { animation-delay: .28s; }
-.thinking-copy { flex: 1; min-width: 0; color: #4c1d95; }
-.thinking-copy p { margin: 3px 0 9px; color: #7c3aed; font-size: 12px; line-height: 1.5; }
-.thinking-lines { display: flex; flex-direction: column; gap: 5px; overflow: hidden; }
-.thinking-lines i { display: block; height: 5px; border-radius: 999px; background: linear-gradient(90deg, #ddd6fe 20%, #a78bfa 45%, #ddd6fe 70%); background-size: 220% 100%; animation: thinking-shimmer 1.4s infinite linear; }
-.thinking-lines i:nth-child(1) { width: 94%; }
-.thinking-lines i:nth-child(2) { width: 78%; animation-delay: .12s; }
-.thinking-lines i:nth-child(3) { width: 55%; animation-delay: .24s; }
 .formatted-answer { color: #374151; line-height: 1.75; }
 .formatted-answer h5 { margin: 14px 0 5px; color: #4c1d95; font-size: 14px; }
 .formatted-answer h5:first-child { margin-top: 0; }
@@ -400,8 +370,6 @@ const openPreview = (src) => {
 
 @keyframes pulse { 0%, 100% { opacity: .35; transform: scale(.85); } 50% { opacity: 1; transform: scale(1); } }
 @keyframes blink { 0%, 45% { opacity: 1; } 50%, 100% { opacity: 0; } }
-@keyframes thinking-bounce { 0%, 70%, 100% { opacity: .35; transform: translateY(0); } 35% { opacity: 1; transform: translateY(-5px); } }
-@keyframes thinking-shimmer { from { background-position: 100% 0; } to { background-position: -120% 0; } }
 
 @media (max-width: 640px) {
   .agent-result-card { padding: 16px; }

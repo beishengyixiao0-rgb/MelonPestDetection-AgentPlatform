@@ -473,6 +473,13 @@ const normalizeVideoResult = (payload, taskId) => {
   }
 }
 
+const updateVideoProgress = (messageItem, patch) => {
+  messageItem.videoProgress = {
+    ...(messageItem.videoProgress || {}),
+    ...patch,
+  }
+}
+
 async function pollVideoProgress(taskId, loadingMessage) {
   const pollToken = Symbol(`video-${taskId}`)
   activeVideoPolls.add(pollToken)
@@ -495,6 +502,12 @@ async function pollVideoProgress(taskId, loadingMessage) {
       } else {
         loadingMessage.content = payload.message || '视频已上传，正在处理中...'
       }
+      updateVideoProgress(loadingMessage, {
+        status: 'processing',
+        progress: Number.isFinite(progressPercent) ? Math.min(100, Math.max(0, progressPercent)) : 0,
+        message: loadingMessage.content,
+        taskId,
+      })
 
       if (['completed', 'complete', 'success', 'succeeded', 'finished', 'done'].includes(status)) {
         const result = normalizeVideoResult(payload, taskId)
@@ -502,6 +515,7 @@ async function pollVideoProgress(taskId, loadingMessage) {
         loadingMessage.loading = false
         loadingMessage.type = 'diagnosis'
         loadingMessage.detectionResult = result
+        updateVideoProgress(loadingMessage, { status: 'completed', progress: 100 })
         scrollToBottom()
         return result
       }
@@ -524,7 +538,7 @@ async function handleVideoDetect() {
 
   input.type = "file";
   input.accept =
-    "video/mp4,video/avi,video/quicktime,video/x-msvideo";
+    ".mp4,.avi,.mov,.mkv,.wmv,.flv,video/mp4,video/quicktime,video/x-msvideo";
 
   input.onchange = async (e) => {
     const file = e.target.files?.[0];
@@ -554,8 +568,17 @@ async function handleVideoDetect() {
     // 添加加载占位消息
     agentStore.addMessage({
       role: "assistant",
+      type: "video-progress",
       content: "正在上传视频...",
       loading: true,
+      videoProgress: {
+        fileName: file.name,
+        fileSize: file.size,
+        status: "uploading",
+        progress: 0,
+        message: "正在上传视频...",
+        taskId: null,
+      },
     });
     const loadingMessage =
       agentStore.messages[agentStore.messages.length - 1];
@@ -563,6 +586,10 @@ async function handleVideoDetect() {
 
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("conf", "0.25");
+    formData.append("iou", "0.45");
+    formData.append("frame_sample_rate", "5");
+    formData.append("max_frames", "50");
 
     try {
       // 上传视频
@@ -575,6 +602,12 @@ async function handleVideoDetect() {
 
       // 更新加载提示
       loadingMessage.content = "视频已上传，正在处理中...";
+      updateVideoProgress(loadingMessage, {
+        status: "processing",
+        progress: 0,
+        message: loadingMessage.content,
+        taskId,
+      });
 
       // 轮询检测进度
       await pollVideoProgress(taskId, loadingMessage);
@@ -586,6 +619,10 @@ async function handleVideoDetect() {
 
       loadingMessage.loading = false;
       loadingMessage.error = true;
+      updateVideoProgress(loadingMessage, {
+        status: "failed",
+        message: loadingMessage.content,
+      });
     }
   };
 
@@ -772,6 +809,7 @@ const startNewDiagnosis = () => {
   messages.value.forEach((item) => {
     if (item.imagePreview?.startsWith('blob:')) URL.revokeObjectURL(item.imagePreview)
     if (item.imageUrl?.startsWith('blob:')) URL.revokeObjectURL(item.imageUrl)
+    if (item.videoUrl?.startsWith('blob:')) URL.revokeObjectURL(item.videoUrl)
     item.images?.forEach((url) => {
       if (url.startsWith('blob:')) URL.revokeObjectURL(url)
     })
