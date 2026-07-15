@@ -643,12 +643,10 @@ const sendMessage = async () => {
 
   agentStore.abort()
 
-  const attachmentData = attachments.map((item) => ({
-    name: item.name,
-    type: item.file.type,
-    url: item.uploadUrl,
-    upload: item.uploadResult,
-  }))
+  // /api/chat/upload 返回服务器临时路径；Agent SSE 接口只接收一个 image_path。
+  const imagePath = attachments[0]?.uploadResult?.image_path
+    || attachments[0]?.uploadResult?.data?.image_path
+    || null
 
   const userMessage = {
     role: 'user',
@@ -666,6 +664,10 @@ const sendMessage = async () => {
 
   agentStore.addMessage({
     role: 'assistant',
+    type: attachments.length ? 'agent-analysis' : undefined,
+    agentPrompt: attachments.length ? userMessage.content : '',
+    inputImage: attachments[0]?.previewUrl || '',
+    modelThinking: false,
     content: '',
     loading: true,
   })
@@ -679,15 +681,18 @@ const sendMessage = async () => {
   uploadQueue.value = uploadQueue.value.filter((item) => item.mode !== 'agent-image')
 
   const stop = streamChat(
-    '/api/agent/chat/stream',
+    '/api/chat/stream',
     {
       message: userMessage.content,
+      image_path: imagePath,
       session_id: agentStore.currentSessionId,
-      attachments: attachmentData,
     },
     {
       onMessage: (event) => {
         if (event.type === 'text_chunk' || typeof event.content === 'string') {
+          if (assistantMessage.detectionResult && event.content) {
+            assistantMessage.modelThinking = false
+          }
           assistantMessage.content += event.content || ''
         }
 
@@ -695,26 +700,43 @@ const sendMessage = async () => {
           agentStore.currentSessionId = event.session_id
         }
 
-        if (event.type === 'diagnosis' || event.detectionResult || event.result) {
-          assistantMessage.type = 'diagnosis'
-          assistantMessage.detectionResult = event.detectionResult || event.result
+        if (event.type === 'tool_result' && event.result) {
+          try {
+            const detectionResult = typeof event.result === 'string'
+              ? JSON.parse(event.result)
+              : event.result
+
+            assistantMessage.type = 'agent-analysis'
+            assistantMessage.detectionResult = detectionResult
+            assistantMessage.modelThinking = true
+          } catch (error) {
+            console.error('[Agent 检测结果解析失败]', error, event.result)
+          }
+        } else if (event.type === 'diagnosis' || event.detectionResult) {
+          assistantMessage.type = 'agent-analysis'
+          assistantMessage.detectionResult = event.detectionResult || event
+          assistantMessage.modelThinking = true
         }
 
         scrollToBottom()
       },
       onDone: () => {
         assistantMessage.loading = false
+        assistantMessage.modelThinking = false
         agentStore.setLoading(false)
         agentStore.abortController = null
 
-        if (!assistantMessage.content && !assistantMessage.detectionResult) {
-          assistantMessage.content = '分析已完成'
+        if (!assistantMessage.content) {
+          assistantMessage.content = assistantMessage.detectionResult
+            ? 'YOLO 检测已完成，但大模型暂未返回分析内容。'
+            : '分析已完成'
         }
 
         scrollToBottom()
       },
       onError: (error) => {
         assistantMessage.loading = false
+        assistantMessage.modelThinking = false
         assistantMessage.error = true
         assistantMessage.content = `Agent 请求失败：${getErrorMessage(error)}`
         agentStore.setLoading(false)

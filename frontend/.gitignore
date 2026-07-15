@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+ .DS_Store
+figma-design/figma-design/
+.DS_Store

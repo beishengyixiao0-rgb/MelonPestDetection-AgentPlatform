@@ -10,6 +10,7 @@
       @change="handleFileSelection"
     />
 
+    <div class="composer-stack">
     <div v-if="uploadQueue.length" class="upload-panel">
       <div
         v-for="item in uploadQueue"
@@ -27,15 +28,15 @@
           <div class="upload-info">
             <div class="upload-name">{{ item.name }}</div>
             <div class="upload-meta">
-              {{ item.type === 'video' ? 'Video' : 'Image' }} • {{ item.modeLabel }}
+              {{ item.type === 'video' ? '视频' : '图片' }} · {{ getChineseModeLabel(item.mode) }}
             </div>
             <div class="upload-progress-track">
               <div class="upload-progress-bar" :style="{ width: item.progress + '%' }" />
             </div>
             <div class="upload-status">
-              <span v-if="item.status === 'uploading'">Uploading… {{ item.progress }}%</span>
+              <span v-if="item.status === 'uploading'">正在上传… {{ item.progress }}%</span>
               <span v-else-if="item.status === 'success' && item.mode === 'agent-image'" class="success-text">上传成功，可输入内容后发送 ✓</span>
-              <span v-else-if="item.status === 'success'" class="success-text">Upload complete ✓</span>
+              <span v-else-if="item.status === 'success'" class="success-text">上传完成 ✓</span>
               <span v-else class="error-text">{{ item.errorMessage || '上传失败' }}</span>
             </div>
           </div>
@@ -43,59 +44,119 @@
 
         <div class="upload-item-actions">
           <button v-if="item.status === 'error'" class="retry-upload" @click="$emit('retry-upload', item.id)">重试</button>
-          <button class="upload-remove" @click="$emit('remove-upload-item', item.id)" aria-label="Remove upload">×</button>
+          <button class="upload-remove" @click="$emit('remove-upload-item', item.id)" aria-label="移除上传文件">×</button>
         </div>
       </div>
     </div>
 
     <div v-if="showUploadMenu" class="upload-menu">
-      <button class="upload-option primary" @click="$emit('select-upload-mode', 'agent-image')">📎 添加图片到 Agent 对话</button>
-      <button class="upload-option" @click="$emit('select-upload-mode', 'image')">⚡ 快捷单图检测</button>
-      <button class="upload-option" @click="$emit('select-upload-mode', 'realtime-camera')">📡 实时摄像头检测</button>
-      <button class="upload-option" @click="$emit('select-upload-mode', 'batch')">🗂️ 快捷批量检测（图片 / ZIP）</button>
-      <button class="upload-option" @click="$emit('select-upload-mode', 'video')">🎬 视频检测</button>
-      <button class="upload-option" @click="$emit('select-upload-mode', 'camera')">📹 相机拍摄</button>
+      <div class="upload-menu-title">添加内容与检测方式</div>
+      <button class="upload-option primary" @click="$emit('select-upload-mode', 'agent-image')">
+        <span class="option-icon"><Picture /></span>
+        <span class="option-copy"><strong>添加图片到 Agent 对话</strong><small>结合图片与文字问题进行智能分析</small></span>
+      </button>
+      <button class="upload-option" @click="$emit('select-upload-mode', 'image')">
+        <span class="option-icon"><Lightning /></span>
+        <span class="option-copy"><strong>快捷单图检测</strong><small>跳过大模型，直接获得确定性检测结果</small></span>
+      </button>
+      <button class="upload-option" @click="$emit('select-upload-mode', 'batch')">
+        <span class="option-icon"><Files /></span>
+        <span class="option-copy"><strong>快捷批量检测</strong><small>上传多张图片或 ZIP 压缩包</small></span>
+      </button>
+      <button class="upload-option" @click="$emit('select-upload-mode', 'video')">
+        <span class="option-icon"><VideoCamera /></span>
+        <span class="option-copy"><strong>视频检测</strong><small>上传作物视频并查看标注结果</small></span>
+      </button>
+      <button class="upload-option" @click="$emit('select-upload-mode', 'realtime-camera')">
+        <span class="option-icon"><Monitor /></span>
+        <span class="option-copy"><strong>实时摄像头检测</strong><small>连接摄像头持续识别病害目标</small></span>
+      </button>
+      <button class="upload-option" @click="$emit('select-upload-mode', 'camera')">
+        <span class="option-icon"><Camera /></span>
+        <span class="option-copy"><strong>相机拍摄</strong><small>拍摄一张现场照片并上传</small></span>
+      </button>
     </div>
 
     <div v-if="showCameraModal" class="camera-modal">
       <div class="camera-panel">
         <div class="camera-header">
-          <strong>Camera capture</strong>
-          <button class="upload-remove" @click="$emit('close-camera')" aria-label="Close camera">×</button>
+          <strong>相机拍摄</strong>
+          <button class="upload-remove" @click="$emit('close-camera')" aria-label="关闭相机">×</button>
         </div>
         <video ref="cameraVideoRef" autoplay playsinline muted class="camera-video" />
         <canvas ref="cameraCanvasRef" class="camera-canvas" />
         <div class="camera-actions">
-          <button class="upload-option" @click="$emit('close-camera')">Cancel</button>
-          <button class="upload-option primary" @click="captureCameraPhoto">Capture</button>
+          <button class="camera-action secondary" @click="$emit('close-camera')">取消</button>
+          <button class="camera-action primary" @click="captureCameraPhoto">拍摄照片</button>
         </div>
         <div v-if="cameraError" class="camera-error">{{ cameraError }}</div>
       </div>
     </div>
 
-    <div class="input-wrapper">
-      <button class="image-btn" @click="$emit('toggle-upload-menu')">📎</button>
+    <div class="input-wrapper" :class="{ 'is-listening': isListening }">
+      <button
+        type="button"
+        class="add-btn"
+        :class="{ active: showUploadMenu }"
+        :aria-expanded="showUploadMenu"
+        aria-label="添加图片或选择检测方式"
+        @click="$emit('toggle-upload-menu')"
+      >
+        <Plus />
+      </button>
 
       <textarea
+        ref="textareaRef"
         :value="modelValue"
-        placeholder="Describe symptoms or upload a plant photo..."
-        @input="$emit('update:modelValue', $event.target.value)"
+        rows="1"
+        placeholder="询问作物病害，或添加图片进行分析…"
+        aria-label="对话输入"
+        @input="handleTextInput"
         @keydown.enter.exact.prevent="$emit('send-message')"
       />
 
-      <button class="send-btn" @click="$emit('send-message')">
-        ➤
-      </button>
+      <div class="input-actions">
+        <button
+          type="button"
+          class="voice-btn"
+          :class="{ active: isListening }"
+          :title="voiceButtonTitle"
+          :aria-label="voiceButtonTitle"
+          @click="toggleVoiceInput"
+        >
+          <Microphone />
+          <span v-if="isListening" class="voice-ring" />
+        </button>
+
+        <button
+          type="button"
+          class="send-btn"
+          :disabled="!canSend"
+          aria-label="发送消息"
+          @click="$emit('send-message')"
+        >
+          <Promotion />
+        </button>
+      </div>
     </div>
 
+    <div v-if="isListening" class="voice-status listening-status">
+      <span class="listening-bars"><i /><i /><i /><i /></span>
+      正在聆听，请用中文描述作物症状…
+      <button type="button" @click="stopVoiceInput">停止</button>
+    </div>
+    <div v-else-if="speechError" class="voice-status voice-error">{{ speechError }}</div>
+
     <div class="input-tip">
-      Press Enter to send • Supports JPEG, PNG, WebP, MP4 and camera capture
+      按 Enter 发送，Shift + Enter 换行 · 支持图片、ZIP、视频、相机与中文语音输入
+    </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { nextTick, ref, watch } from 'vue'
+import { Camera, Files, Lightning, Microphone, Monitor, Picture, Plus, Promotion, VideoCamera } from '@element-plus/icons-vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const props = defineProps({
   modelValue: {
@@ -146,9 +207,41 @@ const emit = defineEmits([
 ])
 
 const fileInputRef = ref(null)
+const textareaRef = ref(null)
 const cameraVideoRef = ref(null)
 const cameraCanvasRef = ref(null)
 const cameraStreamRef = ref(null)
+const isListening = ref(false)
+const speechError = ref('')
+const speechSupported = ref(false)
+let speechRecognition = null
+let speechBaseText = ''
+
+const canSend = computed(() => Boolean(props.modelValue.trim() || props.uploadQueue.length))
+const voiceButtonTitle = computed(() => {
+  if (!speechSupported.value) return '当前浏览器不支持语音输入'
+  return isListening.value ? '停止语音输入' : '开始中文语音输入'
+})
+
+const getChineseModeLabel = (mode) => ({
+  'agent-image': 'Agent 图片对话',
+  image: '单图检测',
+  batch: '批量检测',
+  video: '视频检测',
+  camera: '相机拍摄',
+}[mode] || '文件上传')
+
+const resizeTextarea = () => {
+  const textarea = textareaRef.value
+  if (!textarea) return
+  textarea.style.height = 'auto'
+  textarea.style.height = `${Math.min(textarea.scrollHeight, 132)}px`
+}
+
+const handleTextInput = (event) => {
+  emit('update:modelValue', event.target.value)
+  resizeTextarea()
+}
 
 const handleFileSelection = (event) => {
   const files = Array.from(event.target.files || [])
@@ -170,7 +263,7 @@ const startCameraStream = async () => {
   }
 
   if (!navigator.mediaDevices?.getUserMedia) {
-    emit('camera-error', 'This browser does not support camera capture. Falling back to file selection.')
+    emit('camera-error', '当前浏览器不支持相机拍摄，将改为选择本地文件。')
     return
   }
 
@@ -189,7 +282,7 @@ const startCameraStream = async () => {
       await cameraVideoRef.value.play()
     }
   } catch (error) {
-    emit('camera-error', 'Unable to access the camera. Please select a file instead.')
+    emit('camera-error', '无法访问相机，请检查权限或改为选择本地文件。')
   }
 }
 
@@ -231,6 +324,91 @@ const captureCameraPhoto = () => {
 const openFilePicker = () => {
   fileInputRef.value?.click()
 }
+
+const getSpeechErrorMessage = (error) => ({
+  'not-allowed': '麦克风权限被拒绝，请在浏览器设置中允许访问麦克风。',
+  'service-not-allowed': '当前浏览器禁止使用语音识别服务。',
+  'audio-capture': '未检测到可用麦克风，请检查设备连接。',
+  network: '语音识别网络异常，请稍后重试。',
+  'no-speech': '没有识别到语音，请靠近麦克风后重试。',
+  aborted: '',
+}[error] ?? '语音识别失败，请稍后重试。')
+
+const setupSpeechRecognition = () => {
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition
+  speechSupported.value = Boolean(Recognition)
+  if (!Recognition) return
+
+  speechRecognition = new Recognition()
+  speechRecognition.lang = 'zh-CN'
+  speechRecognition.continuous = false
+  speechRecognition.interimResults = true
+  speechRecognition.maxAlternatives = 1
+
+  speechRecognition.onstart = () => {
+    isListening.value = true
+    speechError.value = ''
+  }
+
+  speechRecognition.onresult = (event) => {
+    let transcript = ''
+    for (let index = 0; index < event.results.length; index += 1) {
+      transcript += event.results[index][0]?.transcript || ''
+    }
+
+    const separator = speechBaseText && transcript ? ' ' : ''
+    emit('update:modelValue', `${speechBaseText}${separator}${transcript}`)
+    nextTick(resizeTextarea)
+  }
+
+  speechRecognition.onerror = (event) => {
+    speechError.value = getSpeechErrorMessage(event.error)
+    isListening.value = false
+  }
+
+  speechRecognition.onend = () => {
+    isListening.value = false
+  }
+}
+
+const startVoiceInput = () => {
+  if (!speechRecognition) {
+    speechError.value = '当前浏览器不支持语音输入，请使用最新版 Chrome、Edge 或 Safari。'
+    return
+  }
+
+  speechBaseText = props.modelValue.trim()
+  speechError.value = ''
+  try {
+    speechRecognition.start()
+  } catch (error) {
+    speechError.value = '语音识别正在启动，请稍后再试。'
+  }
+}
+
+const stopVoiceInput = () => {
+  if (speechRecognition && isListening.value) {
+    speechRecognition.stop()
+  }
+  isListening.value = false
+}
+
+const toggleVoiceInput = () => {
+  if (isListening.value) stopVoiceInput()
+  else startVoiceInput()
+}
+
+onMounted(() => {
+  setupSpeechRecognition()
+  resizeTextarea()
+})
+
+onBeforeUnmount(() => {
+  stopVoiceInput()
+  stopCameraStream()
+})
+
+watch(() => props.modelValue, () => nextTick(resizeTextarea))
 
 defineExpose({ openFilePicker })
 </script>
@@ -482,5 +660,371 @@ defineExpose({ openFilePicker })
   margin-top: 10px;
   color: #dc2626;
   font-size: 13px;
+}
+
+/* 新版浮动输入区：参考主流对话产品，并保持农业系统绿色主题。 */
+.chat-footer {
+  position: relative;
+  padding: 12px 24px 16px;
+  border-top: 0;
+  background: linear-gradient(to top, #fff 72%, rgba(255, 255, 255, 0.92));
+}
+
+.composer-stack {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.upload-panel {
+  max-height: 230px;
+  margin-bottom: 10px;
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.08);
+}
+
+.upload-item {
+  border-color: #eef2ef;
+  border-radius: 14px;
+  background: #fafcfb;
+}
+
+.upload-menu {
+  position: absolute;
+  right: 0;
+  bottom: 74px;
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 3px;
+  max-height: min(510px, 62vh);
+  margin: 0;
+  padding: 10px;
+  overflow-y: auto;
+  border: 1px solid #d9dedb;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 48px rgba(17, 24, 39, 0.14);
+  backdrop-filter: blur(18px);
+}
+
+.upload-menu-title {
+  padding: 8px 12px 6px;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.upload-option,
+.upload-option.primary {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  padding: 11px 13px;
+  border: 0;
+  border-radius: 15px;
+  background: transparent;
+  color: #1f2937;
+  text-align: left;
+  transition: background .18s ease, transform .18s ease;
+}
+
+.upload-option:hover,
+.upload-option.primary:hover {
+  background: #f3f6f4;
+  transform: translateX(2px);
+}
+
+.upload-option.primary {
+  background: #f0fdf4;
+}
+
+.option-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.upload-option.primary .option-icon {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.option-icon :deep(svg) {
+  width: 20px;
+  height: 20px;
+}
+
+.option-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.option-copy strong {
+  color: #1f2937;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.option-copy small {
+  overflow: hidden;
+  color: #9ca3af;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.input-wrapper {
+  min-height: 66px;
+  gap: 9px;
+  padding: 8px 9px 8px 11px;
+  border: 1px solid #d8ddda;
+  border-radius: 34px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(17, 24, 39, 0.08);
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+.input-wrapper:focus-within {
+  border-color: #86b998;
+  box-shadow: 0 10px 32px rgba(22, 163, 74, 0.12);
+}
+
+.input-wrapper.is-listening {
+  border-color: #ef9a9a;
+  box-shadow: 0 10px 32px rgba(220, 38, 38, 0.12);
+}
+
+.add-btn,
+.voice-btn,
+.send-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 0;
+  cursor: pointer;
+  transition: transform .18s ease, background .18s ease, color .18s ease;
+}
+
+.add-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: transparent;
+  color: #374151;
+}
+
+.add-btn:hover,
+.add-btn.active,
+.voice-btn:hover {
+  background: #f1f5f2;
+  color: #15803d;
+}
+
+.add-btn.active {
+  transform: rotate(45deg);
+}
+
+.add-btn :deep(svg),
+.voice-btn :deep(svg),
+.send-btn :deep(svg) {
+  width: 22px;
+  height: 22px;
+}
+
+.input-wrapper textarea {
+  min-width: 0;
+  min-height: 28px;
+  max-height: 132px;
+  padding: 7px 4px;
+  color: #1f2937;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.input-wrapper textarea::placeholder {
+  color: #9ca3af;
+}
+
+.input-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.voice-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: transparent;
+  color: #374151;
+}
+
+.voice-btn.active {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.voice-ring {
+  position: absolute;
+  inset: 2px;
+  border: 2px solid rgba(220, 38, 38, .35);
+  border-radius: 50%;
+  animation: voice-pulse 1.25s infinite ease-out;
+}
+
+.input-wrapper .send-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #15803d;
+  color: #fff;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: #166534;
+  transform: scale(1.04);
+}
+
+.send-btn:disabled {
+  background: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.voice-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 28px;
+  margin-top: 7px;
+  font-size: 12px;
+}
+
+.listening-status {
+  color: #b91c1c;
+}
+
+.listening-status button {
+  padding: 2px 7px;
+  border: 0;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #b91c1c;
+  cursor: pointer;
+}
+
+.listening-bars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 16px;
+}
+
+.listening-bars i {
+  display: block;
+  width: 3px;
+  height: 7px;
+  border-radius: 999px;
+  background: #dc2626;
+  animation: voice-bar .8s infinite ease-in-out;
+}
+
+.listening-bars i:nth-child(2) { animation-delay: .12s; }
+.listening-bars i:nth-child(3) { animation-delay: .24s; }
+.listening-bars i:nth-child(4) { animation-delay: .36s; }
+.voice-error { color: #dc2626; }
+
+.input-tip {
+  margin-top: 7px;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.camera-action {
+  padding: 9px 15px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.camera-action.secondary {
+  background: #fff;
+  color: #374151;
+}
+
+.camera-action.primary {
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #fff;
+}
+
+@keyframes voice-pulse {
+  0% { opacity: .8; transform: scale(.85); }
+  100% { opacity: 0; transform: scale(1.28); }
+}
+
+@keyframes voice-bar {
+  0%, 100% { height: 5px; opacity: .45; }
+  50% { height: 15px; opacity: 1; }
+}
+
+@media (max-width: 640px) {
+  .chat-footer {
+    padding: 9px 10px 12px;
+  }
+
+  .input-wrapper {
+    min-height: 58px;
+    border-radius: 28px;
+  }
+
+  .add-btn,
+  .voice-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .input-wrapper .send-btn {
+    width: 42px;
+    height: 42px;
+  }
+
+  .input-wrapper textarea {
+    font-size: 15px;
+  }
+
+  .upload-menu {
+    bottom: 66px;
+    max-height: 58vh;
+    border-radius: 20px;
+  }
+
+  .option-copy small,
+  .input-tip {
+    display: none;
+  }
 }
 </style>

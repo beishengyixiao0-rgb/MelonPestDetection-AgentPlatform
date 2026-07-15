@@ -81,6 +81,11 @@
           @finished="$emit('realtime-finished', { item, result: $event })"
         />
 
+        <AgentResultCard
+          v-else-if="item.type === 'agent-analysis'"
+          :item="item"
+        />
+
         <DetectionResultCard
           v-else-if="isBatchDetection(item)"
           :result="getDetectionResult(item)"
@@ -102,6 +107,7 @@
 </template>
 
 <script setup>
+import AgentResultCard from '@/components/AgentResultCard.vue'
 import DiagnosisCard from '@/components/DiagnosisCard.vue'
 import DetectionResultCard from '@/components/DetectionResultCard.vue'
 import RealtimeDetectionCard from '@/components/RealtimeDetectionCard.vue'
