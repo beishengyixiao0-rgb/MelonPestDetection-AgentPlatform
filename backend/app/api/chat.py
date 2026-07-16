@@ -48,7 +48,7 @@ async def get_sessions(
         db.query(ChatSession)
         .filter(ChatSession.user_id == current_user.id)
         .filter(ChatSession.status == "active")
-        .order_by(ChatSession.last_message_at.desc())
+        .order_by(ChatSession.is_pinned.desc(), ChatSession.last_message_at.desc())
         .all()
     )
 
@@ -59,6 +59,7 @@ async def get_sessions(
                 "id": session.id,
                 "session_uuid": session.session_uuid,
                 "title": session.title or "新对话",
+                "is_pinned": session.is_pinned,
                 "message_count": session.message_count,
                 "last_message_at": session.last_message_at.isoformat()
                 if session.last_message_at
@@ -136,6 +137,63 @@ async def delete_session(
     db.commit()
 
     return {"code": 200, "message": "会话已删除"}
+
+
+@router.put("/sessions/{session_id}/pin", summary="置顶/取消置顶会话")
+async def pin_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    切换会话的置顶状态
+    """
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.id == session_id)
+        .filter(ChatSession.user_id == current_user.id)
+        .first()
+    )
+
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    session.is_pinned = not session.is_pinned
+    db.commit()
+
+    return {"code": 200, "data": {"is_pinned": session.is_pinned}}
+
+
+@router.put("/sessions/{session_id}/rename", summary="重命名会话")
+async def rename_session(
+    session_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    重命名会话标题
+    """
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.id == session_id)
+        .filter(ChatSession.user_id == current_user.id)
+        .first()
+    )
+
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    body = await request.json()
+    new_title = body.get("title", "").strip()
+
+    if not new_title:
+        raise HTTPException(status_code=400, detail="标题不能为空")
+
+    session.title = new_title[:200]
+    db.commit()
+
+    return {"code": 200, "data": {"title": session.title}}
 
 
 @router.post("/upload", summary="上传图片文件")
@@ -292,8 +350,10 @@ async def chat_stream(
     db.refresh(user_message)
 
     # ── SSE 流式响应 ──
+    session_id_for_stream = session.id
+
     async def event_generator():
-        nonlocal session
+        nonlocal session_id_for_stream
         ai_content = ""
         tool_result_data = None
 
@@ -323,7 +383,7 @@ async def chat_stream(
                 db_session = next(get_db())
                 try:
                     ai_message = ChatMessage(
-                        session_id=session.id,
+                        session_id=session_id_for_stream,
                         role="assistant",
                         content=ai_content,
                         tool_result=tool_result_data,
@@ -331,7 +391,7 @@ async def chat_stream(
                     db_session.add(ai_message)
                     session_db = (
                         db_session.query(ChatSession)
-                        .filter(ChatSession.id == session.id)
+                        .filter(ChatSession.id == session_id_for_stream)
                         .first()
                     )
                     if session_db:

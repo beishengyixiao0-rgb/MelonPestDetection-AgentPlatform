@@ -7,7 +7,11 @@
       text-color="#bfcbd9"
       active-text-color="#409eff"
     >
-      <el-menu-item v-for="item in menuItems" :key="item.path" :index="item.path">
+      <el-menu-item
+        v-for="item in menuItems"
+        :key="item.path"
+        :index="item.path"
+      >
         <el-icon>
           <component :is="item.icon" />
         </el-icon>
@@ -23,26 +27,26 @@ import {
   Clock,
   Cpu,
   DataAnalysis,
-  House
-} from '@element-plus/icons-vue'
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+  House,
+} from "@element-plus/icons-vue";
+import { computed } from "vue";
+import { useRoute } from "vue-router";
 
-const route = useRoute()
+const route = useRoute();
 
 /** 当前激活的菜单项 */
 const activeMenu = computed(() => {
-  return '/' + route.path.split('/')[1]
-})
+  return "/" + route.path.split("/")[1];
+});
 
 /** 侧边栏菜单配置 */
 const menuItems = [
-  { path: '/', title: 'Home', icon: House },
-  { path: '/ai-chat', title: 'AI Agent', icon: ChatDotRound },
-  { path: '/data-analysis', title: 'Analytics', icon: DataAnalysis },
-  { path: '/history', title: 'History', icon: Clock },
-  { path: '/training', title: 'Training', icon: Cpu },
-]
+  { path: "/", title: "Home", icon: House },
+  { path: "/ai-chat", title: "AI Agent", icon: ChatDotRound },
+  { path: "/data-analysis", title: "Analytics", icon: DataAnalysis },
+  { path: "/history", title: "History", icon: Clock },
+  { path: "/training", title: "Training", icon: Cpu },
+];
 </script>
 
 <style lang="scss" scoped>

@@ -5,6 +5,9 @@
       :current-session-id="currentSessionId"
       @new-diagnosis="startNewDiagnosis"
       @select-session="handleSelectSession"
+      @toggle-pin="handleTogglePin"
+      @delete-session="handleDeleteSession"
+      @rename-session="handleRenameSession"
     />
 
     <main class="main-area">
@@ -837,6 +840,33 @@ const handleSelectSession = async (sessionId) => {
   showUploadMenu.value = false;
   showCameraModal.value = false;
   cameraError.value = "";
+};
+
+const handleTogglePin = async (sessionId) => {
+  await agentStore.togglePinSession(sessionId);
+};
+
+const handleDeleteSession = async (sessionId) => {
+  if (confirm("确定要删除这个会话吗？")) {
+    await agentStore.deleteSession(sessionId);
+    uploadQueue.value.forEach((item) => {
+      if (item.timer) {
+        window.clearInterval(item.timer);
+      }
+      if (item.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+    });
+    uploadQueue.value = [];
+    message.value = "";
+    showUploadMenu.value = false;
+    showCameraModal.value = false;
+    cameraError.value = "";
+  }
+};
+
+const handleRenameSession = async (sessionId, newTitle) => {
+  await agentStore.renameSession(sessionId, newTitle);
 };
 </script>
 

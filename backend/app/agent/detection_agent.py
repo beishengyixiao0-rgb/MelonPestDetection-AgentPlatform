@@ -22,7 +22,7 @@ import json
 from typing import AsyncGenerator
 
 import httpx
-from langchain.agents import create_agent
+from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import tool
@@ -175,11 +175,17 @@ class DetectionAgent:
 - 如果有标注图，告知用户可以在结果卡片中查看
 - 简洁专业，不要过度解释"""
 
-        self.graph = create_agent(
-            model=self.llm,
-            tools=DETECTION_TOOLS,
-            system_prompt=system_prompt,
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", system_prompt),
+                MessagesPlaceholder(variable_name="chat_history"),
+                ("human", "{input}"),
+                MessagesPlaceholder(variable_name="agent_scratchpad"),
+            ]
         )
+
+        agent = create_tool_calling_agent(self.llm, DETECTION_TOOLS, prompt)
+        self.graph = AgentExecutor(agent=agent, tools=DETECTION_TOOLS)
 
         logger.info("DetectionAgent 初始化完成，绑定 %d 个工具", len(DETECTION_TOOLS))
 

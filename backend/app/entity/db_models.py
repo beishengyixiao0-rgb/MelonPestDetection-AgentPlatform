@@ -472,6 +472,7 @@ class ChatSession(Base):
     )
     title = Column(String(200), nullable=True, comment="会话标题 (取第一条消息摘要)")
     status = Column(String(20), default="active", comment="状态: active/archived")
+    is_pinned = Column(Boolean, default=False, comment="是否置顶")
     message_count = Column(Integer, default=0, comment="消息数量")
     last_message_at = Column(DateTime, nullable=True, comment="最后消息时间")
     created_at = Column(DateTime, default=datetime.now, comment="创建时间")

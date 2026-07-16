@@ -129,13 +129,52 @@ export const useAgentStore = defineStore("agent", {
       }
     },
 
+    async togglePinSession(sessionId) {
+      try {
+        const response = await request.put(`/chat/sessions/${sessionId}/pin`);
+        if (response && response.data) {
+          const session = this.sessions.find((s) => s.id === sessionId);
+          if (session) {
+            session.is_pinned = response.data.is_pinned;
+            this.sessions.sort((a, b) => {
+              if (a.is_pinned !== b.is_pinned) {
+                return a.is_pinned ? -1 : 1;
+              }
+              return new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0);
+            });
+          }
+        }
+      } catch (error) {
+        console.error("切换置顶失败:", error);
+      }
+    },
+
+    async renameSession(sessionId, newTitle) {
+      try {
+        const response = await request.put(`/chat/sessions/${sessionId}/rename`, {
+          title: newTitle,
+        });
+        if (response && response.data) {
+          const session = this.sessions.find((s) => s.id === sessionId);
+          if (session) {
+            session.title = response.data.title;
+          }
+        }
+      } catch (error) {
+        console.error("重命名会话失败:", error);
+      }
+    },
+
     updateSessionList(session) {
       const index = this.sessions.findIndex((s) => s.id === session.id);
       if (index >= 0) {
         this.sessions[index] = session;
-        this.sessions.sort(
-          (a, b) => new Date(b.last_message_at) - new Date(a.last_message_at),
-        );
+        this.sessions.sort((a, b) => {
+          if (a.is_pinned !== b.is_pinned) {
+            return a.is_pinned ? -1 : 1;
+          }
+          return new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0);
+        });
       } else {
         this.sessions.unshift(session);
       }
