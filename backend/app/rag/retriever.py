@@ -16,6 +16,9 @@
   results = knowledge_retriever.search("什么是 IoU？", top_k=3)
 """
 
+import threading
+
+from app.config.settings import settings
 from app.core.logger import get_logger
 from app.rag.document_loader import document_loader
 from app.rag.embedding import embedding_service
@@ -29,8 +32,10 @@ class KnowledgeRetriever:
 
     def __init__(self):
         self._index_built = False
+        # 防止多个请求同时构建同一份索引并产生重复向量。
+        self._build_lock = threading.Lock()
 
-    def build_index(self, force_rebuild: bool = False):
+    def build_index(self, force_rebuild: bool = False) -> bool:
         """
         构建知识库索引
 
@@ -39,60 +44,46 @@ class KnowledgeRetriever:
         Args:
             force_rebuild: 是否强制重建（先清空再构建）
         """
-        if self._index_built and not force_rebuild:
-            count = pgvector_client.count()
-            if count > 0:
-                logger.info("知识库索引已存在 (%d 条)，跳过构建", count)
-                return
+        with self._build_lock:
+            existing_count = pgvector_client.count()
+            if not force_rebuild and existing_count > 0:
+                self._index_built = True
+                logger.info("知识库索引已存在 (%d 条)，跳过构建", existing_count)
+                return True
+            if not pgvector_client.init_table():
+                return False
 
-        logger.info("开始构建知识库索引...")
+            logger.info("开始构建知识库索引...")
+            documents = document_loader.load_documents()
+            if not documents:
+                logger.warning("知识库中没有文档")
+                return False
+            chunks = document_loader.split_documents(
+                documents, settings.RAG_CHUNK_SIZE, settings.RAG_CHUNK_OVERLAP
+            )
+            if not chunks:
+                logger.warning("文档分块后为空")
+                return False
 
-        # 1. 初始化 Pgvector 表
-        pgvector_client.init_table()
+            texts = [chunk["content"] for chunk in chunks]
+            metadatas = [chunk["metadata"] for chunk in chunks]
+            embeddings = embedding_service.embed_texts(texts)
+            if len(embeddings) != len(texts) or any(not embedding for embedding in embeddings):
+                logger.error("文本向量化未完整成功，保留原有索引")
+                return False
 
-        # 2. 如果需要强制重建，先清空
-        if force_rebuild:
-            pgvector_client.clear()
+            # 强制重建在新向量生成成功后才清空，避免网络失败时丢失旧索引。
+            if force_rebuild:
+                pgvector_client.clear()
+            if not pgvector_client.insert_embeddings(texts, embeddings, metadatas):
+                return False
 
-        # 3. 加载文档
-        documents = document_loader.load_documents()
-        if not documents:
-            logger.warning("知识库中没有文档")
-            return
-
-        # 4. 文本分块
-        chunks = document_loader.split_documents(documents)
-        if not chunks:
-            logger.warning("文档分块后为空")
-            return
-
-        # 5. 批量向量化
-        texts = [chunk["content"] for chunk in chunks]
-        metadatas = [chunk["metadata"] for chunk in chunks]
-        embeddings = embedding_service.embed_texts(texts)
-
-        # 过滤掉向量化失败的条目
-        valid_indices = [i for i, emb in enumerate(embeddings) if emb]
-        if not valid_indices:
-            logger.error("所有文本向量化均失败")
-            return
-
-        valid_texts = [texts[i] for i in valid_indices]
-        valid_embeddings = [embeddings[i] for i in valid_indices]
-        valid_metadatas = [metadatas[i] for i in valid_indices]
-
-        # 6. 存入 Pgvector
-        pgvector_client.insert_embeddings(
-            valid_texts, valid_embeddings, valid_metadatas
-        )
-
-        self._index_built = True
-        logger.info(
-            "知识库索引构建完成: %d 个文档 → %d 个文本块 → %d 条向量",
-            len(documents),
-            len(chunks),
-            len(valid_texts),
-        )
+            self._index_built = True
+            logger.info(
+                "知识库索引构建完成: %d 个文档 → %d 个文本块 → %d 条向量",
+                len(documents), len(chunks), len(texts),
+            )
+            return True
 
     def search(self, query: str, top_k: int = 3) -> list[dict]:
         """
@@ -105,9 +96,10 @@ class KnowledgeRetriever:
         Returns:
             检索结果列表 [{"content": "...", "metadata": {...}, "similarity": 0.95}, ...]
         """
-        # 确保索引已构建
-        if not self._index_built:
-            self.build_index()
+        # 搜索不隐式发起外部向量化；索引由建库接口显式创建。
+        if pgvector_client.count() <= 0:
+            logger.info("知识库索引不存在，跳过检索")
+            return []
 
         # 将查询文本向量化
         query_embedding = embedding_service.embed_query(query)
@@ -117,8 +109,12 @@ class KnowledgeRetriever:
 
         # 在 Pgvector 中检索
         results = pgvector_client.search(query_embedding, top_k=top_k)
-
-        return results
+        # 低相似度结果不是可靠知识来源，应交由大模型通用回答。
+        return [
+            result
+            for result in results
+            if result.get("similarity", 0) >= settings.RAG_SIMILARITY_THRESHOLD
+        ]
 
     def format_context(self, results: list[dict]) -> str:
         """
