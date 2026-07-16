@@ -7,6 +7,12 @@
   - POST /api/knowledge/search   手动测试检索
 """
 
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+
+from app.api.auth import get_current_user
+from app.core.logger import get_logger
+from app.rag.retriever import knowledge_retriever
 from app.api.auth import get_current_user
 from app.core.logger import get_logger
 from app.rag.retriever import knowledge_retriever

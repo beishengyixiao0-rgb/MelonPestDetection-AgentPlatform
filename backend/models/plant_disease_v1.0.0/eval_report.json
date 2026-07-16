@@ -21,6 +21,6 @@
     "lr0": 0.01,
     "device": "cpu"
   },
-  "exported_at": "2026-07-15T10:51:58.899521",
+  "exported_at": "2026-07-16T09:18:28.648068",
   "source": "backend/runs/train/task_001"
 }

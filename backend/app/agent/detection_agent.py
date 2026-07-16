@@ -17,6 +17,8 @@ import json
 from pathlib import Path
 from typing import AsyncGenerator
 
+import contextvars
+
 import httpx
 
 from app.agent.memory import conversation_memory
@@ -314,6 +316,16 @@ class DetectionAgent:
             return "The AI service is currently unavailable. Please try again later."
         return "AI 服务暂时不可用，请稍后重试。"
 
+    def _fallback_reply(self, message: str, display_language: str) -> str:
+        if "[附件" in message:
+            if display_language == "en":
+                return "The AI service is currently unavailable. Please try again later."
+            else:
+                return "AI 服务暂时不可用，请稍后重试。"
+        if display_language == "en":
+            return "The AI service is currently unavailable. Please try again later."
+        return "AI 服务暂时不可用，请稍后重试。"
+
     async def chat_stream(
         self,
         message: str,
@@ -322,6 +334,10 @@ class DetectionAgent:
         user_id: int | None = None,
         scene_id: int | None = None,
         session_id: str | None = None,
+        language: str = "zh",
+        attachment_urls: list[str] | None = None,
+    ) -> AsyncGenerator:
+        display_language = language
         display_language: str = "zh",
         attachment_urls: list[str] | None = None,
         is_admin: bool = False,
@@ -436,8 +452,9 @@ class DetectionAgent:
                     tool_results.append(serialized_output)
                     # 返回完整工具 JSON，前端检测卡片和知识库来源均依赖该数据。
                     yield {
-                        "type": "tool_result",
+                        "type": "tool_end",
                         "tool": tool_name,
+                        "summary": serialized_output[:100] if serialized_output else "",
                         "result": serialized_output,
                     }
 
