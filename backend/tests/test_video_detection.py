@@ -8,6 +8,7 @@
 import os
 import threading
 import time
+from pathlib import Path
 
 import app.api.detection as detection_api
 import pytest
@@ -235,9 +236,15 @@ def test_video_rejects_oversized_upload(client, user_headers, video_scene, monke
 
 def _has_test_video():
     """检查是否存在测试视频文件。"""
-    for name in os.listdir(FIXTURES_DIR) if os.path.isdir(FIXTURES_DIR) else []:
-        if name.lower().endswith((".mp4", ".avi", ".mov", ".mkv")):
-            return os.path.join(FIXTURES_DIR, name)
+    if not os.path.isdir(FIXTURES_DIR):
+        return None
+
+    video_extensions = (".mp4", ".avi", ".mov", ".mkv")
+    for name in os.listdir(FIXTURES_DIR):
+        if name.lower().endswith(video_extensions):
+            video_path = os.path.join(FIXTURES_DIR, name)
+            if os.path.isfile(video_path):
+                return video_path
     return None
 
 
@@ -245,6 +252,9 @@ def _has_test_video():
 def test_video_upload_with_real_file(client, video_scene, monkeypatch):
     """使用真实视频文件测试上传流程。"""
     video_path = _has_test_video()
+    # 确保 video_path 是字符串，不是 None
+    assert video_path is not None, "Video path should not be None"
+
     headers = auth_headers(client, "video_real_user")
 
     def fake_detect(
@@ -264,30 +274,39 @@ def test_video_upload_with_real_file(client, video_scene, monkeypatch):
 
     monkeypatch.setattr(detection_service, "detect_video", fake_detect)
 
-    with open(video_path, "rb") as f:
-        response = client.post(
-            "/api/detection/video",
-            headers=headers,
-            files={"file": (os.path.basename(video_path), f, "video/mp4")},
-            data={
-                "conf": 0.25,
-                "frame_sample_rate": 5,
-                "max_frames": 50,
-                "scene_id": video_scene.id,
-            },
-        )
+    # 使用字符串路径
+    video_filename = os.path.basename(str(video_path))
+
+    with open(str(video_path), "rb") as f:
+        # 读取文件内容到内存，避免文件句柄问题
+        file_content = f.read()
+
+    response = client.post(
+        "/api/detection/video",
+        headers=headers,
+        files={"file": (video_filename, file_content, "video/mp4")},
+        data={
+            "conf": 0.25,
+            "frame_sample_rate": 5,
+            "max_frames": 50,
+            "scene_id": video_scene.id,
+        },
+    )
 
     assert response.status_code == 200
     data = response.json()
     assert "task_id" in data
     assert data["status"] == "processing"
-    assert data["filename"] == os.path.basename(video_path)
+    assert data["filename"] == video_filename
 
 
 @pytest.mark.skipif(not _has_test_video(), reason="tests/fixtures/ 目录下没有视频文件")
 def test_video_detection_full_flow(client, video_scene, monkeypatch):
     """使用真实视频文件测试完整流程：上传 → 等待 → 查询结果。"""
     video_path = _has_test_video()
+    # 确保 video_path 是字符串，不是 None
+    assert video_path is not None, "Video path should not be None"
+
     headers = auth_headers(client, "video_flow_user")
 
     def fake_detect(
@@ -309,18 +328,22 @@ def test_video_detection_full_flow(client, video_scene, monkeypatch):
     monkeypatch.setattr(detection_service, "detect_video", fake_detect)
 
     # 1. 上传视频
-    with open(video_path, "rb") as f:
-        upload_resp = client.post(
-            "/api/detection/video",
-            headers=headers,
-            files={"file": (os.path.basename(video_path), f, "video/mp4")},
-            data={
-                "conf": 0.25,
-                "frame_sample_rate": 5,
-                "max_frames": 50,
-                "scene_id": video_scene.id,
-            },
-        )
+    video_filename = os.path.basename(str(video_path))
+
+    with open(str(video_path), "rb") as f:
+        file_content = f.read()
+
+    upload_resp = client.post(
+        "/api/detection/video",
+        headers=headers,
+        files={"file": (video_filename, file_content, "video/mp4")},
+        data={
+            "conf": 0.25,
+            "frame_sample_rate": 5,
+            "max_frames": 50,
+            "scene_id": video_scene.id,
+        },
+    )
     assert upload_resp.status_code == 200
     task_id = upload_resp.json()["task_id"]
 

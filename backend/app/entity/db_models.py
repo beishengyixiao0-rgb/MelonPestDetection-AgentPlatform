@@ -46,6 +46,9 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False, comment="加密密码")
     phone = Column(String(20), nullable=True, comment="手机号")
     avatar = Column(String(500), nullable=True, comment="头像 URL")
+    display_language = Column(
+        String(8), nullable=False, default="zh", server_default="zh", comment="显示语言: zh/en"
+    )
     is_active = Column(Boolean, default=True, comment="是否启用")
     is_superuser = Column(Boolean, default=False, comment="是否超级管理员")
     last_login_at = Column(DateTime, nullable=True, comment="最后登录时间")

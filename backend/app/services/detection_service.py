@@ -162,10 +162,18 @@ class DetectionService:
         return scene.class_names_cn if scene and isinstance(scene.class_names_cn, dict) else {}
 
     @staticmethod
-    def _detection_from_box(box, model: YOLO, class_names_cn: dict | None = None) -> dict:
+    def _detection_from_box(
+        box,
+        model: YOLO,
+        class_names_cn: dict | None = None,
+        display_language: str = "zh",
+    ) -> dict:
         cls_id = int(box.cls[0])
         class_name = model.names.get(cls_id, f"class_{cls_id}")
-        class_name_display = DetectionConfig.display_class_name(class_name, class_names_cn)
+        # 原始类别名始终保留，仅根据本次请求语言计算面向用户的显示字段。
+        class_name_display = DetectionConfig.display_class_name(
+            class_name, class_names_cn, display_language
+        )
         confidence = float(box.conf[0])
         x1, y1, x2, y2 = box.xyxy[0].tolist()
         return {
@@ -328,6 +336,7 @@ class DetectionService:
         iou: float = 0.45,
         scene_id: int = None,
         user_id: int = None,
+        display_language: str = "zh",
     ) -> dict:
         """
         单图检测
@@ -382,7 +391,9 @@ class DetectionService:
             if result.boxes is not None and len(result.boxes) > 0:
                 for box in result.boxes:
                     detections.append(
-                        self._detection_from_box(box, model, scene_class_names_cn)
+                        self._detection_from_box(
+                            box, model, scene_class_names_cn, display_language
+                        )
                     )
                     total_objects += 1
 
@@ -451,6 +462,7 @@ class DetectionService:
         iou: float = 0.45,
         scene_id: int = None,
         user_id: int = None,
+        display_language: str = "zh",
     ) -> dict:
         """
         批量检测多张图片
@@ -513,7 +525,9 @@ class DetectionService:
                 image_detections = []
                 if result.boxes is not None and len(result.boxes) > 0:
                     for box in result.boxes:
-                        det = self._detection_from_box(box, model, scene_class_names_cn)
+                        det = self._detection_from_box(
+                            box, model, scene_class_names_cn, display_language
+                        )
                         det.update({"image_path": image_path, "inference_time": inference_time})
                         image_detections.append(det)
                         all_detections.append(det)
@@ -563,6 +577,7 @@ class DetectionService:
         iou: float = 0.45,
         scene_id: int = None,
         user_id: int = None,
+        display_language: str = "zh",
     ) -> dict:
         """
         解压 ZIP 文件并批量检测其中所有图片
@@ -608,7 +623,14 @@ class DetectionService:
             logger.info("ZIP 中包含 %d 张图片，开始批量检测", len(image_files))
 
             # ── 调用批量检测 ──
-            batch_result = self.detect_batch(image_paths=image_files, conf=conf, iou=iou, scene_id=scene_id, user_id=user_id)
+            batch_result = self.detect_batch(
+                image_paths=image_files,
+                conf=conf,
+                iou=iou,
+                scene_id=scene_id,
+                user_id=user_id,
+                display_language=display_language,
+            )
             batch_result["source"] = "zip"
             batch_result["zip_filename"] = os.path.basename(zip_path)
             batch_result["total_images_in_zip"] = len(image_files)
@@ -634,6 +656,7 @@ class DetectionService:
         scene_id: int = None,
         user_id: int = None,
         task_id: int = None,
+        display_language: str = "zh",
     ) -> dict:
         """
         视频检测 — 逐帧采样 + YOLO 推理
@@ -877,7 +900,9 @@ class DetectionService:
                 current_fallback_tracks = set()
                 if result.boxes is not None and len(result.boxes) > 0:
                     for box in result.boxes:
-                        det = self._detection_from_box(box, model, scene_class_names_cn)
+                        det = self._detection_from_box(
+                            box, model, scene_class_names_cn, display_language
+                        )
                         native_track_id = None
                         if getattr(box, "id", None) is not None:
                             native_track_id = int(box.id[0])

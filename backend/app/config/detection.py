@@ -14,7 +14,7 @@ class DetectionConfig:
     image_size = 640
     max_batch_size = 50
 
-    # 显示配置：改为 "en" 即可恢复英文类别名；未配置中文映射的类别自动回退英文。
+    # 仅作为未提供用户偏好时的默认值。请求不可修改该类属性。
     display_language = "zh"
     font_path = ""  # 可指定自定义 CJK 字体；留空时自动查找系统字体。
 
@@ -58,9 +58,15 @@ class DetectionConfig:
         cls,
         class_name: str,
         class_names_cn: dict | None = None,
+        display_language: str | None = None,
     ) -> str:
         """根据显示语言和场景映射返回用户可见的类别名。"""
-        if cls.display_language.lower() != "zh":
+        language = (display_language or cls.display_language).lower()
+        if language != "zh":
             return class_name
         scene_mapping = class_names_cn or {}
-        return scene_mapping.get(class_name) or cls.class_names_cn.get(class_name) or class_name
+        return (
+            scene_mapping.get(class_name)
+            or cls.class_names_cn.get(class_name)
+            or class_name
+        )

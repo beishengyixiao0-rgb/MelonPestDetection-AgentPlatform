@@ -21,6 +21,7 @@ from pathlib import Path
 import cv2
 from app.api.auth import get_current_user
 from app.config.detection import DetectionConfig
+from app.core.language import normalize_language, request_language
 from app.core.security import decode_access_token
 from app.core.logger import get_logger
 from app.database.session import get_db
@@ -33,6 +34,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Request,
     UploadFile,
     WebSocket,
     WebSocketDisconnect,
@@ -81,6 +83,7 @@ async def _save_video_upload(file: UploadFile, suffix: str) -> tuple[str, int]:
 
 @router.post("/single", summary="单图检测")
 async def detect_single_api(
+    request: Request,
     file: UploadFile = File(..., description="检测图片"),
     conf: float = Form(0.25, description="置信度阈值"),
     iou: float = Form(0.45, description="NMS IoU 阈值"),
@@ -90,6 +93,8 @@ async def detect_single_api(
     """
     快捷单图检测（跳过 LLM，直接调用 YOLO）
     """
+    # 请求头优先，未提供时自动使用该用户保存的语言偏好。
+    display_language = request_language(request, current_user)
     _validate_file(file, ALLOWED_IMAGE_SUFFIXES)
     suffix = os.path.splitext(file.filename)[1] or ".jpg"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
@@ -104,6 +109,7 @@ async def detect_single_api(
             iou=iou,
             scene_id=scene_id,
             user_id=current_user.id,
+            **({"display_language": display_language} if display_language != "zh" else {}),
         )
         result["filename"] = file.filename
         return result
@@ -113,6 +119,7 @@ async def detect_single_api(
 
 @router.post("/batch", summary="批量检测")
 async def detect_batch_api(
+    request: Request,
     files: list[UploadFile] = File(..., description="多张图片"),
     conf: float = Form(0.25),
     iou: float = Form(0.45),
@@ -122,6 +129,8 @@ async def detect_batch_api(
     """
     快捷批量检测
     """
+    # 请求头优先，未提供时自动使用该用户保存的语言偏好。
+    display_language = request_language(request, current_user)
     if not files:
         raise HTTPException(status_code=400, detail="请至少上传一张图片")
     for file in files:
@@ -141,6 +150,7 @@ async def detect_batch_api(
             iou=iou,
             scene_id=scene_id,
             user_id=current_user.id,
+            **({"display_language": display_language} if display_language != "zh" else {}),
         )
         return result
     finally:
@@ -153,6 +163,7 @@ async def detect_batch_api(
 
 @router.post("/zip", summary="ZIP 文件检测")
 async def detect_zip_api(
+    request: Request,
     file: UploadFile = File(..., description="ZIP 压缩包"),
     conf: float = Form(0.25),
     iou: float = Form(0.45),
@@ -162,6 +173,8 @@ async def detect_zip_api(
     """
     快捷 ZIP 检测：解压 ZIP 并批量检测其中所有图片
     """
+    # 请求头优先，未提供时自动使用该用户保存的语言偏好。
+    display_language = request_language(request, current_user)
     _validate_file(file, {".zip"})
     suffix = os.path.splitext(file.filename)[1] or ".zip"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
@@ -176,6 +189,7 @@ async def detect_zip_api(
             iou=iou,
             scene_id=scene_id,
             user_id=current_user.id,
+            **({"display_language": display_language} if display_language != "zh" else {}),
         )
         return result
     finally:
@@ -185,10 +199,13 @@ async def detect_zip_api(
 @router.get("/status/{task_id}", summary="查询检测任务状态")
 async def get_detection_status(
     task_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """查询检测任务状态"""
+    # 状态查询也按当前界面语言重新生成类别显示名。
+    display_language = request_language(request, current_user)
     task = (
         db.query(DetectionTask)
         .filter(DetectionTask.id == task_id, DetectionTask.user_id == current_user.id)
@@ -211,6 +228,7 @@ async def get_detection_status(
 
 @router.post("/video", summary="视频检测")
 async def detect_video_api(
+    request: Request,
     file: UploadFile = File(..., description="视频文件（mp4/avi/mov）"),
     conf: float = Form(0.25, description="置信度阈值"),
     iou: float = Form(0.45, description="NMS IoU 阈值"),
@@ -226,6 +244,8 @@ async def detect_video_api(
     支持格式：mp4, avi, mov, mkv, wmv, flv
     文件大小限制：50MB
     """
+    # 视频后台任务在启动时取得语言快照，用于标注帧和统计结果。
+    display_language = request_language(request, current_user)
     allowed_video_types = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv"}
     suffix = os.path.splitext(file.filename)[1].lower()
     if suffix not in allowed_video_types:
@@ -300,6 +320,7 @@ async def detect_video_api(
                 scene_id=resolved_scene_id,
                 user_id=user_id,
                 task_id=task_id,
+                **({"display_language": display_language} if display_language != "zh" else {}),
             )
 
             if "error" in result:
@@ -355,6 +376,7 @@ async def detect_video_api(
 @router.get("/video/status/{task_id}", summary="查询视频检测进度")
 async def get_video_detection_status(
     task_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -363,6 +385,8 @@ async def get_video_detection_status(
 
     轮询间隔建议：1-2 秒
     """
+    # 轮询时按当前界面语言格式化数据库中的原始类别名。
+    display_language = request_language(request, current_user)
     task = (
         db.query(DetectionTask)
         .filter(DetectionTask.id == task_id, DetectionTask.user_id == current_user.id)
@@ -395,7 +419,9 @@ async def get_video_detection_status(
         class_counts_display = {}
         for r in results:
             class_counts[r.class_name] = class_counts.get(r.class_name, 0) + 1
-            display_name = r.class_name_cn or DetectionConfig.display_class_name(r.class_name)
+            display_name = DetectionConfig.display_class_name(
+                r.class_name, display_language=display_language
+            )
             class_counts_display[display_name] = class_counts_display.get(display_name, 0) + 1
 
         result["class_counts"] = class_counts
@@ -455,6 +481,8 @@ async def camera_detection_ws(
         return
 
     await websocket.accept()
+    # WebSocket 不能携带普通自定义请求头，从查询参数读取语言。
+    display_language = normalize_language(websocket.query_params.get("display_language"))
     connection_id = id(websocket)
     logger.info(
         "摄像头 WebSocket 连接建立: connection_id=%d, user_id=%d",
@@ -487,6 +515,9 @@ async def camera_detection_ws(
                 conf = data.get("conf", 0.25)
                 iou = data.get("iou", 0.45)
                 scene_id = data.get("scene_id")
+                display_language = normalize_language(
+                    data.get("display_language", display_language)
+                )
 
                 if mode not in {"cpu", "gpu"}:
                     await websocket.send_json(
@@ -618,7 +649,7 @@ async def camera_detection_ws(
                         for box in result.boxes:
                             detections.append(
                                 detection_service._detection_from_box(
-                                    box, model, scene_class_names_cn
+                                    box, model, scene_class_names_cn, display_language
                                 )
                             )
 

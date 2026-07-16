@@ -20,6 +20,7 @@ from app.core.security import decode_access_token
 from app.database.session import get_db
 from app.entity.schemas import (
     ChangePassword,
+    DisplayLanguageUpdate,
     ForgotPasswordRequest,
     ProfileResponse,
     ProfileUpdateRequest,
@@ -159,6 +160,7 @@ async def login_json(request: UserLogin, db: Session = Depends(get_db)):
             "username": user.username,
             "email": user.email,
             "avatar": user.avatar,
+            "display_language": user.display_language,
             "roles": roles,
         },
     }
@@ -225,6 +227,7 @@ async def get_profile(
         "email": current_user.email,
         "phone": current_user.phone,
         "avatar": current_user.avatar,
+        "display_language": current_user.display_language,
         "is_active": current_user.is_active,
         "roles": roles,
         "last_login_at": current_user.last_login_at,
@@ -262,6 +265,7 @@ async def update_profile(
         "email": user.email,
         "phone": user.phone,
         "avatar": user.avatar,
+        "display_language": user.display_language,
         "is_active": user.is_active,
         "roles": roles,
         "last_login_at": user.last_login_at,
@@ -291,6 +295,24 @@ async def change_password(
     return {"message": "密码修改成功"}
 
 
+# 保留细分路径兼容已接入客户端，同时以 /preferences 作为用户偏好统一入口。
+@router.put("/preferences")
+# 保留细分路径兼容已接入客户端，同时以 /preferences 作为用户偏好统一入口。
+@router.put("/preferences")
+@router.put("/preferences/display-language")
+async def update_display_language(
+    request: DisplayLanguageUpdate,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """保存用户语言偏好，供未携带语言请求头的后续请求使用。"""
+    # Pydantic 已限制为 zh/en，此处只负责持久化当前登录用户自己的偏好。
+    current_user.display_language = request.display_language
+    db.commit()
+    db.refresh(current_user)
+    return {"display_language": current_user.display_language}
+
+
 # ══════════════════════════════════════════════════════════════
 # 兼容旧接口
 # ══════════════════════════════════════════════════════════════
@@ -309,6 +331,7 @@ async def get_current_user_info(
         "email": current_user.email,
         "phone": current_user.phone,
         "avatar": current_user.avatar,
+        "display_language": current_user.display_language,
         "is_active": current_user.is_active,
         "is_superuser": current_user.is_superuser,
         "roles": roles,

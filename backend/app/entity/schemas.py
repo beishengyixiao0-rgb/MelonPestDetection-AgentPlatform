@@ -43,6 +43,7 @@ class UserBrief(BaseModel):
     username: str
     email: str
     avatar: Optional[str] = None
+    display_language: str = "zh"
     roles: list[str] = []
 
     model_config = {
@@ -68,6 +69,7 @@ class UserResponse(BaseModel):
     email: str
     phone: Optional[str] = None
     avatar: Optional[str] = None
+    display_language: str = "zh"
     is_active: bool
     is_superuser: bool
     roles: list[str] = []
@@ -110,6 +112,7 @@ class ProfileResponse(BaseModel):
     email: str
     phone: Optional[str] = None
     avatar: Optional[str] = None
+    display_language: str = "zh"
     is_active: bool
     roles: list[str] = []
     last_login_at: Optional[datetime] = None
@@ -126,6 +129,13 @@ class ProfileUpdateRequest(BaseModel):
     phone: Optional[str] = None
     avatar: Optional[str] = None
     email: Optional[str] = None
+
+
+class DisplayLanguageUpdate(BaseModel):
+    """更新当前登录用户的界面显示语言。"""
+
+    # 与数据库默认值保持一致，拒绝未支持的语言代码。
+    display_language: str = Field(..., pattern="^(zh|en)$")
 
 
 # --- ⻆⾊权限 ---

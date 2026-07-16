@@ -160,8 +160,59 @@ class RedisClient:
     def lpush(self, name: str, *values: Any) -> Any:
         """列表左侧插入"""
         return self._retry_on_fail(
-            lambda: self._client.lpush(name, *values) if self._use_redis else self._memory_cache.setdefault(name, []).extend(values)
+            lambda: self._client.lpush(name, *values)
+            if self._use_redis
+            else self._memory_lpush(name, *values)
         )
+
+    def _memory_lpush(self, name: str, *values: Any) -> int:
+        items = self._memory_cache.setdefault(name, [])
+        # Redis LPUSH 按参数顺序逐个插入左侧，最终顺序与 values 相反。
+        items[0:0] = list(reversed(values))
+        return len(items)
+
+    def rpush(self, name: str, *values: Any) -> Any:
+        """列表右侧插入，适合按时间顺序追加对话消息。"""
+        return self._retry_on_fail(
+            lambda: self._client.rpush(name, *values)
+            if self._use_redis
+            else self._memory_rpush(name, *values)
+        )
+
+    def _memory_rpush(self, name: str, *values: Any) -> int:
+        items = self._memory_cache.setdefault(name, [])
+        items.extend(values)
+        return len(items)
+
+    def lrange(self, name: str, start: int = 0, end: int = -1) -> list:
+        """读取列表区间，Redis 与内存降级模式保持一致。"""
+        return self._retry_on_fail(
+            lambda: self._client.lrange(name, start, end)
+            if self._use_redis
+            else self._memory_lrange(name, start, end)
+        )
+
+    def _memory_lrange(self, name: str, start: int, end: int) -> list:
+        items = self._memory_get(name)
+        if not isinstance(items, list):
+            return []
+        if end == -1:
+            return list(items[start:])
+        return list(items[start : end + 1])
+
+    def expire(self, key: str, seconds: int) -> bool:
+        """为已有键刷新过期时间。"""
+        return self._retry_on_fail(
+            lambda: bool(self._client.expire(key, seconds))
+            if self._use_redis
+            else self._memory_expire(key, seconds)
+        )
+
+    def _memory_expire(self, key: str, seconds: int) -> bool:
+        if key not in self._memory_cache:
+            return False
+        self._memory_expirations[key] = time.time() + seconds
+        return True
 
     def rpop(self, name: str) -> Optional[Any]:
         """列表右侧弹出"""
