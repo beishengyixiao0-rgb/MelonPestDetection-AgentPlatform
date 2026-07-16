@@ -4,7 +4,7 @@
 接口列表：
   - GET  /api/chat/sessions    获取用户的会话列表
   - GET  /api/chat/sessions/{session_id}/messages  获取会话的消息历史
-  - POST /api/chat/upload    上传图片文件，返回服务端路径
+  - POST /api/chat/upload    上传图片、视频或 ZIP 文件，返回服务端路径
   - POST /api/chat/stream    SSE 流式对话（核心接口）
   - DELETE /api/chat/sessions/{session_id}  删除会话
 
@@ -30,6 +30,10 @@ from sqlalchemy.orm import Session
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["智能对话"])
+
+ALLOWED_VIDEO_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv"}
+MAX_VIDEO_UPLOAD_BYTES = 50 * 1024 * 1024
+UPLOAD_CHUNK_SIZE = 1024 * 1024
 
 # 上传文件临时存储目录
 UPLOAD_DIR = os.path.join(tempfile.gettempdir(), "rsod_uploads")
@@ -196,30 +200,52 @@ async def rename_session(
     return {"code": 200, "data": {"title": session.title}}
 
 
-@router.post("/upload", summary="上传图片文件")
+@router.post("/upload", summary="上传对话附件")
 async def upload_image(
     file: UploadFile = File(...),
     current_user=Depends(get_current_user),
 ):
     """
-    上传图片文件到服务端临时目录
+    上传图片、视频或 ZIP 文件到服务端临时目录。
 
     Returns:
-        { "image_path": "/tmp/rsod_uploads/xxx.jpg" }
+        {
+            "image_path": "/tmp/rsod_uploads/xxx.jpg",
+            "file_path": "/tmp/rsod_uploads/xxx.jpg",
+            "file_type": "image"
+        }
     """
     suffix = os.path.splitext(file.filename)[1].lower() or ".jpg"
-    if suffix not in ALLOWED_IMAGE_SUFFIXES | {".zip"}:
-        raise HTTPException(status_code=400, detail="仅支持图片或 ZIP 文件")
+    allowed_suffixes = ALLOWED_IMAGE_SUFFIXES | {".zip"} | ALLOWED_VIDEO_SUFFIXES
+    if suffix not in allowed_suffixes:
+        raise HTTPException(status_code=400, detail="仅支持图片、视频或 ZIP 文件")
     # 使用原始文件名保存到临时目录
     filename = f"{os.getpid()}_{uuid.uuid4().hex}_{Path(file.filename).name}"
     file_path = os.path.join(UPLOAD_DIR, filename)
 
-    content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
+    total_size = 0
+    try:
+        with open(file_path, "wb") as output:
+            while chunk := await file.read(UPLOAD_CHUNK_SIZE):
+                total_size += len(chunk)
+                if suffix in ALLOWED_VIDEO_SUFFIXES and total_size > MAX_VIDEO_UPLOAD_BYTES:
+                    raise HTTPException(status_code=400, detail="视频文件不能超过 50MB")
+                output.write(chunk)
+    except Exception:
+        try:
+            os.unlink(file_path)
+        except OSError:
+            pass
+        raise
 
-    logger.info("图片上传成功: %s → %s", file.filename, file_path)
-    return {"image_path": file_path}
+    file_type = "video" if suffix in ALLOWED_VIDEO_SUFFIXES else "zip" if suffix == ".zip" else "image"
+    logger.info("对话附件上传成功: %s → %s (%s)", file.filename, file_path, file_type)
+    return {
+        "image_path": file_path,
+        "file_path": file_path,
+        "file_type": file_type,
+        "filename": file.filename,
+    }
 
 
 def _get_or_create_session(db: Session, user_id: int, session_id: int = None):
@@ -278,7 +304,7 @@ async def chat_stream(
     请求体：
     {
         "message": "检测这张图片",
-        "image_path": "/tmp/uploads/xxx.jpg",  // 单附件（图片或 ZIP）
+        "image_path": "/tmp/uploads/xxx.jpg",  // 单附件（图片、视频或 ZIP）
         "image_paths": ["/tmp/uploads/a.jpg", "/tmp/uploads/b.jpg"],  // 多图附件
         "session_id": 123                        // 可选，会话 ID
     }
@@ -295,10 +321,10 @@ async def chat_stream(
     if not message:
         raise HTTPException(status_code=400, detail="消息内容不能为空")
     if image_path and not str(image_path).startswith(UPLOAD_DIR):
-        raise HTTPException(status_code=400, detail="图片路径无效")
+        raise HTTPException(status_code=400, detail="附件路径无效")
     if image_paths is not None:
         if not isinstance(image_paths, list) or not image_paths:
-            raise HTTPException(status_code=400, detail="图片路径列表无效")
+            raise HTTPException(status_code=400, detail="附件路径列表无效")
         if image_path:
             raise HTTPException(
                 status_code=400, detail="不能同时传入 image_path 和 image_paths"
@@ -307,7 +333,7 @@ async def chat_stream(
             not isinstance(path, str) or not path.startswith(UPLOAD_DIR)
             for path in image_paths
         ):
-            raise HTTPException(status_code=400, detail="图片路径无效")
+            raise HTTPException(status_code=400, detail="附件路径无效")
 
     logger.info(
         "用户 %s 发起对话: message=%s, image=%s",
