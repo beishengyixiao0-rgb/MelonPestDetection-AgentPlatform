@@ -1,3 +1,5 @@
+# tests/test_detection_chat.py
+
 """
 Day 8 检测和 SSE 对话接口测试。
 
@@ -18,6 +20,33 @@ from fastapi.testclient import TestClient
 
 def auth_headers(client, username="day8_api_user"):
     """创建用户并获取 Day 8 接口需要的 Bearer Token。"""
+    # 注册用户
+    register_response = client.post(
+        "/api/auth/register",
+        json={
+            "username": username,
+            "email": f"{username}@example.com",
+            "password": "123456",
+        },
+    )
+    # 如果用户已存在，忽略错误
+    if register_response.status_code != 201:
+        # 用户可能已存在，尝试直接登录
+        pass
+
+    # 登录获取 token
+    login_response = client.post(
+        "/api/auth/login", json={"username": username, "password": "123456"}
+    )
+    assert login_response.status_code == 200, f"Login failed: {login_response.text}"
+
+    token = login_response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def create_test_user(client, username):
+    """创建测试用户并返回 token 和 user_id"""
+    # 注册
     client.post(
         "/api/auth/register",
         json={
@@ -26,10 +55,21 @@ def auth_headers(client, username="day8_api_user"):
             "password": "123456",
         },
     )
-    response = client.post(
+    # 登录
+    login_response = client.post(
         "/api/auth/login", json={"username": username, "password": "123456"}
     )
-    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+    assert login_response.status_code == 200
+
+    token = login_response.json()["access_token"]
+    # 从 token 中解析 user_id（如果接口返回了 user_id）
+    user_data = login_response.json()
+
+    return {
+        "token": token,
+        "headers": {"Authorization": f"Bearer {token}"},
+        "user_id": user_data.get("user_id"),
+    }
 
 
 # ============================================================
@@ -324,7 +364,7 @@ def test_upload_image_rejects_non_image(client):
 
 
 # ============================================================
-# 6. SSE 流式对话测试
+# 6. SSE 流式对话测试 - 修复版本
 # ============================================================
 
 
@@ -334,15 +374,41 @@ def test_chat_stream_requires_authentication(client):
     assert response.status_code == 401
 
 
-def test_chat_stream_emits_done(client):
+def test_chat_stream_emits_done(client, monkeypatch):
     """SSE 流式对话应返回 text_chunk 和 [DONE]"""
-    headers = auth_headers(client, "day8_chat_user")
+    from app.agent.detection_agent import detection_agent
+    from app.services import chat_history_service as chat_history_module
+
+    from tests.conftest import TestSessionLocal
+
+    # 使用测试数据库
+    monkeypatch.setattr(chat_history_module, "SessionLocal", TestSessionLocal)
+
+    # 创建用户并获取 token
+    username = "day8_chat_user"
+    headers = auth_headers(client, username)
+
+    # Mock detection_agent 以快速返回
+    async def fake_chat_stream(**kwargs):
+        yield {"type": "text_chunk", "content": "测试回复"}
+
+    monkeypatch.setattr(detection_agent, "chat_stream", fake_chat_stream)
+
     response = client.post(
-        "/api/chat/stream", headers=headers, json={"message": "你好，介绍一下平台"}
+        "/api/chat/stream",
+        headers=headers,
+        json={"message": "你好，介绍一下平台"},
+        # 不传递 user_id - 从 token 获取
     )
+
     assert response.status_code == 200
-    assert "data: [DONE]" in response.text
-    assert '"type": "text_chunk"' in response.text
+    response_text = response.text
+
+    # 验证 SSE 格式
+    assert "data: " in response_text
+    assert '"type": "session"' in response_text
+    assert '"type": "text_chunk"' in response_text
+    assert "data: [DONE]" in response_text
 
 
 @pytest.fixture
@@ -357,19 +423,28 @@ def setup_upload_dir():
 
 
 def test_chat_stream_with_real_path(client, monkeypatch, setup_upload_dir):
-    """使用真实存在的路径测试 SSE 流"""
+    """使用真实存在的路径测试 SSE 流 - 修复版本"""
     from app.agent.detection_agent import detection_agent
     from app.api import chat
+    from app.services import chat_history_service as chat_history_module
+
+    from tests.conftest import TestSessionLocal
+
+    # 使用测试数据库
+    monkeypatch.setattr(chat_history_module, "SessionLocal", TestSessionLocal)
 
     # 临时替换 UPLOAD_DIR
     monkeypatch.setattr(chat, "UPLOAD_DIR", setup_upload_dir)
+
+    # 创建用户并获取 token
+    username = "day8_real_path_user"
+    headers = auth_headers(client, username)
 
     # 创建一个测试文件
     test_file_path = os.path.join(setup_upload_dir, "test_image.jpg")
     with open(test_file_path, "wb") as f:
         f.write(b"fake image content")
 
-    headers = auth_headers(client, "day8_real_path_user")
     captured = {}
 
     async def fake_chat_stream(**kwargs):
@@ -381,11 +456,54 @@ def test_chat_stream_with_real_path(client, monkeypatch, setup_upload_dir):
     response = client.post(
         "/api/chat/stream",
         headers=headers,
-        json={"message": "检测这张图片", "image_path": test_file_path},
+        json={
+            "message": "检测这张图片",
+            "image_path": test_file_path,
+            # 不传递 user_id - 从 token 获取
+        },
     )
 
     assert response.status_code == 200
     assert captured.get("image_path") == test_file_path
+    assert captured.get("user_id") is not None  # 验证 user_id 被正确传递
+
+    # 验证 SSE 响应格式
+    response_text = response.text
+    assert '"type": "session"' in response_text
+    assert '"type": "text_chunk"' in response_text
+    assert "data: [DONE]" in response_text
+
+
+# 添加：测试新会话自动创建
+def test_chat_stream_creates_session_if_not_provided(client, monkeypatch):
+    """不提供 session_id 时应自动创建新会话"""
+    from app.agent.detection_agent import detection_agent
+    from app.services import chat_history_service as chat_history_module
+
+    from tests.conftest import TestSessionLocal
+
+    monkeypatch.setattr(chat_history_module, "SessionLocal", TestSessionLocal)
+
+    username = "day8_auto_session_user"
+    headers = auth_headers(client, username)
+
+    async def fake_chat_stream(**kwargs):
+        assert kwargs["session_id"] is not None  # 应该自动生成
+        yield {"type": "text_chunk", "content": "自动创建会话"}
+
+    monkeypatch.setattr(detection_agent, "chat_stream", fake_chat_stream)
+
+    response = client.post(
+        "/api/chat/stream",
+        headers=headers,
+        json={"message": "新对话"},
+        # 不提供 session_id，也不提供 user_id
+    )
+
+    assert response.status_code == 200
+    assert '"type": "session"' in response.text
+    assert '"session_id"' in response.text
+    assert "data: [DONE]" in response.text
 
 
 # ============================================================

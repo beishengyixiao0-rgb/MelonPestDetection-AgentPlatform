@@ -211,6 +211,7 @@ async def chat_stream(
                 scene_id=body.get("scene_id"),
                 session_id=session_id,
                 language=language,
+                display_language=display_language,
                 attachment_urls=attachment_urls,
             ):
                 # 将事件序列化为 SSE 格式

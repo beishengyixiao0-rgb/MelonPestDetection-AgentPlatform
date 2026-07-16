@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     # ── RAG / Embedding 配置 ──────────────────────────
     EMBEDDING_MODEL: str = "text-embedding-v3"  # 通义千问 Embedding 模型
     EMBEDDING_DIM: int = 1024  # 向量维度（text-embedding-v3=1024, text-embedding-3-small=1536）
+    EMBEDDING_DIM: int = (
+        1024  # 向量维度（text-embedding-v3=1024, text-embedding-3-small=1536）
+    )
     RAG_CHUNK_SIZE: int = 500  # 文档分块大小
     RAG_CHUNK_OVERLAP: int = 50  # 分块重叠字符数
     RAG_TOP_K: int = 3  # 检索返回 Top-K 条
