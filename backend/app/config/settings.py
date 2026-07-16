@@ -6,6 +6,10 @@
 
 from pydantic_settings import BaseSettings
 
+# 千问 text-embedding-v3 的项目约定维度，向量表和检索客户端必须保持一致。
+# 定义在配置模块但不作为 Settings 字段，避免被 .env 或环境变量覆盖。
+EMBEDDING_DIM = 1024
+
 
 class Settings(BaseSettings):
     """应用全局配置"""
@@ -62,20 +66,20 @@ class Settings(BaseSettings):
     # 未配置 Key 时，对话接口仍保留本地检测路由和基础问答降级能力。
     QWEN_API_KEY: str = ""
     QWEN_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    QWEN_MODEL: str = "qwen3.7-max-2026-05-17"
+    QWEN_MODEL: str = "qwen3.7-max-2026-06-08"
     # 留空时直连 DashScope，避免系统代理导致兼容接口连接失败。
     # 仅在网络环境明确要求代理时填写，例如：http://127.0.0.1:7890
     QWEN_PROXY: str = ""
 
     # ── RAG / Embedding 配置 ──────────────────────────
+    # 向量模型可使用独立密钥；留空时兼容回退到 QWEN_API_KEY。
+    QWEN_EMBEDDING_API_KEY: str = ""
+    QWEN_EMBEDDING_BASE_URL: str = ""
     EMBEDDING_MODEL: str = "text-embedding-v3"  # 通义千问 Embedding 模型
-    EMBEDDING_DIM: int = 1024  # 向量维度（text-embedding-v3=1024, text-embedding-3-small=1536）
-    EMBEDDING_DIM: int = (
-        1024  # 向量维度（text-embedding-v3=1024, text-embedding-3-small=1536）
-    )
     RAG_CHUNK_SIZE: int = 500  # 文档分块大小
     RAG_CHUNK_OVERLAP: int = 50  # 分块重叠字符数
     RAG_TOP_K: int = 3  # 检索返回 Top-K 条
+    RAG_SIMILARITY_THRESHOLD: float = 0.30  # 低于此相似度视为知识库未命中
 
     # — CORS 配置 —
     ALLOWED_ORIGINS: str = (

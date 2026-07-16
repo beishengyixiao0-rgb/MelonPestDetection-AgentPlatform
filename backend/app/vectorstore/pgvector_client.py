@@ -23,14 +23,12 @@ Pgvector 客户端 — 基于 PostgreSQL pgvector 扩展的向量存储
 
 from typing import Optional
 
+from app.config.settings import EMBEDDING_DIM
 from app.core.logger import get_logger
 from app.database.session import SessionLocal
 from sqlalchemy import text
 
 logger = get_logger(__name__)
-
-# 向量维度（取决于 Embedding 模型：text-embedding-v3=1024, text-embedding-3-small=1536）
-EMBEDDING_DIM = 1024
 
 # 建表 SQL
 CREATE_TABLE_SQL = f"""
@@ -50,6 +48,24 @@ USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 100);
 """
 
+# SQLAlchemy 的 text() 不会将 :parameter::type 稳定识别为绑定参数。
+# 使用 CAST 可同时保证 PostgreSQL 类型转换和参数安全绑定。
+INSERT_EMBEDDINGS_SQL = """
+INSERT INTO knowledge_embeddings (content, metadata, embedding)
+VALUES (:content, CAST(:metadata AS JSONB), CAST(:embedding AS vector))
+"""
+
+# 检索 SQL 同样使用 CAST，保证 query 能被 SQLAlchemy 作为绑定参数传入。
+SEARCH_EMBEDDINGS_SQL = """
+SELECT
+    content,
+    metadata,
+    1 - (embedding <=> CAST(:query AS vector)) AS similarity
+FROM knowledge_embeddings
+ORDER BY embedding <=> CAST(:query AS vector)
+LIMIT :top_k
+"""
+
 
 class PgvectorClient:
     """Pgvector 向量存储客户端"""
@@ -57,10 +73,10 @@ class PgvectorClient:
     def __init__(self):
         self._initialized = False
 
-    def init_table(self):
+    def init_table(self) -> bool:
         """初始化向量表和索引"""
         if self._initialized:
-            return
+            return True
 
         db = SessionLocal()
         try:
@@ -71,9 +87,11 @@ class PgvectorClient:
             db.commit()
             self._initialized = True
             logger.info("Pgvector 表和索引初始化完成")
+            return True
         except Exception as e:
             db.rollback()
             logger.error("Pgvector 初始化失败: %s", str(e))
+            return False
         finally:
             db.close()
 
@@ -82,7 +100,7 @@ class PgvectorClient:
         contents: list[str],
         embeddings: list[list[float]],
         metadatas: list[dict] = None,
-    ):
+    ) -> bool:
         """
         批量插入向量数据
 
@@ -92,7 +110,11 @@ class PgvectorClient:
             metadatas: 元数据列表
         """
         if not contents or not embeddings:
-            return
+            return False
+        # 写入前统一校验维度，避免数据库错误被吞掉后显示为建库成功。
+        if any(len(embedding) != EMBEDDING_DIM for embedding in embeddings):
+            logger.error("拒绝写入非 %d 维的向量", EMBEDDING_DIM)
+            return False
 
         db = SessionLocal()
         try:
@@ -103,10 +125,7 @@ class PgvectorClient:
                 embedding_str = "[" + ",".join(str(v) for v in embeddings[i]) + "]"
 
                 db.execute(
-                    text(
-                        "INSERT INTO knowledge_embeddings (content, metadata, embedding) "
-                        "VALUES (:content, :metadata::jsonb, :embedding::vector)"
-                    ),
+                    text(INSERT_EMBEDDINGS_SQL),
                     {
                         "content": contents[i],
                         "metadata": json.dumps(metadata, ensure_ascii=False),
@@ -116,9 +135,11 @@ class PgvectorClient:
 
             db.commit()
             logger.info("插入 %d 条向量数据", len(contents))
+            return True
         except Exception as e:
             db.rollback()
             logger.error("插入向量数据失败: %s", str(e))
+            return False
         finally:
             db.close()
 
@@ -139,23 +160,16 @@ class PgvectorClient:
         Returns:
             检索结果列表 [{"content": "...", "metadata": {...}, "similarity": 0.95}, ...]
         """
+        if len(query_embedding) != EMBEDDING_DIM:
+            logger.error("查询向量维度必须为 %d，实际为 %d", EMBEDDING_DIM, len(query_embedding))
+            return []
         db = SessionLocal()
         try:
             embedding_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
 
-            # 余弦距离 → 相似度：similarity = 1 - distance
-            sql = """
-                SELECT
-                    content,
-                    metadata,
-                    1 - (embedding <=> :query::vector) AS similarity
-                FROM knowledge_embeddings
-                ORDER BY embedding <=> :query::vector
-                LIMIT :top_k
-            """
-
+            # 余弦距离 → 相似度：similarity = 1 - distance。
             results = db.execute(
-                text(sql),
+                text(SEARCH_EMBEDDINGS_SQL),
                 {"query": embedding_str, "top_k": top_k},
             ).fetchall()
 

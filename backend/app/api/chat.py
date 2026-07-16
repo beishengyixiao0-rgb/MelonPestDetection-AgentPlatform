@@ -105,13 +105,19 @@ async def upload_image(
         if suffix == ".zip"
         else "image"
     )
-    # 图片上传后写入对象存储，浏览器刷新时仍可展示原图；MinIO 不可用不阻断本轮检测。
+    # 图片和视频上传后写入对象存储，浏览器刷新时仍可展示原始附件；
+    # MinIO 不可用不阻断本轮检测，当前请求仍使用临时文件完成处理。
     attachment_url = None
-    if file_type == "image":
+    if file_type in {"image", "video"}:
         try:
-            object_name = f"chat_attachments/{current_user.id}/{uuid.uuid4().hex}{suffix}"
+            object_name = (
+                f"chat_attachments/{current_user.id}/{uuid.uuid4().hex}{suffix}"
+            )
             attachment_url = MinIOClient().upload_file(
-                object_name, file_path, file.content_type or "image/jpeg"
+                object_name,
+                file_path,
+                file.content_type
+                or ("video/mp4" if file_type == "video" else "image/jpeg"),
             )
         except Exception as exc:
             logger.warning("对话原图上传 MinIO 失败: %s", exc)
@@ -182,6 +188,11 @@ async def chat_stream(
     )
     # StreamingResponse 开始执行时，鉴权依赖的数据库 Session 可能已关闭。
     user_id = current_user.id
+    # 用户列表属于管理操作，管理员身份必须随本轮 Agent 请求传入工具执行层。
+    is_admin = any(
+        user_role.role and user_role.role.name == "admin"
+        for user_role in current_user.user_roles
+    )
     session = chat_history_service.ensure_session(user_id, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="会话不存在或无权访问")
@@ -213,6 +224,7 @@ async def chat_stream(
                 language=language,
                 display_language=display_language,
                 attachment_urls=attachment_urls,
+                is_admin=is_admin,
             ):
                 # 将事件序列化为 SSE 格式
                 event_data = json.dumps(event, ensure_ascii=False)

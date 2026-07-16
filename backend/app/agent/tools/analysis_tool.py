@@ -6,15 +6,35 @@
   - query_detection_history: 查询检测历史记录
 """
 
+import contextvars
 import json
-
-from langchain_core.tools import tool
 
 from app.core.logger import get_logger
 from app.database.session import SessionLocal
 from app.entity.db_models import DetectionTask
+from langchain_core.tools import tool
 
 logger = get_logger(__name__)
+
+# 工具没有 HTTP 请求对象，使用 ContextVar 在并发 Agent 调用中隔离用户与角色。
+_tool_user_id: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    "analysis_tool_user_id", default=None
+)
+_tool_is_admin: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "analysis_tool_is_admin", default=False
+)
+
+
+def set_tool_context(user_id: int | None, is_admin: bool):
+    """在 Agent 调用分析工具前写入当前用户和管理员身份。"""
+    return _tool_user_id.set(user_id), _tool_is_admin.set(is_admin)
+
+
+def reset_tool_context(tokens) -> None:
+    """在请求结束时恢复上下文，避免权限状态泄漏到下一轮调用。"""
+    user_token, admin_token = tokens
+    _tool_user_id.reset(user_token)
+    _tool_is_admin.reset(admin_token)
 
 
 @tool
@@ -31,20 +51,33 @@ def query_detection_stats(days: int = 30) -> str:
     """
     try:
         from datetime import datetime, timedelta
+
         from sqlalchemy import func
 
         db = SessionLocal()
         try:
             start_date = datetime.now() - timedelta(days=days)
+            user_id = _tool_user_id.get()
+            if user_id is None:
+                return json.dumps({"error": "未获取到当前用户上下文"}, ensure_ascii=False)
 
             stats = (
                 db.query(
                     func.count(DetectionTask.id).label("total_tasks"),
-                    func.coalesce(func.sum(DetectionTask.total_objects), 0).label("total_objects"),
-                    func.coalesce(func.sum(DetectionTask.total_images), 0).label("total_images"),
-                    func.coalesce(func.avg(DetectionTask.total_inference_time), 0).label("avg_time"),
+                    func.coalesce(func.sum(DetectionTask.total_objects), 0).label(
+                        "total_objects"
+                    ),
+                    func.coalesce(func.sum(DetectionTask.total_images), 0).label(
+                        "total_images"
+                    ),
+                    func.coalesce(
+                        func.avg(DetectionTask.total_inference_time), 0
+                    ).label("avg_time"),
                 )
-                .filter(DetectionTask.created_at >= start_date)
+                .filter(
+                    DetectionTask.user_id == user_id,
+                    DetectionTask.created_at >= start_date,
+                )
                 .first()
             )
 
@@ -78,8 +111,12 @@ def query_detection_history(limit: int = 10) -> str:
     try:
         db = SessionLocal()
         try:
+            user_id = _tool_user_id.get()
+            if user_id is None:
+                return json.dumps({"error": "未获取到当前用户上下文"}, ensure_ascii=False)
             tasks = (
                 db.query(DetectionTask)
+                .filter(DetectionTask.user_id == user_id)
                 .order_by(DetectionTask.created_at.desc())
                 .limit(limit)
                 .all()
@@ -87,16 +124,22 @@ def query_detection_history(limit: int = 10) -> str:
 
             items = []
             for t in tasks:
-                items.append({
-                    "id": t.id,
-                    "task_type": t.task_type,
-                    "status": t.status,
-                    "total_objects": t.total_objects or 0,
-                    "total_images": t.total_images or 0,
-                    "created_at": t.created_at.isoformat() if t.created_at else None,
-                })
+                items.append(
+                    {
+                        "id": t.id,
+                        "task_type": t.task_type,
+                        "status": t.status,
+                        "total_objects": t.total_objects or 0,
+                        "total_images": t.total_images or 0,
+                        "created_at": t.created_at.isoformat()
+                        if t.created_at
+                        else None,
+                    }
+                )
 
-            return json.dumps({"history": items, "count": len(items)}, ensure_ascii=False)
+            return json.dumps(
+                {"history": items, "count": len(items)}, ensure_ascii=False
+            )
         finally:
             db.close()
     except Exception as e:
@@ -109,6 +152,9 @@ ANALYSIS_TOOLS = [
     query_detection_stats,
     query_detection_history,
 ]
+
+# ── 追加到 analysis_tool.py 末尾 ──
+
 
 @tool
 def query_user_list(limit: int = 20) -> str:
@@ -123,8 +169,12 @@ def query_user_list(limit: int = 20) -> str:
         JSON 字符串，包含用户列表（用户名、邮箱、角色、注册时间）
     """
     try:
-        from app.entity.db_models import User, UserRole, Role
+        from app.entity.db_models import User, UserRole
         from sqlalchemy.orm import joinedload
+
+        # 用户列表属于系统管理数据，提示词约束不能代替工具执行层权限校验。
+        if not _tool_is_admin.get():
+            return json.dumps({"error": "仅管理员可查询系统用户列表"}, ensure_ascii=False)
 
         db = SessionLocal()
         try:
@@ -132,20 +182,22 @@ def query_user_list(limit: int = 20) -> str:
                 db.query(User)
                 .options(joinedload(User.user_roles).joinedload(UserRole.role))
                 .order_by(User.created_at.desc())
-                .limit(limit)
+                .limit(max(1, min(limit, 100)))
                 .all()
             )
 
             items = []
             for u in users:
                 roles = [ur.role.name for ur in u.user_roles] if u.user_roles else []
-                items.append({
-                    "id": u.id,
-                    "username": u.username,
-                    "email": u.email,
-                    "roles": roles,
-                    "is_active": u.is_active,
-                })
+                items.append(
+                    {
+                        "id": u.id,
+                        "username": u.username,
+                        "email": u.email,
+                        "roles": roles,
+                        "is_active": u.is_active,
+                    }
+                )
 
             return json.dumps({"users": items, "count": len(items)}, ensure_ascii=False)
         finally:
