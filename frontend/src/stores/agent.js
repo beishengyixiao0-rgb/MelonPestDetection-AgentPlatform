@@ -102,6 +102,7 @@ export const useAgentStore = defineStore('agent', {
       try {
         const response = await request.get('/chat/sessions')
         this.sessions = Array.isArray(response?.data) ? response.data : []
+        this.sortSessions()
       } catch (error) {
         console.error('加载会话列表失败:', error)
         this.sessions = []
@@ -146,14 +147,66 @@ export const useAgentStore = defineStore('agent', {
 
     async deleteSession(sessionId) {
       try {
-        const response = await request.delete(`/chat/sessions/${sessionId}`)
-        if (response?.code === 200) {
-          this.sessions = this.sessions.filter((session) => session.id !== sessionId)
-          if (this.currentSessionId === sessionId) this.newChat()
-        }
+        await request.delete(`/chat/sessions/${sessionId}`)
+        this.sessions = this.sessions.filter(
+          (session) => String(session.id) !== String(sessionId),
+        )
+        if (String(this.currentSessionId) === String(sessionId)) this.newChat()
+        return true
       } catch (error) {
         console.error('删除会话失败:', error)
+        return false
       }
+    },
+
+    /** 置顶或取消置顶会话；等待后端提供对应接口 */
+    async togglePinSession(sessionId) {
+      try {
+        const response = await request.put(`/chat/sessions/${sessionId}/pin`)
+        const payload = response?.data ?? response
+        const session = this.sessions.find(
+          (item) => String(item.id) === String(sessionId),
+        )
+
+        if (session) {
+          session.is_pinned = Boolean(payload?.is_pinned)
+          this.sortSessions()
+        }
+        return true
+      } catch (error) {
+        console.error('切换置顶失败:', error)
+        return false
+      }
+    },
+
+    /** 修改会话标题；等待后端提供对应接口 */
+    async renameSession(sessionId, newTitle) {
+      const title = newTitle?.trim()
+      if (!title) return false
+
+      try {
+        const response = await request.put(`/chat/sessions/${sessionId}/rename`, { title })
+        const payload = response?.data ?? response
+        const session = this.sessions.find(
+          (item) => String(item.id) === String(sessionId),
+        )
+
+        if (session) session.title = payload?.title || title
+        return true
+      } catch (error) {
+        console.error('重命名会话失败:', error)
+        return false
+      }
+    },
+
+    /** 会话始终按“置顶优先、最近消息优先”排列 */
+    sortSessions() {
+      this.sessions.sort((a, b) => {
+        if (Boolean(a.is_pinned) !== Boolean(b.is_pinned)) {
+          return a.is_pinned ? -1 : 1
+        }
+        return new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0)
+      })
     },
 
     updateSessionList(session) {
@@ -161,9 +214,7 @@ export const useAgentStore = defineStore('agent', {
       if (index >= 0) this.sessions[index] = session
       else this.sessions.unshift(session)
 
-      this.sessions.sort(
-        (a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0),
-      )
+      this.sortSessions()
     },
   },
 })

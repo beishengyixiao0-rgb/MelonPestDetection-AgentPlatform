@@ -5,6 +5,9 @@
       :current-session-id="currentSessionId"
       @new-diagnosis="startNewDiagnosis"
       @select-session="handleSelectSession"
+      @toggle-pin="handleTogglePin"
+      @delete-session="handleDeleteSession"
+      @rename-session="handleRenameSession"
     />
 
     <main class="main-area">
@@ -948,6 +951,30 @@ const handleSelectSession = async (sessionId) => {
 
   await agentStore.loadSessionMessages(sessionId)
   await scrollToBottom()
+}
+
+const handleTogglePin = async (sessionId) => {
+  await agentStore.togglePinSession(sessionId)
+}
+
+const handleDeleteSession = async (sessionId) => {
+  const deletingCurrent = String(sessionId) === String(currentSessionId.value)
+  const deleted = await agentStore.deleteSession(sessionId)
+
+  if (deleted && deletingCurrent) {
+    uploadQueue.value.forEach((item) => {
+      if (item.timer) window.clearInterval(item.timer)
+      if (item.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl)
+    })
+    uploadQueue.value = []
+    message.value = ''
+    showUploadMenu.value = false
+    closeCameraModal()
+  }
+}
+
+const handleRenameSession = async (sessionId, newTitle) => {
+  await agentStore.renameSession(sessionId, newTitle)
 }
 </script>
 

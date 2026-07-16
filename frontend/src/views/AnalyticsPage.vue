@@ -15,7 +15,6 @@
 
       <div class="header-right">
         <router-link to="/ai-chat" class="nav-btn"> 🤖 AI Agent </router-link>
-
         <router-link to="/history" class="nav-btn"> 🕒 History </router-link>
       </div>
     </header>
