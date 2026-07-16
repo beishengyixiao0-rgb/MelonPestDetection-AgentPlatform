@@ -162,7 +162,6 @@ async def login_json(request: UserLogin, db: Session = Depends(get_db)):
             "avatar": user.avatar,
             "display_language": user.display_language,
             "roles": roles,
-            "language": user.language,
         },
     }
 
@@ -231,39 +230,10 @@ async def get_profile(
         "display_language": current_user.display_language,
         "is_active": current_user.is_active,
         "roles": roles,
-        "language": current_user.language,
         "last_login_at": current_user.last_login_at,
         "created_at": current_user.created_at,
         "detection_stats": stats,
     }
-
-
-@router.get("/language")
-async def get_language(current_user=Depends(get_current_user)):
-    """获取用户语言偏好"""
-    return {"language": current_user.language}
-
-
-@router.put("/language")
-async def set_language(
-    language: str,
-    current_user=Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    设置用户语言偏好
-
-    Args:
-        language: 语言代码（zh/中文，en/英文）
-    """
-    if language not in {"zh", "en"}:
-        raise HTTPException(status_code=400, detail="语言参数无效，仅支持 zh 或 en")
-
-    current_user.language = language
-    db.commit()
-    db.refresh(current_user)
-
-    return {"language": language, "message": "语言设置成功"}
 
 
 @router.put("/profile", response_model=ProfileResponse)
@@ -325,8 +295,6 @@ async def change_password(
     return {"message": "密码修改成功"}
 
 
-# 保留细分路径兼容已接入客户端，同时以 /preferences 作为用户偏好统一入口。
-@router.put("/preferences")
 # 保留细分路径兼容已接入客户端，同时以 /preferences 作为用户偏好统一入口。
 @router.put("/preferences")
 @router.put("/preferences/display-language")

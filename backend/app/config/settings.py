@@ -67,23 +67,12 @@ class Settings(BaseSettings):
     # 仅在网络环境明确要求代理时填写，例如：http://127.0.0.1:7890
     QWEN_PROXY: str = ""
 
-<<<<<<< HEAD
-    # ── RAG / Embedding 配置 （Day 11）──────────────────────────────────
-    EMBEDDING_MODEL: str = "text-embedding-v3"   # 通义千问 Embedding 模型
-    EMBEDDING_DIM: int = 1024                     # 向量维度（text-embedding-v3=1024, text-embedding-3-small=1536）
-    RAG_CHUNK_SIZE: int = 500                     # 文档分块大小
-    RAG_CHUNK_OVERLAP: int = 50                   # 分块重叠字符数
-    RAG_TOP_K: int = 3                            # 检索返回 Top-K 条
-=======
     # ── RAG / Embedding 配置 ──────────────────────────
     EMBEDDING_MODEL: str = "text-embedding-v3"  # 通义千问 Embedding 模型
-    EMBEDDING_DIM: int = (
-        1024  # 向量维度（text-embedding-v3=1024, text-embedding-3-small=1536）
-    )
+    EMBEDDING_DIM: int = 1024  # 向量维度（text-embedding-v3=1024, text-embedding-3-small=1536）
     RAG_CHUNK_SIZE: int = 500  # 文档分块大小
     RAG_CHUNK_OVERLAP: int = 50  # 分块重叠字符数
     RAG_TOP_K: int = 3  # 检索返回 Top-K 条
->>>>>>> origin/main
 
     # — CORS 配置 —
     ALLOWED_ORIGINS: str = (

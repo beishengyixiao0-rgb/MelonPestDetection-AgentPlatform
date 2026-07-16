@@ -8,10 +8,6 @@ from app.api.detection import router as detection_router
 from app.api.health import router as health_router
 from app.api.history import router as history_router
 
-<<<<<<< HEAD
-# from app.api.knowledge import router as knowledge_router  # 【Day11 新增，RAG模块由组员负责】
-=======
-# 新增导入
 from app.api.knowledge import router as knowledge_router  # 【Day11 新增】
 from app.api.training import router as training_router
 from app.api.user import router as user_router
@@ -22,8 +18,6 @@ from app.middleware.rate_limiter import RateLimiterMiddleware
 from app.middleware.request_logger import RequestLogMiddleware
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
->>>>>>> origin/main
 
 def init_minio():
     """初始化 MinIO 存储桶"""
@@ -113,13 +107,7 @@ app.include_router(training_router)
 app.include_router(user_router)
 app.include_router(dashboard_router)
 app.include_router(history_router)
-<<<<<<< HEAD
-# app.include_router(knowledge_router)   # 【Day11 新增，RAG模块由组员负责】
-=======
-# 注册路由
 app.include_router(knowledge_router)  # 【Day11 新增】
-
->>>>>>> origin/main
 
 @app.get("/")
 def root():

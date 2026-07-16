@@ -52,8 +52,4 @@ async def search_knowledge(
         "query": request.query,
         "results": results,
         "count": len(results),
-<<<<<<< HEAD
     }
-=======
-    }
->>>>>>> origin/main

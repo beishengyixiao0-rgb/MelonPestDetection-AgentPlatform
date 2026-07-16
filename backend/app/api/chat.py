@@ -188,7 +188,7 @@ async def chat_stream(
     session_id = session["session_uuid"]
 
     # ── 获取用户语言偏好 ──
-    language = current_user.language if hasattr(current_user, "language") else "zh"
+    language = current_user.display_language if hasattr(current_user, "display_language") else "zh"
 
     # ── SSE 流式响应 ──
     async def event_generator():

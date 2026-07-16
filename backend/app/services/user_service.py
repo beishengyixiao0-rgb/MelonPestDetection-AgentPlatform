@@ -132,7 +132,7 @@ class UserService:
     @staticmethod
     def create_access_token_for_user(user: User) -> str:
         """为用户生成 JWT Token"""
-        return create_access_token(data={"sub": str(user.id), "language": user.language})
+        return create_access_token(data={"sub": str(user.id), "language": user.display_language})
 
     @staticmethod
     def get_user_roles(db: Session, user: User) -> list[str]:
