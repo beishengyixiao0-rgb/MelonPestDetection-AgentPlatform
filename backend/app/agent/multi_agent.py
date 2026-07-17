@@ -1,33 +1,40 @@
 """
-多 Agent 混合调度器 — Supervisor 路由 + 现有 SSE 流式引擎
+多 Agent 混合调度器（阶段二）— 每个子 Agent 拥有独立工具集
 
 设计思路：
-  - LangGraph 的 ainvoke 是阻塞调用，不适合 SSE 流式输出
-  - 采用混合方案：Supervisor 先路由 → 再调用现有的 chat_stream
+  - Supervisor 分析用户意图，路由到对应的子 Agent
+  - 每个子 Agent 只持有自己职责范围内的工具
   - 完全保留现有 SSE 事件协议（thinking/tool_call/tool_result/text_chunk/done）
   - 前端无需任何修改
 
 流程：
-  用户消息 → Supervisor 路由 → 选择子 Agent → 调用 chat_stream → SSE 流式返回
+  用户消息 → Supervisor 路由 → 选择子 Agent → 子 Agent 用自己的工具处理 → SSE 流式返回
 
-阶段一（当前）：
-  - Supervisor 负责意图分类
-  - detection/qa/analysis 路由 → 复用现有 detection_agent.chat_stream()
-  - general 路由 → 直接 LLM 回复（不调用工具）
-
-阶段二（未来）：
-  - 每个子 Agent 拥有独立的工具集
-  - 真正的 LangGraph 状态图编排
+阶段二（当前）：
+  - detection → DetectionAgent（4 个检测工具）
+  - qa → QAAgent（1 个知识检索工具）
+  - analysis → AnalysisAgent（3 个分析工具）
+  - general → 直接 LLM 回复（不调用工具）
 """
 
 from typing import AsyncGenerator
 
-from app.agent.detection_agent import detection_agent, create_llm
+from app.agent.analysis_agent import analysis_agent
+from app.agent.base_agent import create_llm
+from app.agent.detection_agent import detection_agent
 from app.agent.prompts import get_multi_agent_prompt
+from app.agent.qa_agent import qa_agent
 from app.agent.supervisor import supervisor_route
 from app.core.logger import get_logger
 
 logger = get_logger(__name__)
+
+# 子 Agent 注册表
+_SUB_AGENTS = {
+    "detection": detection_agent,
+    "qa": qa_agent,
+    "analysis": analysis_agent,
+}
 
 
 async def multi_agent_chat_stream(
@@ -42,15 +49,17 @@ async def multi_agent_chat_stream(
     is_admin: bool = False,
 ) -> AsyncGenerator:
     """
-    多 Agent 流式对话入口。
+    多 Agent 流式对话入口（阶段二）。
 
     1. Supervisor 分析用户意图，决定路由
-    2. 根据路由选择处理方式：
-       - detection/qa/analysis → 复用现有 detection_agent.chat_stream()
+    2. 根据路由选择子 Agent：
+       - detection → DetectionAgent（4 个检测工具）
+       - qa → QAAgent（1 个知识检索工具）
+       - analysis → AnalysisAgent（3 个分析工具）
        - general → 直接 LLM 回复（不调用工具）
     3. 完全保留现有 SSE 事件协议，前端无需修改
     """
-    # ── 第 1 步：Supervisor 路由 ──
+    # ── 第 1 步：Supervisor 路由 ─
     route = await supervisor_route(message, display_language)
     logger.info("多 Agent 路由: %s -> %s", message[:50], route)
 
@@ -62,9 +71,17 @@ async def multi_agent_chat_stream(
         ):
             yield event
     else:
-        # 检测/问答/分析：复用现有 detection_agent.chat_stream()
-        # 现有 Agent 已绑定所有工具，能正确处理各类请求
-        async for event in detection_agent.chat_stream(
+        # 检测/问答/分析：路由到对应的子 Agent
+        agent = _SUB_AGENTS.get(route)
+        if agent is None:
+            logger.error("未知的路由目标: %s，降级到 general", route)
+            async for event in _general_stream(
+                message, display_language, user_id, session_id
+            ):
+                yield event
+            return
+
+        async for event in agent.chat_stream(
             message=message,
             image_path=image_path,
             image_paths=image_paths,
@@ -108,7 +125,7 @@ async def _general_stream(
         yield {"type": "error", "content": error_msg}
         return
 
-    # 保存历史消息（与 detection_agent.chat_stream 保持一致）
+    # 保存历史消息（与各子 Agent 保持一致）
     if user_id is not None and session_id and assistant_parts:
         try:
             from app.agent.memory import conversation_memory
