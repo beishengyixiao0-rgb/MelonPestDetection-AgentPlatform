@@ -169,6 +169,47 @@ class DocumentLoader:
         return chunks
 
     @staticmethod
+    def load_single_document(file_path: str, title: str = None) -> list[dict]:
+        """
+        加载单个文档文件
+
+        Args:
+            file_path: 文件路径
+            title: 文档标题（可选，未提供时从内容提取）
+
+        Returns:
+            文档列表 [{"content": "...", "metadata": {...}}]
+        """
+        documents = []
+        path = Path(file_path)
+
+        if not path.exists():
+            logger.warning("文件不存在: %s", file_path)
+            return documents
+
+        try:
+            content = path.read_text(encoding="utf-8")
+            # 如果未提供标题，从内容提取
+            if title is None:
+                title = DocumentLoader._extract_title(content, path.stem)
+
+            documents.append(
+                {
+                    "content": content,
+                    "metadata": {
+                        "source": path.name,
+                        "title": title,
+                        "file_path": str(path),
+                    },
+                }
+            )
+            logger.info("加载单文档: %s (%d 字符)", path.name, len(content))
+        except Exception as e:
+            logger.error("加载单文档失败: %s, 错误: %s", file_path, str(e))
+
+        return documents
+
+    @staticmethod
     def _extract_title(content: str, default: str) -> str:
         """从 Markdown 内容中提取一级标题"""
         for line in content.split("\n"):

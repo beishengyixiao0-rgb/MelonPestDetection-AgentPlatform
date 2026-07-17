@@ -85,13 +85,14 @@ class KnowledgeRetriever:
             )
             return True
 
-    def search(self, query: str, top_k: int = 3) -> list[dict]:
+    def search(self, query: str, top_k: int = 3, filter_approved: bool = True) -> list[dict]:
         """
         语义检索
 
         Args:
             query: 查询文本
             top_k: 返回最相似的前 K 条结果
+            filter_approved: 是否只检索已审核通过的文档（默认 True）
 
         Returns:
             检索结果列表 [{"content": "...", "metadata": {...}, "similarity": 0.95}, ...]
@@ -107,14 +108,79 @@ class KnowledgeRetriever:
             logger.error("查询向量化失败: %s", query)
             return []
 
-        # 在 Pgvector 中检索
-        results = pgvector_client.search(query_embedding, top_k=top_k)
+        # 在 Pgvector 中检索，只查询已审核通过的文档
+        filter_metadata = {"status": "approved"} if filter_approved else None
+        results = pgvector_client.search(query_embedding, top_k=top_k, filter_metadata=filter_metadata)
         # 低相似度结果不是可靠知识来源，应交由大模型通用回答。
         return [
             result
             for result in results
             if result.get("similarity", 0) >= settings.RAG_SIMILARITY_THRESHOLD
         ]
+
+    def index_document(self, document_id: int, file_path: str, title: str) -> bool:
+        """
+        为单个文档建立索引（审核通过后调用）
+
+        Args:
+            document_id: 文档ID
+            file_path: 文件路径
+            title: 文档标题
+
+        Returns:
+            是否成功
+        """
+        logger.info("开始为文档 %d 建立索引: %s", document_id, file_path)
+        
+        try:
+            documents = document_loader.load_single_document(file_path, title)
+            if not documents:
+                logger.warning("文档加载失败: %s", file_path)
+                return False
+            
+            chunks = document_loader.split_documents(
+                documents, settings.RAG_CHUNK_SIZE, settings.RAG_CHUNK_OVERLAP
+            )
+            if not chunks:
+                logger.warning("文档分块后为空: %s", file_path)
+                return False
+
+            # 在 metadata 中添加 document_id 和 status
+            for chunk in chunks:
+                chunk["metadata"]["document_id"] = document_id
+                chunk["metadata"]["status"] = "approved"
+
+            texts = [chunk["content"] for chunk in chunks]
+            metadatas = [chunk["metadata"] for chunk in chunks]
+            embeddings = embedding_service.embed_texts(texts)
+            
+            if len(embeddings) != len(texts) or any(not embedding for embedding in embeddings):
+                logger.error("文本向量化未完整成功")
+                return False
+
+            if not pgvector_client.insert_embeddings(texts, embeddings, metadatas):
+                return False
+
+            logger.info(
+                "文档 %d 索引构建完成: %d 个文本块 → %d 条向量",
+                document_id, len(chunks), len(texts),
+            )
+            return True
+        except Exception as e:
+            logger.error("文档索引构建失败: %s", str(e))
+            return False
+
+    def delete_document_index(self, document_id: int) -> int:
+        """
+        删除文档的向量索引
+
+        Args:
+            document_id: 文档ID
+
+        Returns:
+            删除的向量数量
+        """
+        return pgvector_client.delete_by_document_id(document_id)
 
     def format_context(self, results: list[dict]) -> str:
         """

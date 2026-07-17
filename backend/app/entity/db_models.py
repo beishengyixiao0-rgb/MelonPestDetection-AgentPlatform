@@ -662,7 +662,50 @@ class DatasetLabel(Base):
 
 
 # ==============================================================================
-# 六、系统运维
+# 六、知识库管理
+# ==============================================================================
+
+
+class KnowledgeDocument(Base):
+    """知识库文档表 - 管理文档从上传到审核发布的完整生命周期"""
+
+    __tablename__ = "knowledge_documents"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(255), nullable=False, comment="文档标题")
+    file_path = Column(String(500), nullable=False, comment="文件存储路径")
+    
+    uploader_id = Column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True, comment="上传者ID"
+    )
+    status = Column(
+        String(20),
+        default="pending",
+        nullable=False,
+        comment="状态: pending/approved/rejected/processing/failed",
+    )
+    
+    reviewer_id = Column(
+        Integer, ForeignKey("users.id"), nullable=True, comment="审核者ID"
+    )
+    review_comment = Column(Text, nullable=True, comment="审核意见/驳回原因")
+    reviewed_at = Column(DateTime, nullable=True, comment="审核时间")
+    
+    visibility = Column(
+        String(20), default="public", comment="可见性: public/private"
+    )
+    chunk_count = Column(Integer, default=0, comment="分块数量")
+    
+    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+
+    # 关联
+    uploader = relationship("User", foreign_keys=[uploader_id], lazy="select")
+    reviewer = relationship("User", foreign_keys=[reviewer_id], lazy="select")
+
+
+# ==============================================================================
+# 七、系统运维
 # ==============================================================================
 
 

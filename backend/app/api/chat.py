@@ -198,9 +198,6 @@ async def chat_stream(
         raise HTTPException(status_code=404, detail="会话不存在或无权访问")
     session_id = session["session_uuid"]
 
-    # ── 获取用户语言偏好 ──
-    language = current_user.display_language if hasattr(current_user, "display_language") else "zh"
-
     # ── SSE 流式响应 ──
     async def event_generator():
         try:
@@ -218,10 +215,10 @@ async def chat_stream(
             async for event in detection_agent.chat_stream(
                 message=message,
                 image_path=image_path,
+                image_paths=image_paths,
                 user_id=user_id,
                 scene_id=body.get("scene_id"),
                 session_id=session_id,
-                language=language,
                 display_language=display_language,
                 attachment_urls=attachment_urls,
                 is_admin=is_admin,

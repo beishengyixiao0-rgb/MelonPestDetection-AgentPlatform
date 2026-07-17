@@ -223,7 +223,9 @@ def get_detection_agent_prompt(language: str) -> str:
     """返回包含多工具路由和 RAG 引用规则的当前语言系统提示词。"""
     base_prompt = get_prompt("detection_agent", "en" if language == "en" else "zh")
     if language == "en":
-        return base_prompt + """
+        return (
+            base_prompt
+            + """
 
 ## Multi-tool rules
 1. Use search_knowledge for disease prevention, YOLO, IoU, mAP, training, or detection-process questions.
@@ -232,7 +234,10 @@ def get_detection_agent_prompt(language: str) -> str:
 4. Use query_detection_stats and query_detection_history only for the current user's data.
 5. query_user_list is administrator-only; report its authorization error without inventing user data.
 """
-    return base_prompt + """
+        )
+    return (
+        base_prompt
+        + """
 
 ## 多工具规则
 1. 病害防治、YOLO、IoU、mAP、训练和检测流程等问题优先调用 search_knowledge。
@@ -241,3 +246,4 @@ def get_detection_agent_prompt(language: str) -> str:
 4. 检测统计和历史只查询当前用户自己的数据。
 5. 用户列表仅管理员可查；工具返回无权限时如实说明，不得编造用户数据。
 """
+    )

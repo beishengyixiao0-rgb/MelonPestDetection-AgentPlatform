@@ -595,7 +595,55 @@ class DiseaseClassResponse(BaseModel):
 
 
 # ══════════════════════════════════════════════════════════════
-# 六、系统运维
+# 六、知识库管理
+# ══════════════════════════════════════════════════════════════
+
+
+class KnowledgeDocumentResponse(BaseModel):
+    """知识库文档响应"""
+    id: int
+    title: str
+    file_path: str
+    uploader_id: int
+    uploader_name: Optional[str] = None
+    status: str
+    reviewer_id: Optional[int] = None
+    reviewer_name: Optional[str] = None
+    review_comment: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    visibility: str
+    chunk_count: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {
+        "from_attributes": True,
+    }
+
+
+class KnowledgeDocumentCreate(BaseModel):
+    """创建知识库文档（上传时使用）"""
+    title: str = Field(..., description="文档标题")
+
+
+class KnowledgeDocumentApprove(BaseModel):
+    """审核通过请求"""
+    pass
+
+
+class KnowledgeDocumentReject(BaseModel):
+    """驳回请求"""
+    review_comment: str = Field(..., description="驳回原因")
+
+
+class KnowledgeDocumentQuery(BaseModel):
+    """文档查询参数"""
+    status: Optional[str] = None
+    uploader_id: Optional[int] = None
+
+
+# ══════════════════════════════════════════════════════════════
+# 七、系统运维
 # ══════════════════════════════════════════════════════════════
 
 

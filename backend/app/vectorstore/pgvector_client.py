@@ -66,6 +66,24 @@ ORDER BY embedding <=> CAST(:query AS vector)
 LIMIT :top_k
 """
 
+# 带过滤条件的检索 SQL
+SEARCH_EMBEDDINGS_FILTER_SQL = """
+SELECT
+    content,
+    metadata,
+    1 - (embedding <=> CAST(:query AS vector)) AS similarity
+FROM knowledge_embeddings
+WHERE metadata @> CAST(:filter AS JSONB)
+ORDER BY embedding <=> CAST(:query AS vector)
+LIMIT :top_k
+"""
+
+# 按 document_id 删除向量 SQL
+DELETE_BY_DOCUMENT_ID_SQL = """
+DELETE FROM knowledge_embeddings
+WHERE metadata->>'document_id' = :document_id
+"""
+
 
 class PgvectorClient:
     """Pgvector 向量存储客户端"""
@@ -116,6 +134,10 @@ class PgvectorClient:
             logger.error("拒绝写入非 %d 维的向量", EMBEDDING_DIM)
             return False
 
+        if not self.init_table():
+            logger.error("向量表初始化失败")
+            return False
+
         db = SessionLocal()
         try:
             import json
@@ -155,7 +177,7 @@ class PgvectorClient:
         Args:
             query_embedding: 查询向量
             top_k: 返回最相似的前 K 条结果
-            filter_metadata: 元数据过滤条件（可选）
+            filter_metadata: 元数据过滤条件（可选），如 {"status": "approved"}
 
         Returns:
             检索结果列表 [{"content": "...", "metadata": {...}, "similarity": 0.95}, ...]
@@ -166,12 +188,19 @@ class PgvectorClient:
         db = SessionLocal()
         try:
             embedding_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
+            import json
 
-            # 余弦距离 → 相似度：similarity = 1 - distance。
-            results = db.execute(
-                text(SEARCH_EMBEDDINGS_SQL),
-                {"query": embedding_str, "top_k": top_k},
-            ).fetchall()
+            if filter_metadata:
+                filter_str = json.dumps(filter_metadata, ensure_ascii=False)
+                results = db.execute(
+                    text(SEARCH_EMBEDDINGS_FILTER_SQL),
+                    {"query": embedding_str, "filter": filter_str, "top_k": top_k},
+                ).fetchall()
+            else:
+                results = db.execute(
+                    text(SEARCH_EMBEDDINGS_SQL),
+                    {"query": embedding_str, "top_k": top_k},
+                ).fetchall()
 
             search_results = []
             for row in results:
@@ -184,8 +213,9 @@ class PgvectorClient:
                 )
 
             logger.info(
-                "向量检索完成: top_k=%d, 最高相似度=%.4f",
+                "向量检索完成: top_k=%d, filter=%s, 最高相似度=%.4f",
                 top_k,
+                filter_metadata,
                 search_results[0]["similarity"] if search_results else 0,
             )
             return search_results
@@ -193,6 +223,33 @@ class PgvectorClient:
         except Exception as e:
             logger.error("向量检索失败: %s", str(e))
             return []
+        finally:
+            db.close()
+
+    def delete_by_document_id(self, document_id: int) -> int:
+        """
+        按文档ID删除对应的所有向量
+
+        Args:
+            document_id: 文档ID
+
+        Returns:
+            删除的向量数量
+        """
+        db = SessionLocal()
+        try:
+            result = db.execute(
+                text(DELETE_BY_DOCUMENT_ID_SQL),
+                {"document_id": str(document_id)},
+            )
+            deleted_count = result.rowcount or 0
+            db.commit()
+            logger.info("删除文档 %d 的向量: %d 条", document_id, deleted_count)
+            return deleted_count
+        except Exception as e:
+            db.rollback()
+            logger.error("删除文档向量失败: %s", str(e))
+            return 0
         finally:
             db.close()
 

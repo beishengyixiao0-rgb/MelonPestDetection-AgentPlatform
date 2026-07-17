@@ -13,7 +13,6 @@ Embedding 模型选择：
 from typing import Optional
 
 import httpx
-
 from app.config.settings import EMBEDDING_DIM, settings
 from app.core.logger import get_logger
 
@@ -42,13 +41,12 @@ class EmbeddingService:
                 logger.warning("未配置千问 Embedding 密钥，知识库向量化不可用")
                 return
 
-            base_url = (
-                getattr(settings, "QWEN_EMBEDDING_BASE_URL", "").strip()
-                or getattr(
-                    settings,
-                    "QWEN_BASE_URL",
-                    "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                )
+            base_url = getattr(
+                settings, "QWEN_EMBEDDING_BASE_URL", ""
+            ).strip() or getattr(
+                settings,
+                "QWEN_BASE_URL",
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
             )
             proxy = getattr(settings, "QWEN_PROXY", "").strip() or None
             # 忽略系统继承代理，避免兼容接口被错误代理配置拦截。
@@ -96,7 +94,9 @@ class EmbeddingService:
                     dimensions=EMBEDDING_DIM,
                 )
                 batch_embeddings = [item.embedding for item in response.data]
-                if any(len(embedding) != EMBEDDING_DIM for embedding in batch_embeddings):
+                if any(
+                    len(embedding) != EMBEDDING_DIM for embedding in batch_embeddings
+                ):
                     raise ValueError(
                         f"Embedding 维度必须为 {EMBEDDING_DIM}，实际返回维度不匹配"
                     )

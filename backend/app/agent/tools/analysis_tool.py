@@ -59,7 +59,9 @@ def query_detection_stats(days: int = 30) -> str:
             start_date = datetime.now() - timedelta(days=days)
             user_id = _tool_user_id.get()
             if user_id is None:
-                return json.dumps({"error": "未获取到当前用户上下文"}, ensure_ascii=False)
+                return json.dumps(
+                    {"error": "未获取到当前用户上下文"}, ensure_ascii=False
+                )
 
             stats = (
                 db.query(
@@ -113,7 +115,9 @@ def query_detection_history(limit: int = 10) -> str:
         try:
             user_id = _tool_user_id.get()
             if user_id is None:
-                return json.dumps({"error": "未获取到当前用户上下文"}, ensure_ascii=False)
+                return json.dumps(
+                    {"error": "未获取到当前用户上下文"}, ensure_ascii=False
+                )
             tasks = (
                 db.query(DetectionTask)
                 .filter(DetectionTask.user_id == user_id)
@@ -174,7 +178,9 @@ def query_user_list(limit: int = 20) -> str:
 
         # 用户列表属于系统管理数据，提示词约束不能代替工具执行层权限校验。
         if not _tool_is_admin.get():
-            return json.dumps({"error": "仅管理员可查询系统用户列表"}, ensure_ascii=False)
+            return json.dumps(
+                {"error": "仅管理员可查询系统用户列表"}, ensure_ascii=False
+            )
 
         db = SessionLocal()
         try:
