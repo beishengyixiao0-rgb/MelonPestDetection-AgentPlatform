@@ -12,7 +12,6 @@
   用户消息 → Agent（LLM + 8 工具）→ 调用工具 → SSE 流式返回
 """
 
-import asyncio
 import contextvars
 import json
 from pathlib import Path
@@ -29,10 +28,6 @@ from app.agent.tools.analysis_tool import (
 )
 from app.agent.tools.detection_tool import (
     DETECTION_TOOLS,
-    detect_batch_images,
-    detect_single_image,
-    detect_video_file,
-    detect_zip_images_file,
     reset_detection_tool_context,
     set_detection_tool_context,
 )
@@ -68,7 +63,7 @@ def _is_video_path(path: str) -> bool:
 
 def create_llm():
     qwen_api_key = getattr(settings, "QWEN_API_KEY", "")
-    if qwen_api_key and not qwen_api_key.startswith("sk-your-"):
+    if qwen_api_key and qwen_api_key != "sk-your-qwen-api-key":
         api_key = qwen_api_key
         base_url = getattr(
             settings,
@@ -78,8 +73,6 @@ def create_llm():
         model_name = getattr(settings, "QWEN_MODEL", "qwen3.7-plus")
     else:
         api_key = getattr(settings, "OPENAI_API_KEY", "")
-        if not api_key or api_key.startswith("sk-your-"):
-            return None
         base_url = getattr(settings, "OPENAI_BASE_URL", "https://api.openai.com/v1")
         model_name = getattr(settings, "OPENAI_MODEL", "gpt-4o-mini")
 
@@ -113,10 +106,6 @@ class DetectionAgent:
     def __init__(self):
         self.llm = create_llm()
         self.all_tools = ALL_TOOLS
-        self.executor = None
-        if self.llm is None:
-            logger.info("未配置 LLM API Key，DetectionAgent 使用本地检测降级模式")
-            return
 
         prompt = ChatPromptTemplate.from_messages(
             [
@@ -313,32 +302,17 @@ class DetectionAgent:
             reset_detection_tool_context(detection_context_tokens)
             reset_tool_context(analysis_context_tokens)
 
-    @staticmethod
-    def _fallback_reply(message: str, display_language: str = "zh") -> str:
-        """未配置外部 LLM 时仍提供可操作的基础回复。"""
-        if display_language == "en":
-            if any(
-                keyword in message.lower()
-                for keyword in ("prevention", "treatment", "pesticide")
-            ):
+    def _fallback_reply(self, message: str, display_language: str) -> str:
+        if "[附件" in message:
+            if display_language == "en":
                 return (
-                    "Please upload a leaf image for detection first. After the disease "
-                    "is identified, follow locally registered pesticide labels and "
-                    "agricultural-extension guidance."
+                    "The AI service is currently unavailable. Please try again later."
                 )
-            return (
-                "I am a fruit and vegetable disease detection assistant. Upload one "
-                "or more leaf images, a video, or a ZIP package for analysis."
-            )
-        if any(keyword in message for keyword in ("防治", "治疗", "用药")):
-            return (
-                "请先上传叶片图片完成检测。确认病害类别后，再结合当地登记农药标签、"
-                "作物生育期和农技部门建议制定防治方案。"
-            )
-        return (
-            "我是果蔬病害检测助手。你可以上传一张或多张叶片图片、视频或 ZIP 图片包，"
-            "我会识别病害并返回标注结果和统计信息。"
-        )
+            else:
+                return "AI 服务暂时不可用，请稍后重试。"
+        if display_language == "en":
+            return "The AI service is currently unavailable. Please try again later."
+        return "AI 服务暂时不可用，请稍后重试。"
 
     async def chat_stream(
         self,
@@ -408,14 +382,14 @@ class DetectionAgent:
                 ):
                     if event.get("type") == "text_chunk":
                         assistant_parts.append(event.get("content", ""))
-                    elif event.get("type") in {"tool_call", "tool_start"}:
+                    elif event.get("type") == "tool_call":
                         tool_calls.append(
                             {
                                 "tool": event.get("tool"),
                                 "input": event.get("input", {}),
                             }
                         )
-                    elif event.get("type") in {"tool_result", "tool_end"}:
+                    elif event.get("type") == "tool_result":
                         tool_results.append(event.get("result", ""))
                     yield event
                 return
@@ -444,7 +418,8 @@ class DetectionAgent:
                         "工具调用: %s, 输入: %s", tool_name, str(tool_input)[:200]
                     )
                     tool_calls.append({"tool": tool_name, "input": tool_input})
-                    yield {"type": "tool_start", "tool": tool_name, "input": tool_input}
+                    # 保持前端现有工具调用事件协议。
+                    yield {"type": "tool_call", "tool": tool_name, "input": tool_input}
 
                 elif event_kind == "on_tool_end":
                     tool_data = event.get("data", {})
@@ -461,9 +436,8 @@ class DetectionAgent:
                     tool_results.append(serialized_output)
                     # 返回完整工具 JSON，前端检测卡片和知识库来源均依赖该数据。
                     yield {
-                        "type": "tool_end",
+                        "type": "tool_result",
                         "tool": tool_name,
-                        "summary": serialized_output[:100] if serialized_output else "",
                         "result": serialized_output,
                     }
 
@@ -476,14 +450,14 @@ class DetectionAgent:
                 ):
                     if event.get("type") == "text_chunk":
                         assistant_parts.append(event.get("content", ""))
-                    elif event.get("type") in {"tool_call", "tool_start"}:
+                    elif event.get("type") == "tool_call":
                         tool_calls.append(
                             {
                                 "tool": event.get("tool"),
                                 "input": event.get("input", {}),
                             }
                         )
-                    elif event.get("type") in {"tool_result", "tool_end"}:
+                    elif event.get("type") == "tool_result":
                         tool_results.append(event.get("result", ""))
                     yield event
                 return
@@ -518,87 +492,71 @@ class DetectionAgent:
     async def _local_stream(
         self, message: str, attachment_paths: list[str], display_language: str
     ):
+        from app.services.detection_service import detection_service
+
         if not attachment_paths:
-            for chunk in self._text_chunks(
-                self._fallback_reply(message, display_language)
-            ):
-                yield {"type": "text_chunk", "content": chunk}
-            return
-
-        video_paths = [path for path in attachment_paths if _is_video_path(path)]
-        if video_paths and len(attachment_paths) > 1:
-            reply = (
-                "Only one video can be uploaded at a time, and it cannot be mixed "
-                "with images or other videos."
+            error_msg = (
+                "Please provide an image or video for detection."
                 if display_language == "en"
-                else "一次只能上传一个视频附件，视频不能和图片或其他视频混合上传。"
+                else "请提供图片或视频进行检测。"
             )
-            for chunk in self._text_chunks(reply):
-                yield {"type": "text_chunk", "content": chunk}
+            yield {"type": "error", "content": error_msg}
             return
 
-        if len(attachment_paths) == 1 and video_paths:
-            tool_function = detect_video_file
-            tool_name = "detect_video_file"
-            tool_input = {"video_path": attachment_paths[0]}
-        elif len(attachment_paths) > 1:
-            tool_function = detect_batch_images
-            tool_name = "detect_batch_images"
-            tool_input = {"image_paths": attachment_paths}
-        elif attachment_paths[0].lower().endswith(".zip"):
-            tool_function = detect_zip_images_file
-            tool_name = "detect_zip_images_file"
-            tool_input = {"zip_path": attachment_paths[0]}
-        else:
-            tool_function = detect_single_image
-            tool_name = "detect_single_image"
-            tool_input = {"image_path": attachment_paths[0]}
-
-        yield {"type": "tool_start", "tool": tool_name, "input": tool_input}
-        try:
-            tool_output = await asyncio.to_thread(tool_function.invoke, tool_input)
-        except Exception as exc:
-            yield {"type": "error", "content": str(exc)}
-            return
-
-        yield {
-            "type": "tool_end",
-            "tool": tool_name,
-            "result": tool_output,
-        }
-        result = json.loads(tool_output)
-        if result.get("error"):
-            reply = (
-                f"Detection did not finish: {result['error']}"
-                if display_language == "en"
-                else f"检测未完成：{result['error']}"
-            )
-        else:
-            display_counts = result.get("class_counts_display") or result.get(
-                "class_counts", {}
-            )
-            if display_language == "en":
-                summary = ", ".join(
-                    f"{name}: {count}" for name, count in display_counts.items()
-                )
-                reply = (
-                    f"Detection complete. Found {result.get('total_objects', 0)} objects"
-                )
-                reply += f", including {summary}" if summary else ""
-                reply += ". Annotated results and detailed statistics are ready."
+        for path in attachment_paths:
+            if _is_video_path(path):
+                yield {
+                    "type": "tool_call",
+                    "tool": "detect_video_file",
+                    "input": {"video_path": path},
+                }
+                try:
+                    result = detection_service.detect_video(
+                        path,
+                        scene_id=_tool_scene_id.get(),
+                        user_id=_tool_user_id.get(),
+                        display_language=_tool_display_language.get(),
+                    )
+                    result["type"] = "video"
+                    yield {
+                        "type": "tool_result",
+                        "tool": "detect_video_file",
+                        "result": json.dumps(result, ensure_ascii=False),
+                    }
+                    yield {
+                        "type": "text_chunk",
+                        "content": "Video detection completed. Please review the result card."
+                        if display_language == "en"
+                        else "视频检测完成，请查看结果卡片。",
+                    }
+                except Exception as e:
+                    yield {"type": "error", "content": str(e)}
             else:
-                summary = "、".join(
-                    f"{name} {count} 个" for name, count in display_counts.items()
-                )
-                reply = f"检测完成，共发现 {result.get('total_objects', 0)} 个目标"
-                reply += f"，包括 {summary}" if summary else ""
-                reply += "。标注结果和详细统计已生成。"
-        for chunk in self._text_chunks(reply):
-            yield {"type": "text_chunk", "content": chunk}
-
-    @staticmethod
-    def _text_chunks(text: str, width: int = 12) -> list[str]:
-        return [text[index : index + width] for index in range(0, len(text), width)]
+                yield {
+                    "type": "tool_call",
+                    "tool": "detect_single_image",
+                    "input": {"image_path": path},
+                }
+                try:
+                    result = detection_service.detect_single(
+                        path,
+                        scene_id=_tool_scene_id.get(),
+                        user_id=_tool_user_id.get(),
+                        display_language=_tool_display_language.get(),
+                    )
+                    yield {
+                        "type": "tool_result",
+                        "tool": "detect_single_image",
+                        "result": json.dumps(result, ensure_ascii=False),
+                    }
+                    yield {
+                        "type": "text_chunk",
+                        "content": "Detection completed. Please review the result card."
+                        if display_language == "en"
+                        else "检测完成，请查看结果卡片。",
+                    }
+                except Exception as e:
+                    yield {"type": "error", "content": str(e)}
 
 
 detection_agent = DetectionAgent()
