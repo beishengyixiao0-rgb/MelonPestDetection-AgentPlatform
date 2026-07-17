@@ -7,12 +7,11 @@
   - POST /api/knowledge/search   手动测试检索
 """
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-
 from app.api.auth import get_current_user
 from app.core.logger import get_logger
 from app.rag.retriever import knowledge_retriever
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 logger = get_logger(__name__)
 
@@ -34,7 +33,9 @@ async def build_index(
     stats = knowledge_retriever.get_stats()
     # 普通登录用户可以建库，但失败必须返回真实状态，不能伪造成功消息。
     if not success or stats["total_chunks"] <= 0:
-        raise HTTPException(status_code=503, detail={"message": "知识库索引构建失败", "stats": stats})
+        raise HTTPException(
+            status_code=503, detail={"message": "知识库索引构建失败", "stats": stats}
+        )
     return {"message": "知识库索引构建完成", "stats": stats}
 
 

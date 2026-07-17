@@ -68,7 +68,9 @@ class KnowledgeRetriever:
             texts = [chunk["content"] for chunk in chunks]
             metadatas = [chunk["metadata"] for chunk in chunks]
             embeddings = embedding_service.embed_texts(texts)
-            if len(embeddings) != len(texts) or any(not embedding for embedding in embeddings):
+            if len(embeddings) != len(texts) or any(
+                not embedding for embedding in embeddings
+            ):
                 logger.error("文本向量化未完整成功，保留原有索引")
                 return False
 
@@ -81,7 +83,9 @@ class KnowledgeRetriever:
             self._index_built = True
             logger.info(
                 "知识库索引构建完成: %d 个文档 → %d 个文本块 → %d 条向量",
-                len(documents), len(chunks), len(texts),
+                len(documents),
+                len(chunks),
+                len(texts),
             )
             return True
 

@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import AsyncGenerator
 
 import httpx
-
 from app.agent.memory import conversation_memory
 from app.agent.prompts import get_detection_agent_prompt
 from app.agent.tools.analysis_tool import (
@@ -274,7 +273,9 @@ class DetectionAgent:
                 "intermediate_steps": [],
             }
         # 非流式调用也必须隔离检测、统计和用户列表工具的上下文。
-        detection_context_tokens = set_detection_tool_context(user_id, None, display_language)
+        detection_context_tokens = set_detection_tool_context(
+            user_id, None, display_language
+        )
         analysis_context_tokens = set_tool_context(user_id, is_admin)
         try:
             result = await self.executor.ainvoke(
