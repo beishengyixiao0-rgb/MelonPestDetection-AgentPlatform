@@ -29,6 +29,7 @@ from app.entity.schemas import (
     UserLogin,
     UserRegister,
     UserResponse,
+    VerifyCodeRequest,
 )
 from app.services.user_service import user_service
 
@@ -171,17 +172,43 @@ async def forgot_password(
     request: ForgotPasswordRequest, db: Session = Depends(get_db)
 ):
     """
-    忘记密码 - 生成一次性重置令牌
+    忘记密码 - 发送 6 位验证码到邮箱
 
-    - 提交注册邮箱，生成有效期 1 小时的重置令牌
-    - 实际项目中应通过邮件发送令牌，此处直接返回用于开发调试
+    - 提交注册邮箱，系统生成 6 位验证码并通过邮件发送
+    - 验证码有效期 5 分钟
     """
-    token = user_service.forgot_password(db=db, email=request.email)
+    user_service.forgot_password(db=db, email=request.email)
     return {
-        "message": "重置令牌已生成",
-        "token": token,
-        "expires_in": "1小时",
+        "message": "验证码已发送到您的邮箱，请在 5 分钟内使用",
     }
+
+
+@router.post("/verify-code")
+async def verify_code(
+    request: VerifyCodeRequest, db: Session = Depends(get_db)
+):
+    """
+    验证码校验 - 验证邮箱和验证码是否有效
+
+    - **email**: 注册邮箱
+    - **code**: 6 位验证码
+
+    返回验证码是否有效，用于前端在用户输入验证码后即时校验。
+    """
+    from app.entity.db_models import User
+    from datetime import datetime
+
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="该邮箱未注册")
+
+    if not user.reset_token or user.reset_token != request.code:
+        raise HTTPException(status_code=400, detail="验证码错误")
+
+    if user.reset_token_expires_at < datetime.now():
+        raise HTTPException(status_code=400, detail="验证码已过期，请重新申请")
+
+    return {"message": "验证码有效"}
 
 
 @router.post("/reset-password")
@@ -189,14 +216,16 @@ async def reset_password(
     request: ResetPasswordRequest, db: Session = Depends(get_db)
 ):
     """
-    重置密码 - 验证令牌并更新密码
+    重置密码 - 验证邮箱和验证码并更新密码
 
-    - **token**: 忘记密码接口返回的重置令牌
+    - **email**: 注册邮箱
+    - **code**: 6 位验证码
     - **new_password**: 新密码（至少 6 位）
     """
     user_service.reset_password(
         db=db,
-        token=request.token,
+        email=request.email,
+        code=request.code,
         new_password=request.new_password,
     )
     return {"message": "密码重置成功"}

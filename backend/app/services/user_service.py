@@ -3,7 +3,7 @@
 处理用户注册、登录、鉴权等业务逻辑
 """
 
-import secrets
+import random
 from datetime import datetime, timedelta
 
 from fastapi import HTTPException
@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, hash_password, verify_password
 from app.entity.db_models import DetectionTask, Role, User, UserRole
+from app.services.email_service import EmailService
 
 
 class UserService:
@@ -150,59 +151,64 @@ class UserService:
     @staticmethod
     def forgot_password(db: Session, email: str) -> str:
         """
-        忘记密码 - 生成一次性重置令牌
+        忘记密码 - 生成 6 位验证码并发送邮件
 
         Args:
             db: 数据库会话
             email: 注册邮箱
 
         Returns:
-            重置令牌（实际项目中应通过邮件发送）
+            验证码（用于开发调试，生产环境应仅通过邮件发送）
 
         Raises:
-            HTTPException: 邮箱未注册
+            HTTPException: 邮箱未注册或邮件发送失败
         """
         user = db.query(User).filter(User.email == email).first()
         if not user:
             raise HTTPException(status_code=404, detail="该邮箱未注册")
 
-        # 生成随机令牌（32 字节 hex，64 字符）
-        token = secrets.token_hex(32)
-        # 令牌有效期 1 小时
-        expires_at = datetime.now() + timedelta(hours=1)
+        # 生成 6 位数字验证码
+        code = f"{random.randint(100000, 999999)}"
+        # 验证码有效期 5 分钟
+        expires_at = datetime.now() + timedelta(minutes=5)
 
-        user.reset_token = token
+        user.reset_token = code
         user.reset_token_expires_at = expires_at
         db.commit()
 
-        return token
+        # 发送邮件
+        success = EmailService.send_verification_code(email, code)
+        if not success:
+            raise HTTPException(status_code=500, detail="验证码邮件发送失败，请稍后重试")
+
+        return code
 
     @staticmethod
-    def reset_password(db: Session, token: str, new_password: str) -> None:
+    def reset_password(db: Session, email: str, code: str, new_password: str) -> None:
         """
-        重置密码 - 验证令牌并更新密码
+        重置密码 - 验证邮箱和验证码并更新密码
 
         Args:
             db: 数据库会话
-            token: 重置令牌
+            email: 注册邮箱
+            code: 6 位验证码
             new_password: 新密码
 
         Raises:
-            HTTPException: 令牌无效或已过期
+            HTTPException: 邮箱未注册、验证码错误或已过期
         """
-        user = (
-            db.query(User)
-            .filter(User.reset_token == token)
-            .first()
-        )
+        user = db.query(User).filter(User.email == email).first()
         if not user:
-            raise HTTPException(status_code=400, detail="无效的重置令牌")
+            raise HTTPException(status_code=400, detail="该邮箱未注册")
 
-        # 检查令牌是否过期
+        if not user.reset_token or user.reset_token != code:
+            raise HTTPException(status_code=400, detail="验证码错误")
+
+        # 检查验证码是否过期
         if user.reset_token_expires_at < datetime.now():
-            raise HTTPException(status_code=400, detail="重置令牌已过期，请重新申请")
+            raise HTTPException(status_code=400, detail="验证码已过期，请重新申请")
 
-        # 更新密码并清除令牌
+        # 更新密码并清除验证码
         user.hashed_password = hash_password(new_password)
         user.reset_token = None
         user.reset_token_expires_at = None

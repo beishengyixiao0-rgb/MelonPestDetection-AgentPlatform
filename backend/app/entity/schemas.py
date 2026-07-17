@@ -26,8 +26,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class UserRegister(BaseModel):
     """⽤户注册请求"""
-    username: str = Field(..., min_length=3, max_length=50, description="⽤户名")
-    email: str = Field(..., description="邮箱")
+    username: str = Field(..., min_length=3, max_length=50, description="用户名")
+    email: str = Field(
+        ...,
+        pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$",
+        description="邮箱",
+        examples=["user@example.com"],
+    )
     password: str = Field(..., min_length=6, max_length=100, description="密码")
 
 
@@ -85,7 +90,10 @@ class UserUpdate(BaseModel):
     """⽤户信息更新"""
     phone: Optional[str] = None
     avatar: Optional[str] = None
-    email: Optional[str] = None
+    email: Optional[str] = Field(
+        None,
+        pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$",
+    )
 
 
 class ChangePassword(BaseModel):
@@ -96,12 +104,48 @@ class ChangePassword(BaseModel):
 
 class ForgotPasswordRequest(BaseModel):
     """忘记密码请求"""
-    email: str = Field(..., description="注册邮箱")
+    email: str = Field(
+        ...,
+        pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$",
+        description="注册邮箱",
+        examples=["user@example.com"],
+    )
+
+
+class VerifyCodeRequest(BaseModel):
+    """验证码校验请求"""
+    email: str = Field(
+        ...,
+        pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$",
+        description="注册邮箱",
+        examples=["user@example.com"],
+    )
+    code: str = Field(
+        ...,
+        min_length=6,
+        max_length=6,
+        pattern=r"^\d{6}$",
+        description="6位验证码",
+        examples=["123456"],
+    )
 
 
 class ResetPasswordRequest(BaseModel):
     """重置密码请求"""
-    token: str = Field(..., description="重置令牌")
+    email: str = Field(
+        ...,
+        pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$",
+        description="注册邮箱",
+        examples=["user@example.com"],
+    )
+    code: str = Field(
+        ...,
+        min_length=6,
+        max_length=6,
+        pattern=r"^\d{6}$",
+        description="6位验证码",
+        examples=["123456"],
+    )
     new_password: str = Field(..., min_length=6, max_length=100, description="新密码")
 
 
@@ -128,7 +172,10 @@ class ProfileUpdateRequest(BaseModel):
     """修改个人信息请求"""
     phone: Optional[str] = None
     avatar: Optional[str] = None
-    email: Optional[str] = None
+    email: Optional[str] = Field(
+        None,
+        pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$",
+    )
 
 
 class DisplayLanguageUpdate(BaseModel):

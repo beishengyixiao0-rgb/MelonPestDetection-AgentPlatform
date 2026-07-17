@@ -86,6 +86,13 @@ class Settings(BaseSettings):
         "http://localhost:3000,http://localhost:5173,http://localhost:8080"
     )
 
+    # — 邮件 SMTP 配置 —
+    SMTP_HOST: str = "smtp.qq.com"
+    SMTP_PORT: int = 465
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_NAME: str = "农作物病害检测系统"
+
     @property
     def cors_origins_list(self) -> list:
         """将 CORS 配置字符串转为列表"""
