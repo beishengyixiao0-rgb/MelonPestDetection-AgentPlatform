@@ -21,6 +21,7 @@ import uuid
 from pathlib import Path
 
 from app.agent.detection_agent import detection_agent
+from app.agent.multi_agent import multi_agent_chat_stream
 from app.agent.memory import conversation_memory
 from app.api.auth import get_current_user
 from app.core.language import request_language
@@ -30,6 +31,7 @@ from app.services.detection_service import ALLOWED_IMAGE_SUFFIXES
 from app.storage.minio_client import MinIOClient
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 logger = get_logger(__name__)
 
@@ -39,6 +41,16 @@ ALLOWED_VIDEO_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv"}
 MAX_VIDEO_UPLOAD_BYTES = 50 * 1024 * 1024
 UPLOAD_CHUNK_SIZE = 1024 * 1024
 SESSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
+
+
+class ChatStreamRequest(BaseModel):
+    """SSE 流式对话请求体"""
+    message: str = Field(..., description="用户消息内容", examples=["检测这张图片"])
+    image_path: str | None = Field(None, description="单附件路径（图片、视频或 ZIP）", examples=["/tmp/uploads/xxx.jpg"])
+    image_paths: list[str] | None = Field(None, description="多个图片附件路径", examples=[["/tmp/uploads/a.jpg", "/tmp/uploads/b.jpg"]])
+    session_id: int | None = Field(None, description="会话 ID（可选）", examples=[123])
+    attachment_urls: list[str] | None = Field(None, description="附件 URL 列表")
+    scene_id: int | None = Field(None, description="场景 ID（可选）", examples=[1])
 
 # 上传文件临时存储目录
 UPLOAD_DIR = os.path.join(tempfile.gettempdir(), "rsod_uploads")
@@ -133,6 +145,7 @@ async def upload_image(
 
 @router.post("/stream")
 async def chat_stream(
+    body: ChatStreamRequest,
     request: Request,
     current_user=Depends(get_current_user),
 ):
@@ -149,15 +162,13 @@ async def chat_stream(
 
     响应：SSE 流式事件
     """
-    # ── 解析请求体 ──
-    body = await request.json()
     # SSE 不经过 Axios；从请求头或用户偏好解析本轮 Agent 的回复语言。
     display_language = request_language(request, current_user)
-    message = body.get("message", "")
-    image_path = body.get("image_path")
-    image_paths = body.get("image_paths")
-    attachment_urls = body.get("attachment_urls") or []
-    session_id = _validated_session_id(body.get("session_id"))
+    message = body.message
+    image_path = body.image_path
+    image_paths = body.image_paths
+    attachment_urls = body.attachment_urls or []
+    session_id = _validated_session_id(body.session_id)
 
     if not message:
         raise HTTPException(status_code=400, detail="消息内容不能为空")
@@ -211,13 +222,13 @@ async def chat_stream(
                 ensure_ascii=False,
             )
             yield f"data: {session_data}\n\n"
-            # 使用 Agent 流式处理
-            async for event in detection_agent.chat_stream(
+            # 使用多 Agent 流式处理（Supervisor 路由 + 子 Agent 执行）
+            async for event in multi_agent_chat_stream(
                 message=message,
                 image_path=image_path,
                 image_paths=image_paths,
                 user_id=user_id,
-                scene_id=body.get("scene_id"),
+                scene_id=body.scene_id,
                 session_id=session_id,
                 display_language=display_language,
                 attachment_urls=attachment_urls,
