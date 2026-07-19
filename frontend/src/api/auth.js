@@ -26,3 +26,8 @@ export function loginApi(data) {
 export function getUserInfoApi() {
     return request.get('/auth/me')
 }
+
+/** 保存当前用户的中英文显示偏好。 */
+export function updateDisplayLanguageApi(display_language) {
+    return request.put('/auth/preferences', { display_language })
+}

@@ -7,6 +7,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import { useLocaleStore } from '@/stores/locale'
 import router from '@/router'
 
 // ── 创建 Axios 实例 ──────────────────────────────────
@@ -30,6 +31,9 @@ request.interceptors.request.use(
 
     // 从 Pinia store 获取 Token，自动注入请求头
     const userStore = useUserStore()
+    const localeStore = useLocaleStore()
+    // 语言随每次请求传递，后端无需共享全局状态。
+    config.headers['X-Display-Language'] = localeStore.locale
     if (userStore.token) {
       config.headers.Authorization = `Bearer ${userStore.token}`
     }

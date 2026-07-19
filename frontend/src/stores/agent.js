@@ -49,6 +49,21 @@ export const useAgentStore = defineStore('agent', {
       this.isLoading = loading
     },
 
+    /** 用后端历史消息替换当前会话内容。 */
+    setMessages(messages) {
+      this.messages = messages
+    },
+
+    /** 设置当前持久化会话标识。 */
+    setCurrentSessionId(sessionId) {
+      this.currentSessionId = sessionId
+    },
+
+    /** 更新当前用户可见的会话列表。 */
+    setSessions(sessions) {
+      this.sessions = sessions
+    },
+
     /** 中断当前流式请求 */
     abort() {
       if (this.abortController) {

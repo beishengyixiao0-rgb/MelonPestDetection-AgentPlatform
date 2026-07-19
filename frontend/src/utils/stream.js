@@ -13,6 +13,8 @@
  *     }
  *   )
  */
+import { useLocaleStore } from '@/stores/locale'
+
 
 /**
  * 发起 SSE 流式请求
@@ -30,6 +32,7 @@ export function streamChat(url, body, callbacks) {
 
   // 从 localStorage 获取 Token
   const token = localStorage.getItem('rsod_token')
+  const localeStore = useLocaleStore()
 
   // 使用 fetch + ReadableStream 实现 SSE
   const controller = new AbortController()
@@ -39,6 +42,7 @@ export function streamChat(url, body, callbacks) {
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Display-Language': localeStore.locale,
     },
     body: JSON.stringify(body),
     signal: controller.signal,

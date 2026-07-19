@@ -1,5 +1,41 @@
 <template>
   <div class="chat-page">
+    <aside class="session-sidebar">
+      <el-tooltip content="新建会话" placement="right">
+        <el-button
+          class="new-session-button"
+          circle
+          :icon="Plus"
+          :disabled="agentStore.isLoading"
+          @click="createNewChat"
+        />
+      </el-tooltip>
+      <div class="session-list" aria-label="历史会话">
+        <div
+          v-for="session in agentStore.sessions"
+          :key="session.session_uuid"
+          :class="['session-row', { active: session.session_uuid === agentStore.currentSessionId }]"
+        >
+          <button
+            class="session-button"
+            type="button"
+            :title="session.title || '新会话'"
+            @click="openSession(session.session_uuid)"
+          >
+            <ChatDotRound class="session-icon" />
+            <span class="session-title">{{ session.title || '新会话' }}</span>
+          </button>
+          <el-tooltip content="重命名会话" placement="right">
+            <el-button class="rename-session-button" text circle :icon="EditPen" :disabled="agentStore.isLoading" @click="renameSession(session)" />
+          </el-tooltip>
+          <el-tooltip content="删除会话" placement="right">
+            <el-button class="delete-session-button" text circle :icon="Delete" :disabled="agentStore.isLoading" @click="deleteSession(session.session_uuid)" />
+          </el-tooltip>
+        </div>
+      </div>
+    </aside>
+
+    <div class="chat-main">
     <!-- ── 消息列表区域 ── -->
     <div class="message-list" ref="messageListRef">
       <div
@@ -121,6 +157,7 @@
         >停止</el-button
       >
     </div>
+    </div>
   </div>
 </template>
 
@@ -151,13 +188,17 @@ import request from "@/utils/request";
 import { streamChat } from "@/utils/stream";
 import {
   Camera,
+  ChatDotRound,
   Close,
+  Delete,
+  EditPen,
   FolderOpened,
   Monitor,
   Paperclip,
+  Plus,
   Promotion,
 } from "@element-plus/icons-vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { computed, nextTick, onMounted, ref } from "vue";
 
 // ── Store ──
@@ -170,6 +211,9 @@ const messageListRef = ref(null);
 const fileInputRef = ref(null);
 const VIDEO_POLL_INTERVAL = 1500;
 const VIDEO_MAX_POLL_ATTEMPTS = 1200;
+const LAST_SESSION_STORAGE_KEY = "rsod_agent_last_session";
+const WELCOME_MESSAGE =
+  "你好！我是 RSOD 目标检测智能体助手。\n\n你可以：\n- 上传一张图片，让我帮你检测目标\n- 使用下方的快捷按钮直接触发检测\n- 用自然语言描述你的需求\n\n试试发一张图片给我吧！";
 
 // ── 计算属性 ──
 const canSend = computed(
@@ -177,6 +221,198 @@ const canSend = computed(
 );
 
 // ── 方法 ──
+
+/** 从数据库刷新当前用户的历史会话列表。 */
+async function refreshSessions() {
+  const response = await request.get("/chat/sessions");
+  agentStore.setSessions(response.sessions || []);
+  return agentStore.sessions;
+}
+
+/** 解析后端持久化在 tool_result 字段中的 JSON 元数据。 */
+function parseStoredToolResult(value) {
+  if (!value) return null;
+  try {
+    return typeof value === "string" ? JSON.parse(value) : value;
+  } catch {
+    return null;
+  }
+}
+
+/** 判断工具结果是否能够驱动检测结果卡片。 */
+function isDetectionResult(result) {
+  return Boolean(
+    result &&
+      (result.type === "video" ||
+        result.task_type === "video" ||
+        result.detections ||
+        result.annotated_images ||
+        result.key_frames ||
+        result.annotated_image_url ||
+        result.class_counts ||
+        result.class_counts_display),
+  );
+}
+
+/** 将服务端消息转换为页面可渲染结构，并恢复附件和检测结果。 */
+function mapServerMessage(message) {
+  const mapped = {
+    role: message.role === "assistant" ? "assistant" : "user",
+    content: message.content || "",
+    loading: false,
+  };
+  const storedResult = parseStoredToolResult(message.tool_result);
+
+  if (mapped.role === "user") {
+    const attachments = Array.isArray(storedResult?.attachments)
+      ? storedResult.attachments.filter(Boolean)
+      : [];
+    if (attachments.length === 1) {
+      if (
+        mapped.content.startsWith("[视频检测]") ||
+        mapped.content.includes("[本轮已上传视频附件]")
+      ) {
+        mapped.videoUrl = attachments[0];
+        mapped.sourceVideoUrl = attachments[0];
+      } else {
+        mapped.image = "附件图片";
+        mapped.imagePreview = attachments[0];
+      }
+    } else if (attachments.length > 1) {
+      mapped.images = attachments;
+    }
+  } else if (isDetectionResult(storedResult)) {
+    mapped.detectionResult = storedResult;
+  }
+
+  return mapped;
+}
+
+/** 打开指定会话并恢复已保存的文本消息。 */
+async function openSession(sessionId) {
+  if (!sessionId || agentStore.isLoading) return;
+  try {
+    const response = await request.get(`/chat/sessions/${sessionId}`);
+    agentStore.setMessages((response.messages || []).map(mapServerMessage));
+    agentStore.setCurrentSessionId(sessionId);
+    localStorage.setItem(LAST_SESSION_STORAGE_KEY, sessionId);
+  } catch (error) {
+    console.error("[加载会话失败]", error);
+  }
+}
+
+/** 创建空会话，使用户可在发送第一条消息前主动切换会话。 */
+async function createNewChat() {
+  if (agentStore.isLoading) return;
+  try {
+    const session = await request.post("/chat/sessions");
+    agentStore.setCurrentSessionId(session.session_uuid);
+    agentStore.setMessages([{ role: "assistant", content: WELCOME_MESSAGE }]);
+    localStorage.setItem(LAST_SESSION_STORAGE_KEY, session.session_uuid);
+    agentStore.setSessions([
+      session,
+      ...agentStore.sessions.filter(
+        (item) => item.session_uuid !== session.session_uuid,
+      ),
+    ]);
+  } catch (error) {
+    console.error("[新建会话失败]", error);
+    ElMessage.error("新建会话失败，请重试");
+  }
+}
+
+/** 删除当前用户自己的会话，删除后自动切换到下一条可用会话。 */
+async function deleteSession(sessionId) {
+  try {
+    await ElMessageBox.confirm("删除后无法恢复该会话及其消息，是否继续？", "删除会话", {
+      confirmButtonText: "删除",
+      cancelButtonText: "取消",
+      type: "warning",
+    });
+    await request.delete(`/chat/sessions/${sessionId}`);
+    const wasCurrent = sessionId === agentStore.currentSessionId;
+    const sessions = await refreshSessions();
+    if (wasCurrent) {
+      if (sessions[0]) await openSession(sessions[0].session_uuid);
+      else await createNewChat();
+    }
+    ElMessage.success("会话已删除");
+  } catch (error) {
+    if (error !== "cancel" && error !== "close") {
+      console.error("[删除会话失败]", error);
+    }
+  }
+}
+
+/** 修改当前用户自己的会话标题。 */
+async function renameSession(session) {
+  try {
+    const { value } = await ElMessageBox.prompt("", "重命名会话", {
+      inputValue: session.title || "",
+      inputPlaceholder: "输入会话名称",
+      inputValidator: (value) => {
+        if (!value?.trim()) return "会话名称不能为空";
+        if (value.trim().length > 200) return "会话名称不能超过 200 个字符";
+        return true;
+      },
+      confirmButtonText: "保存",
+      cancelButtonText: "取消",
+    });
+    const renamed = await request.patch(`/chat/sessions/${session.session_uuid}`, {
+      title: value.trim(),
+    });
+    agentStore.setSessions(
+      agentStore.sessions.map((item) =>
+        item.session_uuid === renamed.session_uuid ? renamed : item,
+      ),
+    );
+    ElMessage.success("会话已重命名");
+  } catch (error) {
+    if (error !== "cancel" && error !== "close") {
+      console.error("[重命名会话失败]", error);
+    }
+  }
+}
+
+/** 确保快捷检测也写入持久化会话，不依赖用户先发送 Agent 消息。 */
+async function ensureSessionForHistory() {
+  if (agentStore.currentSessionId) return agentStore.currentSessionId;
+  const session = await request.post("/chat/sessions");
+  agentStore.setCurrentSessionId(session.session_uuid);
+  localStorage.setItem(LAST_SESSION_STORAGE_KEY, session.session_uuid);
+  agentStore.setSessions([
+    session,
+    ...agentStore.sessions.filter(
+      (item) => item.session_uuid !== session.session_uuid,
+    ),
+  ]);
+  return session.session_uuid;
+}
+
+/** 将快捷检测的用户附件和助手结果一并写入长期会话。 */
+async function persistQuickDetection({
+  userContent,
+  assistantContent,
+  detectionResult,
+  attachments = [],
+}) {
+  const sessionId = await ensureSessionForHistory();
+  await request.post(`/chat/sessions/${sessionId}/quick-detection`, {
+    user_content: userContent,
+    assistant_content: assistantContent,
+    detection_result: detectionResult,
+    attachments: attachments.filter(Boolean),
+  });
+  await refreshSessions();
+}
+
+/** 上传快捷检测原始图片，取得刷新后仍可访问的 MinIO 地址。 */
+async function uploadQuickAttachment(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const result = await request.post("/chat/upload", formData);
+  return result.attachment_url || null;
+}
 
 /** 发送消息 */
 async function sendMessage() {
@@ -218,6 +454,9 @@ async function sendMessage() {
 
   // ── 如果有附件图片，先上传到服务端获取真实路径 ──
   const serverImagePaths = [];
+  // 保存可长期访问的原图 URL，刷新会话时使用该地址恢复右侧附件预览。
+  const attachmentUrls = [];
+  const attachmentTypes = [];
   if (filesToSend.length) {
     try {
       for (const file of filesToSend) {
@@ -226,6 +465,10 @@ async function sendMessage() {
         // 不设置 Content-Type，让 axios 自动添加 boundary
         const uploadResult = await request.post("/chat/upload", formData);
         serverImagePaths.push(uploadResult.file_path || uploadResult.image_path);
+        if (uploadResult.attachment_url) {
+          attachmentUrls.push(uploadResult.attachment_url);
+          attachmentTypes.push(uploadResult.file_type);
+        }
       }
     } catch (err) {
       console.error("[附件上传失败]", err.response?.data || err.message || err);
@@ -245,6 +488,8 @@ async function sendMessage() {
       ? { image_path: serverImagePaths[0] }
       : {}),
     ...(serverImagePaths.length > 1 ? { image_paths: serverImagePaths } : {}),
+    ...(attachmentUrls.length ? { attachment_urls: attachmentUrls } : {}),
+    ...(attachmentTypes.length ? { attachment_types: attachmentTypes } : {}),
     ...(agentStore.currentSessionId
       ? { session_id: agentStore.currentSessionId }
       : {}),
@@ -264,6 +509,10 @@ async function sendMessage() {
         fullContent += data.content;
         agentStore.updateLastAssistantMessage(fullContent);
         scrollToBottom();
+      } else if (data.type === "session") {
+        // 首次发送消息时后端创建会话，收到事件后同步本地会话标识。
+        agentStore.setCurrentSessionId(data.session_id);
+        localStorage.setItem(LAST_SESSION_STORAGE_KEY, data.session_id);
       } else if (data.type === "tool_call") {
         // 工具调用中，更新最后一条 AI 消息的工具信息
         lastMsg.toolCall = { tool: data.tool, input: data.input };
@@ -292,7 +541,11 @@ async function sendMessage() {
             result.task_type === "video" ||
             result.detections ||
             result.annotated_images ||
-            result.key_frames
+            result.key_frames ||
+            // 检测工具可能移除明细列表，只保留标注图地址和类别统计。
+            result.annotated_image_url ||
+            result.class_counts ||
+            result.class_counts_display
           ) {
             if (result.source_video_url) {
               const userVideoMessage = [...agentStore.messages]
@@ -330,6 +583,9 @@ async function sendMessage() {
       if (lastMsg.loading) lastMsg.loading = false;
       agentStore.setLoading(false);
       agentStore.abortController = null;
+      refreshSessions().catch((error) =>
+        console.error("[刷新会话列表失败]", error),
+      );
     },
     onError: (err) => {
       const lastMsg = agentStore.messages[agentStore.messages.length - 1];
@@ -418,11 +674,19 @@ async function handleQuickDetect(type) {
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
+      const userContent = `[快捷检测] ${file.name}`;
+      let attachmentUrl = null;
+      try {
+        attachmentUrl = await uploadQuickAttachment(file);
+      } catch (error) {
+        // 原图持久化失败不阻断本轮临时检测，结果仍可正常返回。
+        console.warn("[快捷检测原图持久化失败]", error);
+      }
 
       // 添加用户消息（显示文件名）
       agentStore.addMessage({
         role: "user",
-        content: `[快捷检测] ${file.name}`,
+        content: userContent,
         image: file.name,
         imagePreview: URL.createObjectURL(file),
       });
@@ -445,6 +709,12 @@ async function handleQuickDetect(type) {
         lastMsg.content = `检测完成！发现 ${result.total_objects} 个目标。`;
         lastMsg.loading = false;
         lastMsg.detectionResult = result;
+        persistQuickDetection({
+          userContent,
+          assistantContent: lastMsg.content,
+          detectionResult: result,
+          attachments: [attachmentUrl],
+        }).catch((error) => console.warn("[保存快捷检测历史失败]", error));
       } catch (err) {
         const lastMsg = agentStore.messages[agentStore.messages.length - 1];
         lastMsg.content = "检测失败，请重试";
@@ -466,6 +736,8 @@ async function handleQuickDetect(type) {
 
       const isZip = files.some((f) => f.name.toLowerCase().endsWith(".zip"));
       const formData = new FormData();
+      let userContent = "";
+      let attachments = [];
       if (isZip && files.length !== 1) {
         ElMessage.warning("ZIP 文件请单独选择");
         return;
@@ -478,6 +750,7 @@ async function handleQuickDetect(type) {
           role: "user",
           content: `[快捷检测] ZIP: ${files[0].name}`,
         });
+        userContent = `[快捷检测] ZIP: ${files[0].name}`;
       } else {
         // 多张图片
         files.forEach((f) => formData.append("files", f));
@@ -487,6 +760,11 @@ async function handleQuickDetect(type) {
           content: `[快捷检测] ${files.length} 张图片`,
           images: imagePreviews,
         });
+        userContent = `[快捷检测] ${files.length} 张图片`;
+        // 多图原图逐个持久化，失败的文件不影响批量检测本身。
+        attachments = await Promise.all(
+          files.map((file) => uploadQuickAttachment(file).catch(() => null)),
+        );
       }
 
       agentStore.addMessage({
@@ -512,6 +790,12 @@ async function handleQuickDetect(type) {
         lastMsg.loading = false;
         lastMsg.detectionResult = result;
         console.log("[批量检测结果]", result);
+        persistQuickDetection({
+          userContent,
+          assistantContent: lastMsg.content,
+          detectionResult: result,
+          attachments,
+        }).catch((error) => console.warn("[保存快捷检测历史失败]", error));
       } catch (err) {
         console.error("[批量检测异常]", err);
         const lastMsg = agentStore.messages[agentStore.messages.length - 1];
@@ -551,11 +835,12 @@ async function handleVideoDetect() {
 
     // 创建视频的 Blob URL 用于预览
     const videoUrl = URL.createObjectURL(file);
+    const userContent = `[视频检测] ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB)`;
 
     // 添加用户消息
     agentStore.addMessage({
       role: "user",
-      content: `[视频检测] ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB)`,
+      content: userContent,
       videoUrl,
     });
     const userVideoMessage = agentStore.messages[agentStore.messages.length - 1];
@@ -590,7 +875,16 @@ async function handleVideoDetect() {
 
       // 开始轮询进度
       agentStore.abortController = cancelPolling;
-      await pollVideoProgress(taskId, userVideoMessage, () => cancelled);
+      const videoResult = await pollVideoProgress(taskId, userVideoMessage, () => cancelled);
+      if (videoResult) {
+        const assistantMessage = agentStore.messages[agentStore.messages.length - 1];
+        persistQuickDetection({
+          userContent,
+          assistantContent: assistantMessage.content,
+          detectionResult: videoResult,
+          attachments: [videoResult.source_video_url || userVideoMessage.sourceVideoUrl],
+        }).catch((error) => console.warn("[保存视频检测历史失败]", error));
+      }
     } catch (err) {
       console.error("[视频检测失败]", err);
       const lastMsg = agentStore.messages[agentStore.messages.length - 1];
@@ -628,7 +922,7 @@ async function pollVideoProgress(taskId, userVideoMessage, isCancelled) {
       lastMsg.loading = false;
       lastMsg.detectionResult = videoResult;
       scrollToBottom();
-      return;
+      return videoResult;
     }
 
     if (status.status === "failed") {
@@ -654,23 +948,87 @@ async function pollVideoProgress(taskId, userVideoMessage, isCancelled) {
 }
 
 onMounted(() => {
-  // 页面加载时显示欢迎消息
-  if (agentStore.messages.length === 0) {
-    agentStore.addMessage({
-      role: "assistant",
-      content:
-        "你好！我是 RSOD 目标检测智能体助手。\n\n你可以：\n- 上传一张图片，让我帮你检测目标\n- 使用下方的快捷按钮直接触发检测\n- 用自然语言描述你的需求\n\n试试发一张图片给我吧！",
-    });
-  }
+  // 刷新后优先恢复用户上次打开的会话，找不到时回退到最新会话。
+  refreshSessions()
+    .then((sessions) => {
+      const lastSessionId = localStorage.getItem(LAST_SESSION_STORAGE_KEY);
+      const sessionToRestore = sessions.find(
+        (session) => session.session_uuid === lastSessionId,
+      );
+      if (sessionToRestore) return openSession(sessionToRestore.session_uuid);
+      if (sessions[0]) return openSession(sessions[0].session_uuid);
+      return createNewChat();
+    })
+    .catch((error) => console.error("[初始化会话失败]", error));
 });
 </script>
 
 <style lang="scss" scoped>
 .chat-page {
   display: flex;
-  flex-direction: column;
   height: 100%;
   background: #f5f5f5;
+}
+.session-sidebar {
+  width: 220px;
+  flex: 0 0 220px;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 8px;
+  border-right: 1px solid #e0e0e0;
+  background: #fff;
+}
+.new-session-button {
+  align-self: flex-start;
+  margin: 0 0 10px 4px;
+}
+.session-list {
+  min-height: 0;
+  overflow-y: auto;
+}
+.session-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin-bottom: 4px;
+  border-radius: 6px;
+  &:hover,
+  &.active {
+    background: #ecf5ff;
+  }
+}
+.session-button {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 8px;
+  border: 0;
+  background: transparent;
+  color: #303133;
+  cursor: pointer;
+  text-align: left;
+}
+.session-icon {
+  width: 16px;
+  flex: 0 0 16px;
+}
+.session-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rename-session-button,
+.delete-session-button {
+  margin-right: 2px;
+  color: #909399;
+}
+.chat-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
 }
 /* ── 消息列表 ── */
 .message-list {
@@ -822,6 +1180,19 @@ onMounted(() => {
   }
 }
 @media (max-width: 640px) {
+  .session-sidebar {
+    width: 48px;
+    flex-basis: 48px;
+    padding: 10px 4px;
+  }
+  .session-button {
+    justify-content: center;
+  }
+  .session-title,
+  .rename-session-button,
+  .delete-session-button {
+    display: none;
+  }
   .message-bubble {
     max-width: 88%;
   }

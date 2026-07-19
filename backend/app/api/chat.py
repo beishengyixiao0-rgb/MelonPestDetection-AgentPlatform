@@ -48,7 +48,7 @@ class ChatStreamRequest(BaseModel):
     message: str = Field(..., description="用户消息内容", examples=["检测这张图片"])
     image_path: str | None = Field(None, description="单附件路径（图片、视频或 ZIP）", examples=["/tmp/uploads/xxx.jpg"])
     image_paths: list[str] | None = Field(None, description="多个图片附件路径", examples=[["/tmp/uploads/a.jpg", "/tmp/uploads/b.jpg"]])
-    session_id: int | None = Field(None, description="会话 ID（可选）", examples=[123])
+    session_id: str | int | None = Field(None, description="会话 ID（可选，兼容 UUID 字符串和旧数字 ID）", examples=["4e8e04c0d9494be4a8686bb48b2b144e"])
     attachment_urls: list[str] | None = Field(None, description="附件 URL 列表")
     scene_id: int | None = Field(None, description="场景 ID（可选）", examples=[1])
 
@@ -157,7 +157,7 @@ async def chat_stream(
         "message": "检测这张图片",
         "image_path": "/tmp/uploads/xxx.jpg",  // 单附件（图片、视频或 ZIP）
         "image_paths": ["/tmp/uploads/a.jpg", "/tmp/uploads/b.jpg"],  // 多个图片附件
-        "session_id": 123                        // 可选，会话 ID
+        "session_id": "4e8e04c0d9494be4a8686bb48b2b144e"  // 可选，会话 ID
     }
 
     响应：SSE 流式事件
@@ -203,7 +203,7 @@ async def chat_stream(
     is_admin = any(
         user_role.role and user_role.role.name == "admin"
         for user_role in current_user.user_roles
-    )
+    ) or bool(getattr(current_user, "is_superuser", False))
     session = chat_history_service.ensure_session(user_id, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="会话不存在或无权访问")

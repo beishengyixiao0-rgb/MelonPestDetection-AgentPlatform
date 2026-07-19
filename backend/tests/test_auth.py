@@ -13,6 +13,8 @@
 
 import pytest
 
+from app.entity.db_models import User
+
 
 class TestRegister:
     """用户注册测试"""
@@ -207,8 +209,16 @@ class TestGetCurrentUser:
 class TestForgotPassword:
     """忘记密码测试"""
 
-    def test_forgot_password_success(self, client):
-        """正常忘记密码"""
+    def test_forgot_password_success(self, client, db_session, monkeypatch):
+        """正常忘记密码：生成 6 位验证码并发送邮件。"""
+        from app.services import user_service as user_service_module
+
+        monkeypatch.setattr(
+            user_service_module.EmailService,
+            "send_verification_code",
+            lambda email, code: True,
+        )
+
         # 先注册用户
         client.post(
             "/api/auth/register",
@@ -225,9 +235,13 @@ class TestForgotPassword:
         )
         assert response.status_code == 200
         data = response.json()
-        assert "token" in data
-        assert data["message"] == "重置令牌已生成"
-        assert data["expires_in"] == "1小时"
+        assert data["message"] == "验证码已发送到您的邮箱，请在 5 分钟内使用"
+
+        user = db_session.query(User).filter(User.email == "forgot@example.com").first()
+        assert user.reset_token is not None
+        assert user.reset_token.isdigit()
+        assert len(user.reset_token) == 6
+        assert user.reset_token_expires_at is not None
 
     def test_forgot_password_email_not_found(self, client):
         """邮箱未注册"""
@@ -241,8 +255,16 @@ class TestForgotPassword:
 class TestResetPassword:
     """重置密码测试"""
 
-    def test_reset_password_success(self, client):
-        """正常重置密码"""
+    def test_reset_password_success(self, client, db_session, monkeypatch):
+        """正常重置密码：使用邮箱和验证码更新密码。"""
+        from app.services import user_service as user_service_module
+
+        monkeypatch.setattr(
+            user_service_module.EmailService,
+            "send_verification_code",
+            lambda email, code: True,
+        )
+
         # 注册用户
         client.post(
             "/api/auth/register",
@@ -258,13 +280,16 @@ class TestResetPassword:
             "/api/auth/forgot-password",
             json={"email": "reset@example.com"},
         )
-        token = forgot_response.json()["token"]
+        assert forgot_response.status_code == 200
+        user = db_session.query(User).filter(User.email == "reset@example.com").first()
+        code = user.reset_token
 
         # 重置密码
         response = client.post(
             "/api/auth/reset-password",
             json={
-                "token": token,
+                "email": "reset@example.com",
+                "code": code,
                 "new_password": "new789012",
             },
         )
@@ -282,16 +307,26 @@ class TestResetPassword:
         assert login_response.status_code == 200
 
     def test_reset_password_invalid_token(self, client):
-        """无效的重置令牌"""
+        """无效验证码"""
+        client.post(
+            "/api/auth/register",
+            json={
+                "username": "reset_invalid_code_user",
+                "email": "reset_invalid@example.com",
+                "password": "123456",
+            },
+        )
+
         response = client.post(
             "/api/auth/reset-password",
             json={
-                "token": "invalid_token_12345",
+                "email": "reset_invalid@example.com",
+                "code": "000000",
                 "new_password": "new789012",
             },
         )
         assert response.status_code == 400
-        assert response.json()["message"] == "无效的重置令牌"
+        assert response.json()["message"] == "验证码错误"
 
 
 class TestProfile:
