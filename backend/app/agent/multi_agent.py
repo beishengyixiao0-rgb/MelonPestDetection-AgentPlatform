@@ -20,7 +20,7 @@
 from typing import AsyncGenerator
 
 from app.agent.analysis_agent import analysis_agent
-from app.agent.base_agent import create_llm
+from app.agent.base_agent import BaseAgent, create_llm
 from app.agent.detection_agent import detection_agent
 from app.agent.prompts import get_multi_agent_prompt
 from app.agent.qa_agent import qa_agent
@@ -48,8 +48,10 @@ def _route_by_keywords(message: str) -> str | None:
         "统计",
         "历史记录",
         "检测历史",
+        "最近的检测结果",
         "最近检测",
         "上次检测",
+        "上次检测了什么",
         "用户列表",
         "用户清单",
         "有哪些用户",
@@ -63,6 +65,32 @@ def _route_by_keywords(message: str) -> str | None:
     ]
     if any(keyword in text for keyword in analysis_keywords):
         return "analysis"
+
+    qa_keywords = [
+        "iou",
+        "mAP",
+        "map50",
+        "map50-95",
+        "nms",
+        "yolo",
+        "置信度",
+        "召回率",
+        "精确率",
+        "非极大值抑制",
+        "交并比",
+        "平均精度",
+        "模型训练",
+        "训练模型",
+        "数据增强",
+        "病害防治",
+        "怎么防治",
+        "如何防治",
+        "防治方法",
+        "检测流程",
+        "知识库",
+    ]
+    if any(keyword.lower() in text for keyword in qa_keywords):
+        return "qa"
     return None
 
 
@@ -138,17 +166,43 @@ async def _general_stream(
     """通用对话流式输出（不调用工具，直接 LLM 回复）。"""
     system_prompt = get_multi_agent_prompt("general", display_language)
 
+    chat_history = []
+    if user_id is not None and session_id:
+        try:
+            from app.agent.memory import conversation_memory
+            from app.services.chat_history_service import chat_history_service
+
+            history = conversation_memory.load_history(user_id, session_id)
+            if not history:
+                history = chat_history_service.get_recent_messages(
+                    user_id, session_id, conversation_memory.max_messages
+                )
+                if history:
+                    conversation_memory.replace_history(user_id, session_id, history)
+            chat_history = BaseAgent._to_langchain_messages(history)
+            BaseAgent._save_history_message(user_id, session_id, "user", message)
+        except Exception as e:
+            logger.error("加载或保存 General 历史消息失败: %s", e)
+
     assistant_parts: list[str] = []
 
     try:
         llm = create_llm()
-        async for chunk in llm.astream([
-            ("system", system_prompt),
-            ("human", message),
-        ]):
+        async for chunk in llm.astream(
+            [
+                ("system", system_prompt),
+                *chat_history,
+                ("human", message),
+            ]
+        ):
             if hasattr(chunk, "content") and chunk.content:
                 assistant_parts.append(chunk.content)
-                yield {"type": "text_chunk", "content": chunk.content}
+        sanitized_text = BaseAgent._sanitize_model_text(
+            "".join(assistant_parts), display_language
+        )
+        assistant_parts = [sanitized_text] if sanitized_text else []
+        if sanitized_text:
+            yield {"type": "text_chunk", "content": sanitized_text}
     except Exception as e:
         logger.error("General 流式回复失败: %s", str(e))
         error_msg = (
@@ -162,13 +216,7 @@ async def _general_stream(
     # 保存历史消息（与各子 Agent 保持一致）
     if user_id is not None and session_id and assistant_parts:
         try:
-            from app.agent.memory import conversation_memory
-            from app.services.chat_history_service import chat_history_service
-
-            chat_history_service.append_message(
-                user_id, session_id, "assistant", "".join(assistant_parts)
-            )
-            conversation_memory.save_message(
+            BaseAgent._save_history_message(
                 user_id, session_id, "assistant", "".join(assistant_parts)
             )
         except Exception as e:

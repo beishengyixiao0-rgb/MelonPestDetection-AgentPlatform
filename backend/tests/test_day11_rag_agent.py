@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 import asyncio
 
+from app.agent.base_agent import BaseAgent
 from app.agent.detection_agent import ALL_TOOLS, detection_agent
 from app.agent.prompts import get_detection_agent_prompt
 from app.agent.tools.analysis_tool import query_user_list, reset_tool_context, set_tool_context
@@ -178,6 +179,23 @@ def test_embedding_search_sql_binds_query_and_limit():
     assert set(text(SEARCH_EMBEDDINGS_SQL)._bindparams) == {"query", "top_k"}
 
 
+def test_knowledge_tool_status_text_reports_hit_and_miss():
+    """知识库工具结果应转成用户可见的命中状态。"""
+    hit_text = BaseAgent._knowledge_status_text(
+        "search_knowledge",
+        '{"knowledge":[{"content":"a"}],"count":1,"fallback_to_llm":false}',
+        "zh",
+    )
+    miss_text = BaseAgent._knowledge_status_text(
+        "search_knowledge",
+        '{"knowledge":[],"fallback_to_llm":true}',
+        "zh",
+    )
+
+    assert "已命中知识库" in hit_text
+    assert "未命中知识库" in miss_text
+
+
 def test_knowledge_build_requires_admin(client, user_headers):
     """全量重建索引属于管理员操作，普通用户不能触发。"""
     response = client.post("/api/knowledge/build", headers=user_headers)
@@ -339,7 +357,86 @@ def test_multi_agent_routes_analysis_keywords_without_supervisor(monkeypatch):
 
     assert asyncio.run(collect_for("我检测了多少次")) == [{"type": "text_chunk", "content": "分析完成"}]
     assert asyncio.run(collect_for("给出用户列表")) == [{"type": "text_chunk", "content": "分析完成"}]
-    assert captured == ["我检测了多少次", "给出用户列表"]
+    assert asyncio.run(collect_for("最近的检测结果")) == [{"type": "text_chunk", "content": "分析完成"}]
+    assert captured == ["我检测了多少次", "给出用户列表", "最近的检测结果"]
+
+
+def test_analysis_agent_directly_calls_history_tool_for_recent_results(monkeypatch):
+    """最近检测结果这类确定性请求应直接调用真实历史工具名。"""
+    import importlib
+
+    analysis_agent_module = importlib.import_module("app.agent.analysis_agent")
+
+    monkeypatch.setattr(
+        analysis_agent_module,
+        "query_detection_history",
+        SimpleNamespace(
+            invoke=lambda _args: (
+                '{"history":[{"id":1,"task_type":"single","status":"completed",'
+                '"total_images":1,"total_objects":2,"created_at":"2026-07-20T15:00:00"}],'
+                '"count":1}'
+            )
+        ),
+    )
+
+    async def collect_events():
+        return [
+            event
+            async for event in analysis_agent_module.analysis_agent.chat_stream(
+                message="最近的检测结果",
+                user_id=None,
+                session_id=None,
+                display_language="zh",
+            )
+        ]
+
+    events = asyncio.run(collect_events())
+
+    assert {
+        "type": "tool_call",
+        "tool": "query_detection_history",
+        "input": {"limit": 5},
+    } in events
+    assert not any(
+        event.get("tool") == "get_recent_detections"
+        for event in events
+        if isinstance(event, dict)
+    )
+    assert any(
+        event.get("type") == "text_chunk" and "任务 #1" in event.get("content", "")
+        for event in events
+    )
+
+
+def test_multi_agent_routes_knowledge_keywords_without_supervisor(monkeypatch):
+    """IoU、mAP、YOLO 等专业问题应直接进入知识问答 Agent。"""
+    from app.agent import multi_agent as multi_agent_module
+
+    captured = []
+
+    async def fail_supervisor(*_args, **_kwargs):
+        raise AssertionError("knowledge keyword requests should skip supervisor")
+
+    async def fake_qa_stream(**kwargs):
+        captured.append(kwargs["message"])
+        yield {"type": "text_chunk", "content": "知识回答"}
+
+    monkeypatch.setattr(multi_agent_module, "supervisor_route", fail_supervisor)
+    monkeypatch.setattr(multi_agent_module.qa_agent, "chat_stream", fake_qa_stream)
+
+    async def collect_for(message):
+        return [
+            event
+            async for event in multi_agent_module.multi_agent_chat_stream(
+                message=message,
+                user_id=1,
+                session_id="session_1",
+            )
+        ]
+
+    assert asyncio.run(collect_for("什么是IoU")) == [{"type": "text_chunk", "content": "知识回答"}]
+    assert asyncio.run(collect_for("YOLO 的 NMS 是什么")) == [{"type": "text_chunk", "content": "知识回答"}]
+    assert captured == ["什么是IoU", "YOLO 的 NMS 是什么"]
 
 
 def test_chat_stream_passes_superuser_as_admin(client, db_session, monkeypatch):

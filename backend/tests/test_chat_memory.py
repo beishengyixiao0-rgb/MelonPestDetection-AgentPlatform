@@ -5,6 +5,7 @@
 import json
 import os
 import time
+from types import SimpleNamespace
 
 import pytest
 from app.api import chat as chat_api_module
@@ -115,3 +116,97 @@ def test_create_session_endpoint(client, db_session, monkeypatch):
     assert response.status_code == 201
     assert response.json()["session_uuid"]
     assert response.json()["message_count"] == 0
+
+
+def test_general_stream_saves_user_message_and_uses_history(
+    db_session, monkeypatch
+):
+    """普通聊天也必须持久化用户消息，并把历史上下文传给 LLM。"""
+    from app.agent import multi_agent as multi_agent_module
+
+    service = _history_service(monkeypatch)
+    user = _create_user(db_session, "memory_general")
+    session = service.ensure_session(user.id, "memory-general-session")
+    service.append_message(user.id, session["session_uuid"], "user", "我叫小明")
+    service.append_message(user.id, session["session_uuid"], "assistant", "好的，我记住了")
+
+    captured = {}
+
+    class FakeLLM:
+        async def astream(self, messages):
+            captured["messages"] = messages
+            yield SimpleNamespace(content="你叫小明")
+
+    monkeypatch.setattr(multi_agent_module, "create_llm", lambda: FakeLLM())
+
+    async def collect_events():
+        return [
+            event
+            async for event in multi_agent_module._general_stream(
+                message="我叫什么？",
+                display_language="zh",
+                user_id=user.id,
+                session_id=session["session_uuid"],
+            )
+        ]
+
+    import asyncio
+
+    events = asyncio.run(collect_events())
+
+    assert {"type": "text_chunk", "content": "你叫小明"} in events
+    sent_contents = [
+        item.content if hasattr(item, "content") else item[1]
+        for item in captured["messages"]
+    ]
+    assert "我叫小明" in sent_contents
+    assert "好的，我记住了" in sent_contents
+    assert "我叫什么？" in sent_contents
+
+    history = service.get_session_history(user.id, session["session_uuid"])
+    assert [message["content"] for message in history["messages"]] == [
+        "我叫小明",
+        "好的，我记住了",
+        "我叫什么？",
+        "你叫小明",
+    ]
+
+
+def test_general_stream_blocks_fake_tool_call_text(db_session, monkeypatch):
+    """普通聊天正文不能透出模型编造的工具调用。"""
+    from app.agent import multi_agent as multi_agent_module
+
+    service = _history_service(monkeypatch)
+    user = _create_user(db_session, "memory_fake_tool")
+    session = service.ensure_session(user.id, "memory-fake-tool-session")
+
+    class FakeLLM:
+        async def astream(self, messages):
+            yield SimpleNamespace(content='call\n{"name":"get_recent_detections",')
+            yield SimpleNamespace(content='"arguments":{"limit":5}}')
+
+    monkeypatch.setattr(multi_agent_module, "create_llm", lambda: FakeLLM())
+
+    async def collect_events():
+        return [
+            event
+            async for event in multi_agent_module._general_stream(
+                message="最近的检测结果",
+                display_language="zh",
+                user_id=user.id,
+                session_id=session["session_uuid"],
+            )
+        ]
+
+    import asyncio
+
+    events = asyncio.run(collect_events())
+    text = "".join(
+        event.get("content", "") for event in events if event.get("type") == "text_chunk"
+    )
+
+    assert "get_recent_detections" not in text
+    assert "未注册的工具调用" in text
+
+    history = service.get_session_history(user.id, session["session_uuid"])
+    assert history["messages"][-1]["content"] == text

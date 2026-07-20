@@ -13,6 +13,7 @@
 
 import contextvars
 import json
+import re
 from pathlib import Path
 from typing import AsyncGenerator
 
@@ -29,6 +30,10 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 logger = get_logger(__name__)
 
 VIDEO_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv"}
+FAKE_TOOL_CALL_PATTERN = re.compile(
+    r"^\s*(?:call|tool_call|function_call)?\s*`{0,3}\s*\{[^{}]*(?:\"name\"|'name')[^{}]*(?:\"arguments\"|'arguments')",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def _is_video_path(path: str) -> bool:
@@ -176,6 +181,20 @@ class BaseAgent:
         return str(tool_output) if tool_output is not None else ""
 
     @staticmethod
+    def _sanitize_model_text(content: str, display_language: str) -> str:
+        """禁止模型把伪工具调用 JSON 当普通正文输出。"""
+        if not content:
+            return content
+        if not FAKE_TOOL_CALL_PATTERN.search(content):
+            return content
+        return (
+            "The model attempted to emit an unregistered tool call, so the response was blocked. "
+            "Please try again, or ask for a supported action such as detection history, statistics, or knowledge-base Q&A."
+            if display_language == "en"
+            else "模型尝试输出未注册的工具调用，已被系统拦截。请重试，或改问系统支持的检测历史、统计、知识库问答等功能。"
+        )
+
+    @staticmethod
     def _compact_tool_results(tool_results: list[str]) -> str | None:
         if not tool_results:
             return None
@@ -207,6 +226,41 @@ class BaseAgent:
             json.dumps(fallback_results[-1], ensure_ascii=False)
             if fallback_results
             else None
+        )
+
+    @staticmethod
+    def _knowledge_status_text(
+        tool_name: str, serialized_output: str, display_language: str
+    ) -> str | None:
+        """把知识库检索结果转成用户可见的命中状态提示。"""
+        if tool_name != "search_knowledge":
+            return None
+        try:
+            data = json.loads(serialized_output)
+        except (TypeError, json.JSONDecodeError):
+            return None
+        if not isinstance(data, dict):
+            return None
+
+        if data.get("error"):
+            return (
+                f"Knowledge retrieval failed: {data['error']}\n\n"
+                if display_language == "en"
+                else f"知识库检索失败：{data['error']}\n\n"
+            )
+
+        fallback = bool(data.get("fallback_to_llm"))
+        count = int(data.get("count") or len(data.get("knowledge") or []))
+        if fallback or count <= 0:
+            return (
+                "Knowledge base not hit; answering with general model knowledge.\n\n"
+                if display_language == "en"
+                else "未命中知识库，以下回答将基于通用模型知识。\n\n"
+            )
+        return (
+            f"Knowledge base hit: {count} relevant fragment(s).\n\n"
+            if display_language == "en"
+            else f"已命中知识库：{count} 条相关片段。\n\n"
         )
 
     @staticmethod
@@ -348,6 +402,12 @@ class BaseAgent:
                         "tool": tool_name,
                         "result": serialized_output,
                     }
+                    knowledge_status = self._knowledge_status_text(
+                        tool_name, serialized_output, display_language
+                    )
+                    if knowledge_status:
+                        assistant_parts.append(knowledge_status)
+                        yield {"type": "text_chunk", "content": knowledge_status}
 
         except Exception as e:
             self.agent_logger.error("Agent 流式执行异常: %s", str(e), exc_info=True)

@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     # 未配置 Key 时，对话接口仍保留本地检测路由和基础问答降级能力。
     QWEN_API_KEY: str = ""
     QWEN_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    QWEN_MODEL: str = "qwen3.7-max-2026-05-17"
+    QWEN_MODEL: str = "qwen3.7-max-preview"
     # 留空时直连 DashScope，避免系统代理导致兼容接口连接失败。
     # 仅在网络环境明确要求代理时填写，例如：http://127.0.0.1:7890
     QWEN_PROXY: str = ""
