@@ -12,9 +12,10 @@
 """
 
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from app.core.logger import get_logger
+from app.storage.minio_client import MinIOClient
 
 logger = get_logger(__name__)
 
@@ -171,41 +172,41 @@ class DocumentLoader:
     @staticmethod
     def load_single_document(file_path: str, title: str = None) -> list[dict]:
         """
-        加载单个文档文件
+        加载单个文档。
+
+        知识库文档的 file_path 字段在当前版本中保存 MinIO object_name，
+        这里统一从对象存储读取原文，避免云端部署依赖本地磁盘文件。
 
         Args:
-            file_path: 文件路径
+            file_path: MinIO object_name
             title: 文档标题（可选，未提供时从内容提取）
 
         Returns:
             文档列表 [{"content": "...", "metadata": {...}}]
         """
         documents = []
-        path = Path(file_path)
-
-        if not path.exists():
-            logger.warning("文件不存在: %s", file_path)
-            return documents
 
         try:
-            content = path.read_text(encoding="utf-8")
+            data = MinIOClient().get_object(file_path)
+            content = data.decode("utf-8")
+            source = PurePosixPath(file_path).name
             # 如果未提供标题，从内容提取
             if title is None:
-                title = DocumentLoader._extract_title(content, path.stem)
+                title = DocumentLoader._extract_title(content, Path(source).stem)
 
             documents.append(
                 {
                     "content": content,
                     "metadata": {
-                        "source": path.name,
+                        "source": source,
                         "title": title,
-                        "file_path": str(path),
+                        "file_path": file_path,
                     },
                 }
             )
-            logger.info("加载单文档: %s (%d 字符)", path.name, len(content))
+            logger.info("从 MinIO 加载单文档: %s (%d 字符)", file_path, len(content))
         except Exception as e:
-            logger.error("加载单文档失败: %s, 错误: %s", file_path, str(e))
+            logger.error("从 MinIO 加载单文档失败: %s, 错误: %s", file_path, str(e))
 
         return documents
 

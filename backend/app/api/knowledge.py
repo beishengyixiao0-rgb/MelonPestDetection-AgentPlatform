@@ -21,7 +21,10 @@
 """
 
 import os
+import re
+import uuid
 from datetime import datetime
+from pathlib import PurePosixPath
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
@@ -31,19 +34,12 @@ from app.api.auth import get_current_user, require_admin
 from app.core.logger import get_logger
 from app.database.session import SessionLocal
 from app.entity.db_models import KnowledgeDocument
-from app.entity.schemas import KnowledgeDocumentResponse
 from app.rag.retriever import knowledge_retriever
+from app.storage.minio_client import MinIOClient
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/knowledge", tags=["知识库管理"])
-
-# 知识库文档上传目录
-KNOWLEDGE_UPLOAD_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-    "knowledge_base",
-)
-
 
 class SearchRequest(BaseModel):
     query: str
@@ -54,6 +50,90 @@ class DocumentQueryParams(BaseModel):
     status: Optional[str] = None
     page: int = 1
     page_size: int = 20
+
+
+ALLOWED_KNOWLEDGE_EXTENSIONS = {".md", ".txt"}
+
+
+def _safe_filename(filename: str) -> str:
+    """生成适合保存到 MinIO object_name 的文件名片段。"""
+    basename = PurePosixPath(filename.replace("\\", "/")).name
+    return re.sub(r"[^A-Za-z0-9._-]", "_", basename).strip("._") or "document.txt"
+
+
+def _knowledge_object_name(filename: str) -> str:
+    """知识库文档统一放在固定前缀下，方便后续按目录管理。"""
+    return f"knowledge/documents/{uuid.uuid4().hex}_{_safe_filename(filename)}"
+
+
+def _content_type_for_extension(file_ext: str) -> str:
+    if file_ext == ".md":
+        return "text/markdown; charset=utf-8"
+    return "text/plain; charset=utf-8"
+
+
+async def _create_pending_document_from_upload(
+    *,
+    db,
+    file: UploadFile,
+    current_user,
+    title: Optional[str] = None,
+) -> dict:
+    """
+    保存上传文档到 MinIO，并创建待审核数据库记录。
+
+    数据库 file_path 字段保存的是 MinIO object_name，不再保存本地磁盘路径。
+    """
+    original_filename = file.filename or "document.txt"
+    file_ext = os.path.splitext(original_filename)[1].lower()
+    if file_ext not in ALLOWED_KNOWLEDGE_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"不支持的文件类型，仅支持 {ALLOWED_KNOWLEDGE_EXTENSIONS}")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="上传文件不能为空")
+
+    object_name = _knowledge_object_name(original_filename)
+    minio_client = MinIOClient()
+    try:
+        minio_client.upload_bytes(
+            object_name=object_name,
+            data=data,
+            content_type=_content_type_for_extension(file_ext),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"文件上传到 MinIO 失败: {str(e)}")
+
+    document_title = title or os.path.splitext(original_filename)[0]
+    try:
+        document = KnowledgeDocument(
+            title=document_title,
+            file_path=object_name,
+            uploader_id=current_user.id,
+            status="pending",
+            visibility="public",
+        )
+        db.add(document)
+        db.commit()
+        db.refresh(document)
+    except Exception:
+        db.rollback()
+        minio_client.delete_object(object_name)
+        raise
+
+    return {
+        "filename": original_filename,
+        "document_id": document.id,
+        "title": document.title,
+        "file_path": document.file_path,
+        "status": document.status,
+    }
+
+
+def _read_document_content_from_minio(object_name: str) -> str:
+    """读取知识库文档原文用于详情预览。"""
+    data = MinIOClient().get_object(object_name)
+    return data.decode("utf-8")
 
 
 # ==============================================================================
@@ -74,57 +154,74 @@ async def upload_document(
         file: 文档文件（支持 .md, .txt）
         title: 文档标题（可选，未提供时从文件名提取）
     """
-    # 检查文件类型
-    allowed_extensions = {".md", ".txt"}
-    file_ext = os.path.splitext(file.filename)[1].lower()
-    if file_ext not in allowed_extensions:
-        raise HTTPException(status_code=400, detail=f"不支持的文件类型，仅支持 {allowed_extensions}")
-
-    # 确保上传目录存在
-    os.makedirs(KNOWLEDGE_UPLOAD_DIR, exist_ok=True)
-    
-    # 生成文件名（避免重复）
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{timestamp}_{file.filename}"
-    file_path = os.path.join(KNOWLEDGE_UPLOAD_DIR, filename)
-
-    # 保存文件
-    try:
-        with open(file_path, "wb") as f:
-            f.write(await file.read())
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
-
-    # 如果未提供标题，从文件名提取
-    if not title:
-        title = os.path.splitext(file.filename)[0]
-
-    # 创建数据库记录
     db = SessionLocal()
     try:
-        document = KnowledgeDocument(
+        item = await _create_pending_document_from_upload(
+            db=db,
+            file=file,
+            current_user=current_user,
             title=title,
-            file_path=file_path,
-            uploader_id=current_user.id,
-            status="pending",
-            visibility="public",
         )
-        db.add(document)
-        db.commit()
-        db.refresh(document)
-        logger.info("用户 %s 上传文档: %s (id=%d)", current_user.username, title, document.id)
+        logger.info("用户 %s 上传知识库文档到 MinIO: %s (id=%d)", current_user.username, item["title"], item["document_id"])
         
         return {
             "message": "文档上传成功，等待审核",
-            "document_id": document.id,
-            "status": "pending",
+            "document_id": item["document_id"],
+            "status": item["status"],
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        db.rollback()
-        # 删除已保存的文件
-        if os.path.exists(file_path):
-            os.remove(file_path)
         raise HTTPException(status_code=500, detail=f"创建文档记录失败: {str(e)}")
+    finally:
+        db.close()
+
+
+@router.post("/documents/batch", summary="批量上传文档（待审核）")
+async def upload_documents_batch(
+    files: list[UploadFile] = File(...),
+    current_user=Depends(get_current_user),
+):
+    """
+    一次上传多个知识库文档，每个文件单独创建一条待审核记录。
+
+    单个文件失败不会中断其他文件处理，返回结果中会列出成功和失败明细。
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="请至少上传一个文件")
+
+    db = SessionLocal()
+    items = []
+    try:
+        for file in files:
+            try:
+                item = await _create_pending_document_from_upload(
+                    db=db,
+                    file=file,
+                    current_user=current_user,
+                )
+                items.append(item)
+            except HTTPException as e:
+                items.append({
+                    "filename": file.filename or "document.txt",
+                    "error": e.detail,
+                })
+            except Exception as e:
+                items.append({
+                    "filename": file.filename or "document.txt",
+                    "error": f"创建文档记录失败: {str(e)}",
+                })
+
+        success_count = sum(1 for item in items if "document_id" in item)
+        failed_count = len(items) - success_count
+        logger.info("用户 %s 批量上传知识库文档: 成功 %d, 失败 %d", current_user.username, success_count, failed_count)
+        return {
+            "message": "文档上传完成",
+            "total": len(items),
+            "success_count": success_count,
+            "failed_count": failed_count,
+            "items": items,
+        }
     finally:
         db.close()
 
@@ -206,11 +303,12 @@ async def get_document_detail(
         if not is_admin and document.status != "approved":
             raise HTTPException(status_code=403, detail="无权访问该文档")
         
-        # 读取文档内容用于预览
+        # 从 MinIO 读取文档内容用于预览；读取失败不影响元信息展示。
         content = ""
-        if os.path.exists(document.file_path):
-            with open(document.file_path, "r", encoding="utf-8") as f:
-                content = f.read()
+        try:
+            content = _read_document_content_from_minio(document.file_path)
+        except Exception as e:
+            logger.warning("读取知识库文档预览失败: id=%d, path=%s, error=%s", document.id, document.file_path, str(e))
         
         return {
             "id": document.id,
@@ -417,15 +515,13 @@ async def approve_document(
         db.commit()
         
         # 构建索引
-        success = knowledge_retriever.index_document(
+        chunk_count = knowledge_retriever.index_document(
             document_id=document.id,
             file_path=document.file_path,
             title=document.title,
         )
         
-        if success:
-            # 获取分块数量
-            chunk_count = knowledge_retriever.get_stats().get("total_chunks", 0)
+        if chunk_count > 0:
             document.status = "approved"
             document.chunk_count = chunk_count
             db.commit()
@@ -510,9 +606,8 @@ async def delete_document(
         deleted_count = knowledge_retriever.delete_document_index(document_id)
         logger.info("删除文档 %d 的向量: %d 条", document_id, deleted_count)
         
-        # 删除文件
-        if os.path.exists(document.file_path):
-            os.remove(document.file_path)
+        # 删除 MinIO 原文对象。delete_object 内部会忽略对象不存在的情况。
+        MinIOClient().delete_object(document.file_path)
         
         # 删除数据库记录
         db.delete(document)
@@ -556,14 +651,13 @@ async def reindex_document(
         logger.info("删除文档 %d 的旧向量: %d 条", document_id, deleted_count)
         
         # 重建索引
-        success = knowledge_retriever.index_document(
+        chunk_count = knowledge_retriever.index_document(
             document_id=document.id,
             file_path=document.file_path,
             title=document.title,
         )
         
-        if success:
-            chunk_count = knowledge_retriever.get_stats().get("total_chunks", 0)
+        if chunk_count > 0:
             document.chunk_count = chunk_count
             db.commit()
             logger.info("管理员 %s 重新索引文档: %s (id=%d)", current_user.username, document.title, document.id)
@@ -590,12 +684,16 @@ async def reindex_document(
 @router.post("/build", summary="构建知识库索引")
 async def build_index(
     force_rebuild: bool = False,
-    current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin),
 ):
-    """构建或重建知识库索引"""
-    success = knowledge_retriever.build_index(force_rebuild=force_rebuild)
-    stats = knowledge_retriever.get_stats()
-    if not success or stats["total_chunks"] <= 0:
+    """管理员按已发布文档重建知识库索引。"""
+    db = SessionLocal()
+    try:
+        stats = knowledge_retriever.rebuild_approved_documents(db, force_rebuild=force_rebuild)
+    finally:
+        db.close()
+
+    if not stats.get("success") or stats.get("total_chunks", 0) <= 0:
         raise HTTPException(status_code=503, detail={"message": "知识库索引构建失败", "stats": stats})
     return {"message": "知识库索引构建完成", "stats": stats}
 

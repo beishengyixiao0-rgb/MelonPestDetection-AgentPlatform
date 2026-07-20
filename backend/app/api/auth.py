@@ -326,8 +326,6 @@ async def change_password(
 
 # 保留细分路径兼容已接入客户端，同时以 /preferences 作为用户偏好统一入口。
 @router.put("/preferences")
-# 保留细分路径兼容已接入客户端，同时以 /preferences 作为用户偏好统一入口。
-@router.put("/preferences")
 @router.put("/preferences/display-language")
 async def update_display_language(
     request: DisplayLanguageUpdate,

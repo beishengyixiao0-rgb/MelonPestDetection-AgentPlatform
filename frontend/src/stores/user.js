@@ -3,7 +3,7 @@
  * 管理用户登录信息、Token、角色等
  */
 import { defineStore } from 'pinia'
-import { getUserInfoApi, getUserProfileApi, loginApi } from '@/api/auth'
+import { loginApi, getUserInfoApi } from '@/api/auth'
 import { useLocaleStore } from '@/stores/locale'
 
 const TOKEN_KEY = 'rsod_token'
@@ -31,14 +31,7 @@ export const useUserStore = defineStore('user', {
     roles: (state) => state.user?.roles || [],
 
     /** 是否为管理员 */
-    isAdmin: (state) => (
-      Array.isArray(state.user?.roles) && state.user.roles.includes('admin')
-    ) || Boolean(state.user?.is_superuser),
-
-    /** 兼容旧组件命名，业务权限仍以 admin 角色为准 */
-    isSuperuser: (state) => (
-      Array.isArray(state.user?.roles) && state.user.roles.includes('admin')
-    ) || Boolean(state.user?.is_superuser),
+    isSuperuser: (state) => state.user?.is_superuser || false,
   },
 
   actions: {
@@ -56,9 +49,8 @@ export const useUserStore = defineStore('user', {
       // 保存用户信息
       this.user = res.user
       localStorage.setItem(USER_KEY, JSON.stringify(res.user))
-      if (res.user?.display_language) {
-        useLocaleStore().applyLocale(res.user.display_language)
-      }
+      // 登录后优先使用用户在后端保存的语言偏好。
+      useLocaleStore().applyLocale(res.user?.display_language || 'zh')
 
       return res
     },
@@ -71,22 +63,11 @@ export const useUserStore = defineStore('user', {
         const user = await getUserInfoApi()
         this.user = user
         localStorage.setItem(USER_KEY, JSON.stringify(user))
-        if (user?.display_language) useLocaleStore().applyLocale(user.display_language)
+        // 刷新用户信息时同步语言，保证多设备使用相同偏好。
+        useLocaleStore().applyLocale(user?.display_language || 'zh')
       } catch {
         this.logout()
       }
-    },
-
-    /** 获取包含检测统计的完整个人资料 */
-    async fetchUserProfile() {
-      const profile = await getUserProfileApi()
-      this.user = {
-        ...(this.user || {}),
-        ...profile,
-      }
-      localStorage.setItem(USER_KEY, JSON.stringify(this.user))
-      if (profile?.display_language) useLocaleStore().applyLocale(profile.display_language)
-      return profile
     },
 
     /**

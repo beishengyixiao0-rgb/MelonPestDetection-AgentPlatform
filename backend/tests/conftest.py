@@ -69,6 +69,8 @@ def setup_test_database():
     scope="session"：整个测试会话只执行一次
     autouse=True：自动应用，无需在测试函数中显式引用
     """
+    # 先删除旧测试表，避免中断后的 test.db 保留过期 schema 影响新增字段测试。
+    Base.metadata.drop_all(bind=test_engine)
     Base.metadata.create_all(bind=test_engine)
     yield
     # 测试结束后清理

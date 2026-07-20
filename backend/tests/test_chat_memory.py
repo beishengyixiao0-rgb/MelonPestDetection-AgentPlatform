@@ -7,7 +7,7 @@ import os
 import time
 
 import pytest
-from app.agent.detection_agent import detection_agent
+from app.api import chat as chat_api_module
 from app.core.security import create_access_token
 from app.entity.db_models import User
 from app.services import chat_history_service as chat_history_module
@@ -88,7 +88,8 @@ def test_stream_keeps_existing_events_and_returns_session_id(
         assert kwargs["session_id"]
         yield {"type": "text_chunk", "content": "测试回复"}
 
-    monkeypatch.setattr(detection_agent, "chat_stream", fake_chat_stream)
+    # API 层直接导入 multi_agent_chat_stream，这里 mock 实际调用入口，避免单元测试依赖外部 LLM。
+    monkeypatch.setattr(chat_api_module, "multi_agent_chat_stream", fake_chat_stream)
     response = client.post(
         "/api/chat/stream",
         headers={

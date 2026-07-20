@@ -4,6 +4,7 @@
 工具列表：
   - query_detection_stats: 查询检测统计数据
   - query_detection_history: 查询检测历史记录
+  - query_user_list: 查询系统中的用户列表
 """
 
 import contextvars

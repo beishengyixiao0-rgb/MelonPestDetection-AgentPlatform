@@ -37,6 +37,35 @@ _SUB_AGENTS = {
 }
 
 
+def _route_by_keywords(message: str) -> str | None:
+    """对高频、低歧义意图做确定性路由，减少 Supervisor LLM 抖动影响。"""
+    text = (message or "").lower()
+    analysis_keywords = [
+        "检测了多少",
+        "检测多少",
+        "检测次数",
+        "检测统计",
+        "统计",
+        "历史记录",
+        "检测历史",
+        "最近检测",
+        "上次检测",
+        "用户列表",
+        "用户清单",
+        "有哪些用户",
+        "系统用户",
+        "所有用户",
+        "管理员列表",
+        "user list",
+        "users",
+        "detection stats",
+        "detection history",
+    ]
+    if any(keyword in text for keyword in analysis_keywords):
+        return "analysis"
+    return None
+
+
 async def multi_agent_chat_stream(
     message: str,
     image_path: str = None,
@@ -60,7 +89,12 @@ async def multi_agent_chat_stream(
     3. 完全保留现有 SSE 事件协议，前端无需修改
     """
     # ── 第 1 步：Supervisor 路由 ─
-    route = await supervisor_route(message, display_language)
+    # 附件路径来自 /api/chat/upload，已经是明确的检测意图，不再交给 LLM 猜路由。
+    route = (
+        "detection"
+        if image_path or image_paths
+        else _route_by_keywords(message) or await supervisor_route(message, display_language)
+    )
     logger.info("多 Agent 路由: %s -> %s", message[:50], route)
 
     # ── 第 2 步：根据路由分发 ──
