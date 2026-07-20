@@ -1,0 +1,32 @@
+﻿{
+  "name": "rsod-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui"
+  },
+  "dependencies": {
+    "vue": "^3.5.39",
+    "vue-router": "^4.6.4",
+    "pinia": "^3.0.4",
+    "element-plus": "^2.14.2",
+    "@element-plus/icons-vue": "^2.3.2",
+    "axios": "^1.18.1",
+    "echarts": "^6.1.0",
+    "dayjs": "^1.11.21",
+    "js-cookie": "^3.0.8",
+    "lodash-unified": "^1.0.3",
+    "markdown-it": "^14.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.7",
+    "vite": "^8.1.3",
+    "vitest": "^4.1.10",
+    "sass": "^1.101.0"
+  }
+}

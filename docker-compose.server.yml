@@ -1,0 +1,112 @@
+ # =============================================================
+ # 服务器部署版 docker-compose（使用 GHCR 镜像）
+ # 部署前请确保：
+ #   1. /data/{postgres,redis,minio} 目录已创建
+ #   2. /opt/rsod-web-platform/.env 中的敏感变量已配置
+ #   3. /opt/rsod-web-platform/.rsod_platform 标记文件已创建
+ # =============================================================
+ name: rsod-platform
+ 
+ x-common: &restart-policy
+   restart: unless-stopped
+ 
+ services:
+   # ---- PostgreSQL ----
+   postgres:
+     image: pgvector/pgvector:pg15
+     container_name: rsod-postgres
+     <<: *restart-policy
+     environment:
+       POSTGRES_DB: my_db
+       POSTGRES_USER: my_user
+       POSTGRES_PASSWORD: 123456
+     volumes:
+       - /data/postgres:/var/lib/postgresql/data
+     healthcheck:
+       test: ["CMD-SHELL", "pg_isready -U my_user -d my_db"]
+       interval: 5s
+       timeout: 5s
+       retries: 5
+ 
+   # ---- Redis ----
+   redis:
+     image: redis:7-alpine
+     container_name: rsod-redis
+     <<: *restart-policy
+     volumes:
+       - /data/redis:/data
+     healthcheck:
+       test: ["CMD", "redis-cli", "ping"]
+       interval: 5s
+       timeout: 5s
+       retries: 5
+ 
+   # ---- MinIO 对象存储 ----
+   minio:
+     image: minio/minio:latest
+     container_name: rsod-minio
+     <<: *restart-policy
+     environment:
+       MINIO_ROOT_USER: minioadmin
+       MINIO_ROOT_PASSWORD: minioadmin
+       # 浏览器访问 MinIO 的公网地址（部署时替换为实际 IP）
+       MINIO_PUBLIC_ENDPOINT: 121.40.52.31:9000
+     ports:
+       - "9000:9000"
+       - "9001:9001"
+     volumes:
+       - /data/minio:/data
+     command: server /data --console-address ":9001"
+     healthcheck:
+       test: ["CMD-SHELL", "wget -qO- http://localhost:9000/minio/health/live"]
+       interval: 10s
+       timeout: 5s
+       retries: 3
+ 
+   # ---- 后端 ----
+   backend:
+     image: ghcr.io/beishengyixiao0-rgb/rsod-backend:latest
+     container_name: rsod-backend
+     <<: *restart-policy
+     depends_on:
+       postgres:
+         condition: service_healthy
+       minio:
+         condition: service_healthy
+       redis:
+         condition: service_healthy
+     env_file: /opt/rsod-web-platform/.env
+     environment:
+       DB_HOST: postgres
+       DB_NAME: my_db
+       DB_USER: my_user
+       DB_PASSWORD: "123456"
+       DB_PORT: "5432"
+       REDIS_HOST: redis
+       REDIS_PORT: "6379"
+       MINIO_ENDPOINT: minio:9000
+       MINIO_ACCESS_KEY: minioadmin
+       MINIO_SECRET_KEY: minioadmin
+       MINIO_PUBLIC_ENDPOINT: "121.40.52.31:9000"
+       MINIO_BUCKET: rsod-images
+       MINIO_SECURE: "false"
+       APP_ENV: production
+       DEBUG: "false"
+     volumes:
+       - /opt/rsod-web-platform/.rsod_platform:/app/.rsod_platform:ro
+     ports:
+       - "8000:8000"
+ 
+   # ---- 前端 ----
+   frontend:
+     image: ghcr.io/beishengyixiao0-rgb/rsod-frontend:latest
+     container_name: rsod-frontend
+     <<: *restart-policy
+     depends_on:
+       - backend
+     ports:
+       - "80:80"
+ 
+ networks:
+   default:
+     name: rsod-network
