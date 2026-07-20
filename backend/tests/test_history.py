@@ -276,6 +276,59 @@ def test_create_severity_assessment_high_risk(client, db_session):
     assert detail["task"]["risk_level"] == "high"
 
 
+def test_create_severity_assessment_uses_llm_enhancement(
+    client, db_session, monkeypatch
+):
+    """配置 LLM 时，严重程度摘要和建议可由大模型增强，等级仍受规则限幅。"""
+    from app.services.history_service import HistoryService
+
+    user = _create_user(db_session, "history_severity_llm_user")
+    task = _create_history_task(db_session, _get_user_id(user))
+    headers = _get_headers(_get_user_id(user))
+
+    def fake_llm_json(_prompt):
+        return (
+            {
+                "risk_level": "critical",
+                "assessment_confidence": "high",
+                "summary": "LLM 综合问卷和检测结果后认为需要立即处理。",
+                "reasons": ["扩散速度快", "受影响植株较多"],
+                "uncertainties": ["尚未确认是否已传播到相邻地块"],
+                "recommended_actions": ["24 小时内处理重症叶片", "48 小时后复查"],
+            },
+            "qwen-test",
+        )
+
+    monkeypatch.setattr(HistoryService, "_invoke_llm_json", staticmethod(fake_llm_json))
+
+    response = client.post(
+        f"/api/history/tasks/{task.id}/severity-assessment",
+        headers=headers,
+        json={
+            "class_name": "Tomato leaf late blight",
+            "answers": {
+                "affected_area": "10%～30%",
+                "spread_speed": "最近几天明显增加",
+                "affected_plants": "少量植株",
+                "functional_damage": ["暂无以上情况"],
+                "growth_stage": "结果期",
+                "treatment": "尚未处理",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    # 规则结果约为 moderate，LLM 请求 critical 时最多上调一级到 high。
+    assert data["risk_level"] == "high"
+    assert data["summary"].startswith("LLM 综合问卷")
+    assert "24 小时内处理重症叶片" in data["recommended_actions"]
+
+    detail = client.get(f"/api/history/tasks/{task.id}", headers=headers).json()
+    assessment = detail["severity_assessments"][0]
+    assert assessment["llm_model"] == "qwen-test"
+
+
 def test_create_severity_assessment_insufficient_information(client, db_session):
     """关键信息不足时必须返回 insufficient_information。"""
     user = _create_user(db_session, "history_severity_empty_user")
@@ -399,6 +452,78 @@ def test_update_location_can_skip_weather_refresh(client, db_session, monkeypatc
     detail = client.get(f"/api/history/tasks/{task.id}", headers=headers).json()
     assert detail["task"]["location_name"] == "试验田 A 区"
     assert detail["task"]["environment_risk_level"] is None
+
+
+def test_update_location_weather_risk_uses_llm_enhancement(
+    client, db_session, monkeypatch
+):
+    """默认天气分析可采用 LLM 摘要和建议，风险等级仍受规则限幅。"""
+    from app.services.history_service import HistoryService
+
+    user = _create_user(db_session, "history_weather_llm_user")
+    task = _create_history_task(db_session, _get_user_id(user))
+    headers = _get_headers(_get_user_id(user))
+
+    class FakeWeatherResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "hourly": {
+                    "temperature_2m": [24] * 72,
+                    "relative_humidity_2m": [76] * 72,
+                    "precipitation": [0] * 72,
+                    "precipitation_probability": [10] * 72,
+                },
+                "daily": {
+                    "precipitation_sum": [0, 0, 0],
+                    "temperature_2m_max": [28, 27, 26],
+                    "temperature_2m_min": [20, 21, 20],
+                },
+            }
+
+    def fake_get(*_args, **_kwargs):
+        return FakeWeatherResponse()
+
+    def fake_llm_json(_prompt):
+        return (
+            {
+                "environment_risk_level": "critical",
+                "summary": "LLM 认为未来三天仍需重点防范叶部病害扩散。",
+                "recommendations": ["控制棚内湿度", "雨后或浇水后 48 小时复查"],
+                "reasons": ["湿度偏高", "检测类别对湿度敏感"],
+            },
+            "qwen-test",
+        )
+
+    from app.services import history_service as history_service_module
+
+    monkeypatch.setattr(history_service_module.httpx, "get", fake_get)
+    monkeypatch.setattr(HistoryService, "_invoke_llm_json", staticmethod(fake_llm_json))
+
+    response = client.patch(
+        f"/api/history/tasks/{task.id}/location",
+        headers=headers,
+        json={
+            "latitude": 30.52,
+            "longitude": 114.31,
+            "location_name": "试验田 A 区",
+            "location_source": "browser",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    # 规则结果约为 moderate，LLM 请求 critical 时最多上调一级到 high。
+    assert data["environment_risk_level"] == "high"
+    assert data["weather_summary"].startswith("LLM 认为")
+    assert "控制棚内湿度" in data["weather_recommendations"]
+    assert data["llm_model"] == "qwen-test"
+
+    detail = client.get(f"/api/history/tasks/{task.id}", headers=headers).json()
+    assert detail["task"]["environment_risk_level"] == "high"
+    assert detail["task"]["weather_summary"].startswith("LLM 认为")
 
 
 def test_refresh_weather_risk_requires_location(client, db_session):

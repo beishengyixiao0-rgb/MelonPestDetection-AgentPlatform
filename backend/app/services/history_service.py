@@ -12,6 +12,8 @@
 """
 
 import html
+import json
+import re
 from datetime import datetime
 from io import BytesIO
 from typing import Optional
@@ -21,6 +23,7 @@ from sqlalchemy import desc, false, func, or_
 from sqlalchemy.orm import joinedload
 
 from app.config.detection import DetectionConfig
+from app.config.settings import settings
 from app.core.logger import get_logger
 from app.database.session import SessionLocal
 from app.entity.db_models import (
@@ -53,6 +56,8 @@ class HistoryService:
     ]
     WEATHER_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
     WEATHER_RISK_LEVELS = ["low", "moderate", "high", "critical", "unavailable"]
+    CORE_RISK_LEVELS = ["low", "moderate", "high", "critical"]
+    LLM_RESPONSE_PATTERN = re.compile(r"\{.*\}", re.DOTALL)
     QUESTION_DEFINITIONS = [
         {
             "key": "affected_area",
@@ -165,6 +170,75 @@ class HistoryService:
         if isinstance(value, list):
             return not value or all(HistoryService._is_unknown_answer(item) for item in value)
         return False
+
+    @staticmethod
+    def _configured_llm_model() -> str | None:
+        """返回可用 LLM 模型名；测试占位 Key 不触发外部调用。"""
+        qwen_key = getattr(settings, "QWEN_API_KEY", "").strip()
+        qwen_model = getattr(settings, "QWEN_MODEL", "qwen3.7-plus")
+        if qwen_key and qwen_key != "sk-your-qwen-api-key" and qwen_key != "test":
+            return qwen_model
+
+        openai_key = getattr(settings, "OPENAI_API_KEY", "").strip()
+        openai_model = getattr(settings, "OPENAI_MODEL", "gpt-4o-mini")
+        invalid_openai_keys = {"", "test", "sk-your-api-key-here"}
+        if openai_key not in invalid_openai_keys:
+            return openai_model
+        return None
+
+    @staticmethod
+    def _extract_llm_json(response) -> dict | None:
+        """从 LLM 响应中提取 JSON 对象，兼容 ```json 代码块。"""
+        content = getattr(response, "content", response)
+        if not isinstance(content, str):
+            content = str(content)
+        content = content.strip()
+        if content.startswith("```"):
+            content = re.sub(r"^```(?:json)?\s*", "", content)
+            content = re.sub(r"\s*```$", "", content).strip()
+        match = HistoryService.LLM_RESPONSE_PATTERN.search(content)
+        if not match:
+            return None
+        try:
+            payload = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            return None
+        return payload if isinstance(payload, dict) else None
+
+    @staticmethod
+    def _invoke_llm_json(prompt: str) -> tuple[dict | None, str | None]:
+        """调用项目现有 LLM，要求返回 JSON；不可用或失败时返回空结果。"""
+        model_name = HistoryService._configured_llm_model()
+        if not model_name:
+            return None, None
+        try:
+            from app.agent.base_agent import create_llm
+
+            response = create_llm().invoke(prompt)
+            return HistoryService._extract_llm_json(response), model_name
+        except Exception as exc:
+            logger.warning("历史风险 LLM 增强失败，已回退规则结果: %s", exc)
+            return None, None
+
+    @staticmethod
+    def _merge_risk_level(rule_level: str, llm_level: str | None) -> str:
+        """LLM 最多只能在规则等级基础上上下调整一级，避免极端跳变。"""
+        if rule_level not in HistoryService.CORE_RISK_LEVELS:
+            return rule_level
+        if llm_level not in HistoryService.CORE_RISK_LEVELS:
+            return rule_level
+        rule_index = HistoryService.CORE_RISK_LEVELS.index(rule_level)
+        llm_index = HistoryService.CORE_RISK_LEVELS.index(llm_level)
+        bounded_index = max(rule_index - 1, min(rule_index + 1, llm_index))
+        return HistoryService.CORE_RISK_LEVELS[bounded_index]
+
+    @staticmethod
+    def _clean_text_list(value, fallback: list[str], max_items: int = 6) -> list[str]:
+        """清洗 LLM 返回的字符串列表，空结果使用规则建议兜底。"""
+        if not isinstance(value, list):
+            return fallback
+        items = [str(item).strip() for item in value if str(item).strip()]
+        return items[:max_items] if items else fallback
 
     @staticmethod
     def _format_result(result: DetectionResult, display_language: str, class_names_cn: dict | None = None) -> dict:
@@ -704,6 +778,84 @@ class HistoryService:
         return SeverityAssessmentResult(**payload).model_dump()
 
     @staticmethod
+    def _enhance_severity_with_llm(
+        rule_result: dict,
+        class_name: str,
+        answers: dict,
+        result_count: int,
+    ) -> tuple[dict, str]:
+        """用 LLM 增强严重程度评估；失败时返回规则结果。"""
+        if rule_result.get("risk_level") == "insufficient_information":
+            return rule_result, "rule-based"
+
+        prompt = f"""
+你是果蔬病虫害风险评估助手。请基于检测结果、用户问卷和规则评分，输出更贴近现场的严重程度评估。
+
+要求：
+1. 只返回一个 JSON 对象，不要 Markdown，不要额外解释。
+2. risk_level 只能是 low、moderate、high、critical。
+3. assessment_confidence 只能是 low、medium、high。
+4. risk_level 应尊重规则评分，除非问卷信息明显支持调整。
+5. summary、reasons、uncertainties、recommended_actions 用中文，建议具体、可执行。
+
+输入：
+{json.dumps({
+    "class_name": class_name,
+    "detected_object_count": result_count,
+    "answers": answers,
+    "rule_result": rule_result,
+}, ensure_ascii=False)}
+
+返回 JSON 格式：
+{{
+  "risk_level": "high",
+  "assessment_confidence": "high",
+  "summary": "一句话评估摘要",
+  "reasons": ["原因1", "原因2"],
+  "uncertainties": ["仍不确定的信息"],
+  "recommended_actions": ["建议1", "建议2"]
+}}
+"""
+        llm_payload, model_name = HistoryService._invoke_llm_json(prompt)
+        if not llm_payload:
+            return rule_result, "rule-based"
+
+        merged_payload = {
+            "risk_level": HistoryService._merge_risk_level(
+                rule_result["risk_level"],
+                str(llm_payload.get("risk_level", "")).strip(),
+            ),
+            "assessment_confidence": str(
+                llm_payload.get(
+                    "assessment_confidence",
+                    rule_result["assessment_confidence"],
+                )
+            ).strip(),
+            "summary": str(llm_payload.get("summary") or rule_result["summary"]).strip(),
+            "reasons": HistoryService._clean_text_list(
+                llm_payload.get("reasons"),
+                rule_result["reasons"],
+            ),
+            "uncertainties": HistoryService._clean_text_list(
+                llm_payload.get("uncertainties"),
+                rule_result["uncertainties"],
+            ),
+            "recommended_actions": HistoryService._clean_text_list(
+                llm_payload.get("recommended_actions"),
+                rule_result["recommended_actions"],
+            ),
+        }
+        if merged_payload["assessment_confidence"] not in {"low", "medium", "high"}:
+            merged_payload["assessment_confidence"] = rule_result["assessment_confidence"]
+        try:
+            return SeverityAssessmentResult(**merged_payload).model_dump(), (
+                model_name or "rule-based"
+            )
+        except Exception as exc:
+            logger.warning("LLM 严重程度结果结构无效，已回退规则结果: %s", exc)
+            return rule_result, "rule-based"
+
+    @staticmethod
     def create_severity_assessment(
         user_id: int,
         task_id: int,
@@ -739,6 +891,12 @@ class HistoryService:
             if additional_notes:
                 assessment_answers["additional_notes"] = additional_notes
             scored = HistoryService._score_severity(assessment_answers, len(results))
+            scored, scored_model = HistoryService._enhance_severity_with_llm(
+                scored,
+                class_name=class_name,
+                answers=assessment_answers,
+                result_count=len(results),
+            )
 
             assessment = (
                 db.query(SeverityAssessment)
@@ -759,7 +917,7 @@ class HistoryService:
             assessment.reasons = scored["reasons"]
             assessment.uncertainties = scored["uncertainties"]
             assessment.recommended_actions = scored["recommended_actions"]
-            assessment.llm_model = "rule-based"
+            assessment.llm_model = scored_model
             assessment.updated_at = datetime.now()
 
             # 任务层保留最新一次评估摘要，方便历史列表和统计快速读取。
@@ -914,6 +1072,74 @@ class HistoryService:
         }
 
     @staticmethod
+    def _enhance_weather_risk_with_llm(
+        rule_risk: dict,
+        task: DetectionTask,
+        results: list[DetectionResult],
+    ) -> dict:
+        """用 LLM 增强天气风险分析；失败时返回规则结果。"""
+        if rule_risk.get("environment_risk_level") == "unavailable":
+            return rule_risk
+
+        detection_summary = {}
+        for result in results:
+            detection_summary[result.class_name] = (
+                detection_summary.get(result.class_name, 0) + 1
+            )
+
+        prompt = f"""
+你是果蔬病虫害环境风险分析助手。请基于天气指标、检测类别、问卷严重程度和规则评分，输出未来 3 天病害扩散环境风险。
+
+要求：
+1. 只返回一个 JSON 对象，不要 Markdown，不要额外解释。
+2. environment_risk_level 只能是 low、moderate、high、critical。
+3. environment_risk_level 应尊重规则评分，除非检测类别或已有问卷严重程度明显支持调整。
+4. summary 和 recommendations 用中文，建议应具体、可执行，避免泛泛而谈。
+
+输入：
+{json.dumps({
+    "detection_summary": detection_summary,
+    "task_risk_level_from_questionnaire": task.risk_level,
+    "weather_metrics": rule_risk.get("weather_metrics", {}),
+    "rule_environment_risk_level": rule_risk.get("environment_risk_level"),
+    "rule_summary": rule_risk.get("weather_summary"),
+    "rule_recommendations": rule_risk.get("weather_recommendations", []),
+    "rule_reasons": rule_risk.get("reasons", []),
+}, ensure_ascii=False)}
+
+返回 JSON 格式：
+{{
+  "environment_risk_level": "high",
+  "summary": "一句话天气风险摘要",
+  "recommendations": ["建议1", "建议2"],
+  "reasons": ["判断依据1", "判断依据2"]
+}}
+"""
+        llm_payload, model_name = HistoryService._invoke_llm_json(prompt)
+        if not llm_payload:
+            return rule_risk
+
+        enhanced = dict(rule_risk)
+        enhanced["environment_risk_level"] = HistoryService._merge_risk_level(
+            rule_risk["environment_risk_level"],
+            str(llm_payload.get("environment_risk_level", "")).strip(),
+        )
+        summary = str(llm_payload.get("summary") or "").strip()
+        if summary:
+            enhanced["weather_summary"] = summary
+        enhanced["weather_recommendations"] = HistoryService._clean_text_list(
+            llm_payload.get("recommendations"),
+            rule_risk["weather_recommendations"],
+        )
+        enhanced["reasons"] = HistoryService._clean_text_list(
+            llm_payload.get("reasons"),
+            rule_risk.get("reasons", []),
+        )
+        if model_name:
+            enhanced["llm_model"] = model_name
+        return enhanced
+
+    @staticmethod
     def _score_weather_risk(
         task: DetectionTask,
         results: list[DetectionResult],
@@ -990,13 +1216,14 @@ class HistoryService:
                 "记录处理日期和复查结果，必要时在历史记录中更新治疗状态。",
             ]
         )
-        return {
+        rule_risk = {
             "environment_risk_level": level,
             "weather_summary": summary,
             "weather_recommendations": recommendations,
             "weather_metrics": metrics,
             "reasons": reasons or ["当前天气指标未触发明显高风险规则。"],
         }
+        return HistoryService._enhance_weather_risk_with_llm(rule_risk, task, results)
 
     @staticmethod
     def refresh_weather_risk(user_id: int, task_id: int) -> dict | None:
