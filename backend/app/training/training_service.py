@@ -524,8 +524,8 @@ class TrainingService:
         db,
         task_id: int,
         split: str = "val",
-        conf: float = 0.25,
-        iou: float = 0.45,
+        conf: float = DetectionConfig.conf_threshold,
+        iou: float = DetectionConfig.iou_threshold,
     ) -> dict:
         """
         对已完成训练的模型执行验证集评估

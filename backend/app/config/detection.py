@@ -8,7 +8,7 @@ class DetectionConfig:
     model_path = "models/plant_disease_best.pt"
 
     # 推理参数
-    conf_threshold = 0.25
+    conf_threshold = 0.5
     iou_threshold = 0.45
     device = "cpu"  # 本地如果没显卡，必须写 cpu
     image_size = 640

@@ -11,6 +11,7 @@
 
 from datetime import datetime
 
+from app.config.detection import DetectionConfig
 from app.database.session import Base
 from sqlalchemy import (
     JSON,
@@ -234,9 +235,9 @@ class DetectionTask(Base):
     total_inference_time = Column(Float, default=0, comment="总推理耗时 (ms)")
 
     # 检测参数
-    conf_threshold = Column(Float, default=0.25, comment="置信度阈值")
-    iou_threshold = Column(Float, default=0.45, comment="NMS IoU 阈值")
-    image_size = Column(Integer, default=640, comment="推理图像尺寸")
+    conf_threshold = Column(Float, default=DetectionConfig.conf_threshold, comment="置信度阈值")
+    iou_threshold = Column(Float, default=DetectionConfig.iou_threshold, comment="NMS IoU 阈值")
+    image_size = Column(Integer, default=DetectionConfig.image_size, comment="推理图像尺寸")
 
     # 错误信息
     error_message = Column(Text, nullable=True, comment="失败时的错误信息")

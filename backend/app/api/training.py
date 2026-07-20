@@ -24,6 +24,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.auth import require_admin
+from app.config.detection import DetectionConfig
 from app.core.logger import get_logger
 from app.database.session import get_db
 from app.entity.db_models import DetectionScene, TrainingTask
@@ -308,8 +309,8 @@ async def download_model(
 async def predict_test_image(
     file: UploadFile = File(..., description="测试图片"),
     task_id: int = Form(..., description="训练任务 ID（使用哪个模型）"),
-    conf: float = Form(0.25, description="置信度阈值"),
-    iou: float = Form(0.45, description="NMS IoU 阈值"),
+    conf: float = Form(DetectionConfig.conf_threshold, description="置信度阈值"),
+    iou: float = Form(DetectionConfig.iou_threshold, description="NMS IoU 阈值"),
     db: Session = Depends(get_db),
     current_user=Depends(require_admin),
 ):

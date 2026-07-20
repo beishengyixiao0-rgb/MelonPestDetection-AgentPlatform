@@ -86,8 +86,8 @@ async def _save_video_upload(file: UploadFile, suffix: str) -> tuple[str, int]:
 async def detect_single_api(
     request: Request,
     file: UploadFile = File(..., description="检测图片"),
-    conf: float = Form(0.25, description="置信度阈值"),
-    iou: float = Form(0.45, description="NMS IoU 阈值"),
+    conf: float = Form(DetectionConfig.conf_threshold, description="置信度阈值"),
+    iou: float = Form(DetectionConfig.iou_threshold, description="NMS IoU 阈值"),
     scene_id: int = Form(None, description="场景 ID"),
     current_user=Depends(get_current_user),
 ):
@@ -122,8 +122,8 @@ async def detect_single_api(
 async def detect_batch_api(
     request: Request,
     files: list[UploadFile] = File(..., description="多张图片"),
-    conf: float = Form(0.25),
-    iou: float = Form(0.45),
+    conf: float = Form(DetectionConfig.conf_threshold),
+    iou: float = Form(DetectionConfig.iou_threshold),
     scene_id: int = Form(None),
     current_user=Depends(get_current_user),
 ):
@@ -166,8 +166,8 @@ async def detect_batch_api(
 async def detect_zip_api(
     request: Request,
     file: UploadFile = File(..., description="ZIP 压缩包"),
-    conf: float = Form(0.25),
-    iou: float = Form(0.45),
+    conf: float = Form(DetectionConfig.conf_threshold),
+    iou: float = Form(DetectionConfig.iou_threshold),
     scene_id: int = Form(None),
     current_user=Depends(get_current_user),
 ):
@@ -231,8 +231,8 @@ async def get_detection_status(
 async def detect_video_api(
     request: Request,
     file: UploadFile = File(..., description="视频文件（mp4/avi/mov）"),
-    conf: float = Form(0.25, description="置信度阈值"),
-    iou: float = Form(0.45, description="NMS IoU 阈值"),
+    conf: float = Form(DetectionConfig.conf_threshold, description="置信度阈值"),
+    iou: float = Form(DetectionConfig.iou_threshold, description="NMS IoU 阈值"),
     frame_sample_rate: int = Form(5, description="帧采样间隔（每 N 帧取 1 帧）"),
     max_frames: int = Form(50, description="最多处理的关键帧数量"),
     scene_id: int = Form(None, description="场景 ID"),
@@ -469,7 +469,7 @@ async def camera_detection_ws(
 
     通信协议：
       前端发送：
-        - {"type": "config", "mode": "cpu/gpu", "conf": 0.25}  初始化配置
+        - {"type": "config", "mode": "cpu/gpu", "conf": 0.5}   初始化配置
         - {"type": "frame", "data": "<base64>"}                 发送帧
         - {"type": "close"}                                     关闭连接
 
@@ -493,8 +493,8 @@ async def camera_detection_ws(
 
     # ── 默认配置 ──
     mode = "cpu"  # cpu 或 gpu
-    conf = 0.25
-    iou = 0.45
+    conf = DetectionConfig.conf_threshold
+    iou = DetectionConfig.iou_threshold
     scene_id = None
     model = None
 
@@ -513,8 +513,8 @@ async def camera_detection_ws(
             # ── 处理配置消息 ──
             if msg_type == "config":
                 mode = data.get("mode", "cpu")
-                conf = data.get("conf", 0.25)
-                iou = data.get("iou", 0.45)
+                conf = data.get("conf", DetectionConfig.conf_threshold)
+                iou = data.get("iou", DetectionConfig.iou_threshold)
                 scene_id = data.get("scene_id")
                 display_language = normalize_language(
                     data.get("display_language", display_language)

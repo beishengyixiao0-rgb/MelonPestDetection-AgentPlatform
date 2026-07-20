@@ -14,6 +14,7 @@ import tempfile
 import zipfile
 
 import pytest
+from app.config.detection import DetectionConfig
 from app.services.detection_service import detection_service
 from fastapi.testclient import TestClient
 
@@ -120,6 +121,35 @@ def test_single_detection_uses_authenticated_user(client, monkeypatch):
     assert captured["conf"] == 0.35
     assert captured["iou"] == 0.5
     assert captured["user_id"] > 0
+
+
+def test_single_detection_default_conf_uses_detection_config(client, monkeypatch):
+    """未显式传 conf 时使用 DetectionConfig 的统一默认值。"""
+    headers = auth_headers(client, "day8_default_conf_user")
+    captured = {}
+
+    def fake_detect(image_path, conf, iou, scene_id, user_id):
+        captured.update({"conf": conf, "iou": iou, "user_id": user_id})
+        return {
+            "task_id": 71,
+            "total_images": 1,
+            "total_objects": 0,
+            "class_counts": {},
+            "detections": [],
+            "annotated_image_base64": "fake_base64_data",
+            "inference_time": 10.0,
+        }
+
+    monkeypatch.setattr(detection_service, "detect_single", fake_detect)
+    response = client.post(
+        "/api/detection/single",
+        headers=headers,
+        files={"file": ("leaf.jpg", b"fake-image", "image/jpeg")},
+    )
+
+    assert response.status_code == 200
+    assert captured["conf"] == DetectionConfig.conf_threshold
+    assert captured["iou"] == DetectionConfig.iou_threshold
 
 
 # ============================================================
