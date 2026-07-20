@@ -1,17 +1,4 @@
-"""
-检测工具集 — Agent 可调用的检测相关工具
-
-工具列表：
-  - detect_single_image: 单张图片检测
-  - detect_batch_images: 批量图片检测
-  - detect_zip_images_file: ZIP 文件解压检测
-  - detect_video_file: 视频文件检测
-
-设计原则：
-  - 每个工具使用 @tool 装饰器定义
-  - docstring 必须详细，LLM 通过 docstring 理解工具用途
-  - 返回值使用 JSON 字符串，便于 LLM 解析
-"""
+"""Detection tools callable by the Agent."""
 
 import contextvars
 import json
@@ -60,22 +47,19 @@ def detect_single_image(
     conf: float = DetectionConfig.conf_threshold,
     iou: float = DetectionConfig.iou_threshold,
 ) -> str:
-    """检测单张遥感图片中的目标物体（飞机、油罐、立交桥、操场）。
+    """Detect plant disease targets in a single uploaded image.
 
-    当用户上传了一张图片并要求检测、识别、分析图中的目标时使用此工具。
+    Use this tool when the user uploads one image and asks for detection,
+    recognition, or analysis of disease targets in that image.
 
     Args:
-        image_path: 图片文件的服务器路径（绝对路径），如 /tmp/rsod_uploads/xxx.jpg
-        conf: 置信度阈值，0~1 之间，默认使用 DetectionConfig.conf_threshold。低于此值的检测结果会被过滤
-        iou: NMS（非极大值抑制）IoU 阈值，0~1 之间，默认使用 DetectionConfig.iou_threshold。用于去除重叠的检测框
+        image_path: Absolute server path of the image, such as /tmp/rsod_uploads/xxx.jpg.
+        conf: Confidence threshold from 0 to 1. Detections below this value are filtered out.
+        iou: NMS IoU threshold from 0 to 1, used to remove overlapping boxes.
 
     Returns:
-        JSON 字符串，包含：
-        - total_objects: 检测到的目标总数
-        - class_counts: 各类别目标数量统计
-        - objects: 每个目标的详细信息（类别、置信度、边界框）
-        - inference_time: 推理耗时（毫秒）
-        - annotated_image_url: 标注后的图片 URL
+        JSON string with total_objects, class_counts, detections,
+        inference_time, task_id, and annotated image URL/base64 fields.
     """
     try:
         result = detection_service.detect_single(
@@ -101,16 +85,16 @@ def detect_single_image(
 def detect_batch_images(
     image_paths: list[str], conf: float = DetectionConfig.conf_threshold
 ) -> str:
-    """批量检测多张遥感图片中的目标物体。
+    """Detect plant disease targets in multiple uploaded images.
 
-    当用户一次上传了多张图片，或者要求"检测所有图片"时使用此工具。
+    Use this tool when the user uploads multiple images or asks to detect all images.
 
     Args:
-        image_paths: 图片文件路径列表
-        conf: 置信度阈值，默认使用 DetectionConfig.conf_threshold
+        image_paths: List of server-side image paths.
+        conf: Confidence threshold from 0 to 1.
 
     Returns:
-        JSON 字符串，包含每张图片的检测结果汇总
+        JSON string containing the batch detection summary and per-image results.
     """
     try:
         result = detection_service.detect_batch(
@@ -133,16 +117,16 @@ def detect_batch_images(
 def detect_zip_images_file(
     zip_path: str, conf: float = DetectionConfig.conf_threshold
 ) -> str:
-    """解压 ZIP 文件并批量检测其中所有图片的目标物体。
+    """Extract a ZIP file and detect disease targets in all images inside it.
 
-    当用户上传了 ZIP 压缩包进行批量检测时使用此工具。
+    Use this tool when the user uploads a ZIP archive for batch detection.
 
     Args:
-        zip_path: ZIP 文件的服务器路径
-        conf: 置信度阈值，默认使用 DetectionConfig.conf_threshold
+        zip_path: Server-side path of the ZIP file.
+        conf: Confidence threshold from 0 to 1.
 
     Returns:
-        JSON 字符串，包含 ZIP 内所有图片的检测结果汇总
+        JSON string containing detection results for all valid images in the ZIP file.
     """
     try:
         result = detection_service.detect_zip(
@@ -167,17 +151,18 @@ def detect_video_file(
     conf: float = DetectionConfig.conf_threshold,
     frame_sample_rate: int = 5,
 ) -> str:
-    """检测视频文件中的目标物体。对视频进行帧采样后逐帧检测。
+    """Detect plant disease targets in an uploaded video by sampling frames.
 
-    当用户上传了视频文件并要求检测视频中的目标时使用此工具。
+    Use this tool when the user uploads a video and asks for video detection.
 
     Args:
-        video_path: 视频文件的服务器路径（mp4/avi/mov 等格式）
-        conf: 置信度阈值，默认使用 DetectionConfig.conf_threshold
-        frame_sample_rate: 帧采样间隔，每 N 帧取 1 帧进行检测，默认 5
+        video_path: Server-side path of the video file, such as mp4, avi, or mov.
+        conf: Confidence threshold from 0 to 1.
+        frame_sample_rate: Frame sampling interval. Every Nth frame is processed.
 
     Returns:
-        JSON 字符串，包含视频检测结果（关键帧目标统计、视频时长、处理帧数）
+        JSON string containing key-frame results, duration, processed frame count,
+        object statistics, and annotated/source video URLs when available.
     """
     try:
         result = detection_service.detect_video(

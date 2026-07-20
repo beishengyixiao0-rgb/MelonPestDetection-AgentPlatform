@@ -131,31 +131,47 @@ class BaseAgent:
         message: str,
         image_path: str | None = None,
         image_paths: list[str] | None = None,
+        display_language: str = "zh",
     ) -> tuple[str, list[str]]:
         attachment_paths = image_paths or ([image_path] if image_path else [])
         if len(attachment_paths) == 1:
-            label = "视频" if _is_video_path(attachment_paths[0]) else "图片"
+            is_video = _is_video_path(attachment_paths[0])
+            if display_language == "en":
+                label = "video" if is_video else "image"
+                return (
+                    f"{message}\n[attachment {label} path: {attachment_paths[0]}]",
+                    attachment_paths,
+                )
+            label = "视频" if is_video else "图片"
             return (
                 f"{message}\n[附件{label}路径: {attachment_paths[0]}]",
                 attachment_paths,
             )
         if attachment_paths:
             paths_json = json.dumps(attachment_paths, ensure_ascii=False)
-            label = (
-                "视频"
-                if all(_is_video_path(path) for path in attachment_paths)
-                else "图片"
-            )
+            all_video = all(_is_video_path(path) for path in attachment_paths)
+            if display_language == "en":
+                label = "video" if all_video else "image"
+                return f"{message}\n[attachment {label} path list: {paths_json}]", attachment_paths
+            label = "视频" if all_video else "图片"
             return f"{message}\n[附件{label}路径列表: {paths_json}]", attachment_paths
         return message, attachment_paths
 
     @staticmethod
-    def _message_for_history(message: str, attachment_paths: list[str]) -> str:
+    def _message_for_history(
+        message: str, attachment_paths: list[str], display_language: str = "zh"
+    ) -> str:
         if not attachment_paths:
             return message
         if len(attachment_paths) == 1:
-            attachment_label = "视频" if _is_video_path(attachment_paths[0]) else "图片"
+            is_video = _is_video_path(attachment_paths[0])
+            if display_language == "en":
+                attachment_label = "video" if is_video else "image"
+                return f"{message}\n[{attachment_label} attachment uploaded in this turn]"
+            attachment_label = "视频" if is_video else "图片"
             return f"{message}\n[本轮已上传{attachment_label}附件]"
+        if display_language == "en":
+            return f"{message}\n[{len(attachment_paths)} image attachments uploaded in this turn]"
         return f"{message}\n[本轮已上传 {len(attachment_paths)} 个图片附件]"
 
     @staticmethod
@@ -307,13 +323,13 @@ class BaseAgent:
         """
         original_message = message
         message, attachment_paths = self._attachment_message(
-            original_message, image_path, image_paths
+            original_message, image_path, image_paths, display_language
         )
         if display_language == "en":
             message += "\n[System instruction: Respond in English.]"
 
         persisted_user_message = self._message_for_history(
-            original_message, attachment_paths
+            original_message, attachment_paths, display_language
         )
         chat_history = []
         if user_id is not None and session_id:

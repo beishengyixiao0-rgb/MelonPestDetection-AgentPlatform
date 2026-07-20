@@ -79,7 +79,9 @@ class DetectionAgent(BaseAgent):
         """非流式对话（保留兼容性）。"""
         from app.agent.tools.analysis_tool import set_tool_context, reset_tool_context
 
-        message, _ = self._attachment_message(message, image_path, image_paths)
+        message, _ = self._attachment_message(
+            message, image_path, image_paths, display_language
+        )
         if display_language == "en":
             message += "\n[System instruction: Respond in English.]"
 
@@ -120,7 +122,7 @@ class DetectionAgent(BaseAgent):
             reset_tool_context(analysis_context_tokens)
 
     def _fallback_reply(self, message: str, display_language: str) -> str:
-        if "[附件" in message:
+        if "[附件" in message or "[attachment " in message:
             if display_language == "en":
                 return "The AI service is currently unavailable. Please try again later."
             else:
@@ -148,7 +150,7 @@ class DetectionAgent(BaseAgent):
         """
         original_message = message
         message, attachment_paths = self._attachment_message(
-            original_message, image_path, image_paths
+            original_message, image_path, image_paths, display_language
         )
         if display_language == "en":
             message += "\n[System instruction: Respond in English.]"
@@ -157,7 +159,7 @@ class DetectionAgent(BaseAgent):
         from app.services.chat_history_service import chat_history_service
 
         persisted_user_message = self._message_for_history(
-            original_message, attachment_paths
+            original_message, attachment_paths, display_language
         )
         chat_history = []
         if user_id is not None and session_id:

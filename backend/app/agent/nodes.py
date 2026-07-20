@@ -73,10 +73,19 @@ async def detection_node(state: AgentState) -> dict:
     if attachment_paths:
         if len(attachment_paths) == 1:
             from app.agent.detection_agent import _is_video_path
-            label = "视频" if _is_video_path(attachment_paths[0]) else "图片"
-            message += f"\n[附件{label}路径: {attachment_paths[0]}]"
+            is_video = _is_video_path(attachment_paths[0])
+            if display_language == "en":
+                label = "video" if is_video else "image"
+                message += f"\n[attachment {label} path: {attachment_paths[0]}]"
+            else:
+                label = "视频" if is_video else "图片"
+                message += f"\n[附件{label}路径: {attachment_paths[0]}]"
         else:
-            message += f"\n[附件图片路径列表: {json.dumps(attachment_paths, ensure_ascii=False)}]"
+            paths_json = json.dumps(attachment_paths, ensure_ascii=False)
+            if display_language == "en":
+                message += f"\n[attachment image path list: {paths_json}]"
+            else:
+                message += f"\n[附件图片路径列表: {paths_json}]"
 
     detection_context_tokens = set_detection_tool_context(user_id, scene_id, display_language)
 

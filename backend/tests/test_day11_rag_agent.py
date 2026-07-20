@@ -44,6 +44,23 @@ def test_agent_binds_eight_tools_and_uses_language_prompt():
     assert "fallback_to_llm" in get_detection_agent_prompt("en")
 
 
+def test_english_attachment_context_does_not_leak_chinese():
+    """英文模式下传给模型和历史的附件上下文不能混入中文。"""
+    message, paths = detection_agent._attachment_message(
+        "detect this image",
+        image_path="/tmp/rsod_uploads/leaf.jpg",
+        display_language="en",
+    )
+    history_message = detection_agent._message_for_history(
+        "detect this image", paths, display_language="en"
+    )
+
+    assert "[attachment image path:" in message
+    assert "[image attachment uploaded in this turn]" in history_message
+    assert "附件" not in message
+    assert "本轮" not in history_message
+
+
 def test_non_admin_cannot_query_user_list():
     """用户列表工具必须在执行层拒绝普通用户，而非只依赖提示词。"""
     tokens = set_tool_context(user_id=1, is_admin=False)
