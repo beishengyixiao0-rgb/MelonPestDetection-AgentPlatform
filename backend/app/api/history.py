@@ -108,9 +108,10 @@ async def get_detection_task_detail(
 async def update_task_location(
     task_id: int,
     payload: DetectionTaskLocationUpdate,
+    refresh_weather: bool = Query(True, description="保存位置后是否立即刷新天气环境风险"),
     current_user=Depends(get_current_user),
 ):
-    """保存用户授权定位或手动填写的位置，用于天气风险分析和报告导出。"""
+    """保存用户授权定位或手动填写的位置，并按需立即刷新天气风险。"""
     result = history_service.update_task_location(
         user_id=current_user.id,
         task_id=task_id,
@@ -121,6 +122,29 @@ async def update_task_location(
     )
     if result is None:
         raise HTTPException(status_code=404, detail="任务不存在或无权访问")
+    if refresh_weather:
+        # 前端保存位置后通常马上需要展示环境风险，默认在同一次请求里完成分析。
+        weather_result = history_service.refresh_weather_risk(
+            user_id=current_user.id,
+            task_id=task_id,
+        )
+        if weather_result is None:
+            raise HTTPException(status_code=404, detail="任务不存在或无权访问")
+        if isinstance(weather_result, dict) and weather_result.get("error"):
+            raise HTTPException(
+                status_code=weather_result.get("status_code", 400),
+                detail=weather_result["error"],
+            )
+        result.update(
+            {
+                "environment_risk_level": weather_result.get("environment_risk_level"),
+                "weather_summary": weather_result.get("weather_summary"),
+                "weather_recommendations": weather_result.get("weather_recommendations"),
+                "weather_metrics": weather_result.get("weather_metrics"),
+                "weather_reasons": weather_result.get("reasons"),
+                "weather_updated_at": weather_result.get("weather_updated_at"),
+            }
+        )
     return result
 
 
