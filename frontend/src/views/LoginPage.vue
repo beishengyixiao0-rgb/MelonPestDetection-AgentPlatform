@@ -12,7 +12,7 @@
       <button class="back-btn" @click="goBack">← Back to Home</button>
 
       <div class="login-card">
-        <div class="tabs">
+        <div v-if="!showForgotPassword && !showResetPassword" class="tabs">
           <button
             class="tab-btn"
             :class="{ active: isLogin }"
@@ -29,7 +29,21 @@
           </button>
         </div>
 
-        <form v-if="isLogin" @submit.prevent="handleLogin" class="login-form">
+        <div v-if="showForgotPassword" class="form-header">
+          <h3>Forgot Password</h3>
+          <button class="close-btn" @click="closeForgotPassword">×</button>
+        </div>
+
+        <div v-if="showResetPassword" class="form-header">
+          <h3>Reset Password</h3>
+          <button class="close-btn" @click="closeResetPassword">×</button>
+        </div>
+
+        <form
+          v-if="isLogin && !showForgotPassword && !showResetPassword"
+          @submit.prevent="handleLogin"
+          class="login-form"
+        >
           <div class="form-group">
             <label>Username</label>
             <div class="input-wrapper">
@@ -59,7 +73,7 @@
             <button
               type="button"
               class="forgot-btn"
-              @click="handleForgotPassword"
+              @click="showForgotPassword = true"
             >
               Forgot Password?
             </button>
@@ -70,7 +84,103 @@
           </button>
         </form>
 
-        <form v-else @submit.prevent="handleRegister" class="login-form">
+        <form
+          v-if="showForgotPassword"
+          @submit.prevent="handleForgotPassword"
+          class="login-form"
+        >
+          <div class="form-group">
+            <label>Email</label>
+            <div class="input-wrapper">
+              <span class="input-icon">📧</span>
+              <input
+                v-model="forgotForm.email"
+                type="email"
+                placeholder="Enter your registered email"
+                @keyup.enter="handleForgotPassword"
+              />
+            </div>
+          </div>
+
+          <div v-if="forgotSuccess" class="success-message">
+            ✅ Reset token generated. Please copy the token below and proceed to
+            reset your password.
+          </div>
+
+          <div v-if="forgotSuccess" class="token-display">
+            <label>Reset Token:</label>
+            <div class="token-content">
+              {{ resetToken }}
+              <button class="copy-btn" @click="copyToken">📋 Copy</button>
+            </div>
+          </div>
+
+          <button
+            v-if="forgotSuccess"
+            type="button"
+            class="submit-btn"
+            @click="showResetPassword = true"
+          >
+            Reset Password
+          </button>
+
+          <button v-else type="submit" class="submit-btn" :disabled="loading">
+            {{ loading ? "Generating..." : "Get Reset Token" }}
+          </button>
+        </form>
+
+        <form
+          v-if="showResetPassword"
+          @submit.prevent="handleResetPassword"
+          class="login-form"
+        >
+          <div class="form-group">
+            <label>Reset Token</label>
+            <div class="input-wrapper">
+              <span class="input-icon">🔑</span>
+              <input
+                v-model="resetForm.token"
+                type="text"
+                placeholder="Enter your reset token"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>New Password</label>
+            <div class="input-wrapper">
+              <span class="input-icon">🔒</span>
+              <input
+                v-model="resetForm.newPassword"
+                type="password"
+                placeholder="Enter new password"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Confirm New Password</label>
+            <div class="input-wrapper">
+              <span class="input-icon">🔒</span>
+              <input
+                v-model="resetForm.confirmPassword"
+                type="password"
+                placeholder="Confirm new password"
+                @keyup.enter="handleResetPassword"
+              />
+            </div>
+          </div>
+
+          <button type="submit" class="submit-btn" :disabled="loading">
+            {{ loading ? "Resetting..." : "Reset Password" }}
+          </button>
+        </form>
+
+        <form
+          v-else-if="!isLogin && !showForgotPassword && !showResetPassword"
+          @submit.prevent="handleRegister"
+          class="login-form"
+        >
           <div class="form-group">
             <label>Username</label>
             <div class="input-wrapper">
@@ -130,7 +240,7 @@
 </template>
 
 <script setup>
-import { registerApi } from "@/api/auth";
+import { forgotPasswordApi, registerApi, resetPasswordApi } from "@/api/auth";
 import { useUserStore } from "@/stores/user";
 import { ElMessage } from "element-plus";
 import { reactive, ref } from "vue";
@@ -142,6 +252,10 @@ const userStore = useUserStore();
 
 const isLogin = ref(route.path === "/register" ? false : true);
 const loading = ref(false);
+const showForgotPassword = ref(false);
+const showResetPassword = ref(false);
+const forgotSuccess = ref(false);
+const resetToken = ref("");
 
 const loginForm = reactive({
   username: "",
@@ -152,6 +266,16 @@ const registerForm = reactive({
   username: "",
   email: "",
   password: "",
+  confirmPassword: "",
+});
+
+const forgotForm = reactive({
+  email: "",
+});
+
+const resetForm = reactive({
+  token: "",
+  newPassword: "",
   confirmPassword: "",
 });
 
@@ -181,8 +305,78 @@ function goBack() {
   router.push("/");
 }
 
-function handleForgotPassword() {
-  ElMessage.info("忘记密码功能即将上线");
+function closeForgotPassword() {
+  showForgotPassword.value = false;
+  forgotSuccess.value = false;
+  forgotForm.email = "";
+  resetToken.value = "";
+}
+
+function closeResetPassword() {
+  showResetPassword.value = false;
+  resetForm.token = "";
+  resetForm.newPassword = "";
+  resetForm.confirmPassword = "";
+}
+
+async function handleForgotPassword() {
+  if (!forgotForm.email) {
+    ElMessage.warning("请输入邮箱");
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const response = await forgotPasswordApi({ email: forgotForm.email });
+    resetToken.value = response.token;
+    forgotSuccess.value = true;
+    resetForm.token = response.token;
+    ElMessage.success("重置令牌已生成");
+  } catch (error) {
+    ElMessage.error("邮箱未注册，请检查输入");
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function copyToken() {
+  try {
+    await navigator.clipboard.writeText(resetToken.value);
+    ElMessage.success("令牌已复制到剪贴板");
+  } catch (error) {
+    ElMessage.warning("复制失败，请手动复制");
+  }
+}
+
+async function handleResetPassword() {
+  if (!resetForm.token) {
+    ElMessage.warning("请输入重置令牌");
+    return;
+  }
+  if (!resetForm.newPassword || !resetForm.confirmPassword) {
+    ElMessage.warning("请填写完整信息");
+    return;
+  }
+  if (resetForm.newPassword !== resetForm.confirmPassword) {
+    ElMessage.warning("两次密码不一致");
+    return;
+  }
+
+  loading.value = true;
+  try {
+    await resetPasswordApi({
+      token: resetForm.token,
+      new_password: resetForm.newPassword,
+    });
+    ElMessage.success("密码重置成功，请登录");
+    closeResetPassword();
+    closeForgotPassword();
+    isLogin.value = true;
+  } catch (error) {
+    ElMessage.error("重置失败，令牌无效或已过期");
+  } finally {
+    loading.value = false;
+  }
 }
 
 async function handleRegister() {
@@ -412,6 +606,84 @@ async function handleRegister() {
   &:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+  }
+}
+
+.form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+
+  h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #166534;
+    margin: 0;
+  }
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: #374151;
+  }
+}
+
+.success-message {
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  color: #166534;
+  font-size: 14px;
+  text-align: center;
+}
+
+.token-display {
+  margin-top: 12px;
+
+  label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+  }
+
+  .token-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f3f4f6;
+    border-radius: 8px;
+    padding: 12px 16px;
+    word-break: break-all;
+    font-family: monospace;
+    font-size: 13px;
+    color: #374151;
+  }
+
+  .copy-btn {
+    flex-shrink: 0;
+    padding: 6px 10px;
+    background: #16a34a;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+
+    &:hover {
+      background: #15803d;
+    }
   }
 }
 </style>

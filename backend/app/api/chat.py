@@ -21,6 +21,7 @@ import uuid
 from pathlib import Path
 
 from app.agent.detection_agent import detection_agent
+from app.agent.multi_agent import multi_agent_chat_stream
 from app.agent.memory import conversation_memory
 from app.api.auth import get_current_user
 from app.core.language import request_language
@@ -30,6 +31,7 @@ from app.services.detection_service import ALLOWED_IMAGE_SUFFIXES
 from app.storage.minio_client import MinIOClient
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 logger = get_logger(__name__)
 
@@ -39,6 +41,14 @@ ALLOWED_VIDEO_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv"}
 MAX_VIDEO_UPLOAD_BYTES = 50 * 1024 * 1024
 UPLOAD_CHUNK_SIZE = 1024 * 1024
 SESSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
+
+class ChatStreamRequest(BaseModel):
+    message: str = Field(..., description="用户消息内容", examples=["检测这张图片"])
+    image_path: str | None = Field(None, description="单附件路径（图片、视频或 ZIP）", examples=["/tmp/uploads/xxx.jpg"])
+    image_paths: list[str] | None = Field(None, description="多个图片附件路径", examples=[["/tmp/uploads/a.jpg", "/tmp/uploads/b.jpg"]])
+    session_id: str | int | None = Field(None, description="会话 ID（可选，兼容 UUID 字符串和旧数字 ID）", examples=["4e8e04c0d9494be4a8686bb48b2b144e"])
+    attachment_urls: list[str] | None = Field(None, description="附件 URL 列表")
+    scene_id: int | None = Field(None, description="场景 ID（可选）", examples=[1])
 
 # 上传文件临时存储目录
 UPLOAD_DIR = os.path.join(tempfile.gettempdir(), "rsod_uploads")
@@ -105,13 +115,19 @@ async def upload_image(
         if suffix == ".zip"
         else "image"
     )
-    # 图片上传后写入对象存储，浏览器刷新时仍可展示原图；MinIO 不可用不阻断本轮检测。
+    # 图片和视频上传后写入对象存储，浏览器刷新时仍可展示原始附件；
+    # MinIO 不可用不阻断本轮检测，当前请求仍使用临时文件完成处理。
     attachment_url = None
-    if file_type == "image":
+    if file_type in {"image", "video"}:
         try:
-            object_name = f"chat_attachments/{current_user.id}/{uuid.uuid4().hex}{suffix}"
+            object_name = (
+                f"chat_attachments/{current_user.id}/{uuid.uuid4().hex}{suffix}"
+            )
             attachment_url = MinIOClient().upload_file(
-                object_name, file_path, file.content_type or "image/jpeg"
+                object_name,
+                file_path,
+                file.content_type
+                or ("video/mp4" if file_type == "video" else "image/jpeg"),
             )
         except Exception as exc:
             logger.warning("对话原图上传 MinIO 失败: %s", exc)
@@ -127,6 +143,7 @@ async def upload_image(
 
 @router.post("/stream")
 async def chat_stream(
+    body: ChatStreamRequest,
     request: Request,
     current_user=Depends(get_current_user),
 ):
@@ -138,20 +155,18 @@ async def chat_stream(
         "message": "检测这张图片",
         "image_path": "/tmp/uploads/xxx.jpg",  // 单附件（图片、视频或 ZIP）
         "image_paths": ["/tmp/uploads/a.jpg", "/tmp/uploads/b.jpg"],  // 多个图片附件
-        "session_id": 123                        // 可选，会话 ID
+        "session_id": "4e8e04c0d9494be4a8686bb48b2b144e"  // 可选，会话 ID
     }
 
     响应：SSE 流式事件
     """
-    # ── 解析请求体 ──
-    body = await request.json()
     # SSE 不经过 Axios；从请求头或用户偏好解析本轮 Agent 的回复语言。
     display_language = request_language(request, current_user)
-    message = body.get("message", "")
-    image_path = body.get("image_path")
-    image_paths = body.get("image_paths")
-    attachment_urls = body.get("attachment_urls") or []
-    session_id = _validated_session_id(body.get("session_id"))
+    message = body.message
+    image_path = body.image_path
+    image_paths = body.image_paths
+    attachment_urls = body.attachment_urls or []
+    session_id = _validated_session_id(body.session_id)
 
     if not message:
         raise HTTPException(status_code=400, detail="消息内容不能为空")
@@ -182,6 +197,11 @@ async def chat_stream(
     )
     # StreamingResponse 开始执行时，鉴权依赖的数据库 Session 可能已关闭。
     user_id = current_user.id
+    # 用户列表属于管理操作，管理员身份必须随本轮 Agent 请求传入工具执行层。
+    is_admin = any(
+        user_role.role and user_role.role.name == "admin"
+        for user_role in current_user.user_roles
+    ) or bool(getattr(current_user, "is_superuser", False))
     session = chat_history_service.ensure_session(user_id, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="会话不存在或无权访问")
@@ -200,16 +220,17 @@ async def chat_stream(
                 ensure_ascii=False,
             )
             yield f"data: {session_data}\n\n"
-            # 使用 Agent 流式处理
-            async for event in detection_agent.chat_stream(
+            # 使用多 Agent 流式处理（Supervisor 路由 + 子 Agent 执行）
+            async for event in multi_agent_chat_stream(
                 message=message,
                 image_path=image_path,
                 image_paths=image_paths,
                 user_id=user_id,
-                scene_id=body.get("scene_id"),
+                scene_id=body.scene_id,
                 session_id=session_id,
                 display_language=display_language,
                 attachment_urls=attachment_urls,
+                is_admin=is_admin,
             ):
                 # 将事件序列化为 SSE 格式
                 event_data = json.dumps(event, ensure_ascii=False)

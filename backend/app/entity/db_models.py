@@ -245,9 +245,38 @@ class DetectionTask(Base):
     analysis_report = Column(Text, nullable=True, comment="分析报告 (Markdown 格式)")
     analysis_suggestion = Column(Text, nullable=True, comment="专业建议")
     risk_level = Column(
-        String(20), nullable=True, comment="风险等级: low/medium/high/critical"
+        String(32),
+        nullable=True,
+        comment="风险等级: low/moderate/high/critical/insufficient_information",
     )
     analyzed_at = Column(DateTime, nullable=True, comment="分析完成时间")
+    treatment_status = Column(
+        String(20),
+        nullable=False,
+        default="pending",
+        server_default="pending",
+        comment="治疗状态: pending/in_progress/monitoring/treated/resolved",
+    )
+    treatment_note = Column(Text, nullable=True, comment="用户维护的治疗备注")
+    treatment_updated_at = Column(DateTime, nullable=True, comment="治疗状态更新时间")
+    latitude = Column(Float, nullable=True, comment="检测地点纬度")
+    longitude = Column(Float, nullable=True, comment="检测地点经度")
+    location_name = Column(String(255), nullable=True, comment="检测地点名称")
+    location_source = Column(
+        String(20),
+        nullable=True,
+        comment="位置来源: browser/manual/exif/other",
+    )
+    location_updated_at = Column(DateTime, nullable=True, comment="位置更新时间")
+    environment_risk_level = Column(
+        String(32),
+        nullable=True,
+        comment="天气环境风险: low/moderate/high/critical/unavailable",
+    )
+    weather_summary = Column(Text, nullable=True, comment="天气风险摘要")
+    weather_recommendations = Column(JSON, nullable=True, comment="天气相关建议")
+    weather_snapshot = Column(JSON, nullable=True, comment="天气接口快照")
+    weather_updated_at = Column(DateTime, nullable=True, comment="天气风险更新时间")
 
     created_at = Column(DateTime, default=datetime.now, index=True, comment="创建时间")
     completed_at = Column(DateTime, nullable=True, comment="完成时间")
@@ -258,6 +287,9 @@ class DetectionTask(Base):
     model_version = relationship("ModelVersion", back_populates="detection_tasks")
     results = relationship(
         "DetectionResult", back_populates="task", cascade="all, delete-orphan"
+    )
+    severity_assessments = relationship(
+        "SeverityAssessment", back_populates="task", cascade="all, delete-orphan"
     )
 
 
@@ -295,6 +327,45 @@ class DetectionResult(Base):
 
     # 关联
     task = relationship("DetectionTask", back_populates="results")
+
+
+class SeverityAssessment(Base):
+    """病害严重程度评估表 - 同一个检测任务可按不同病害分别评估"""
+
+    __tablename__ = "severity_assessments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(
+        Integer,
+        ForeignKey("detection_tasks.id"),
+        nullable=False,
+        index=True,
+        comment="所属检测任务",
+    )
+    class_name = Column(String(100), nullable=False, index=True, comment="评估类别")
+    answers = Column(JSON, nullable=False, comment="用户问卷答案")
+    risk_level = Column(
+        String(32),
+        nullable=False,
+        comment="严重程度: low/moderate/high/critical/insufficient_information",
+    )
+    assessment_confidence = Column(
+        String(20),
+        nullable=False,
+        default="medium",
+        comment="评估可信度: low/medium/high",
+    )
+    summary = Column(Text, nullable=False, comment="评估摘要")
+    reasons = Column(JSON, nullable=False, default=list, comment="评估依据")
+    uncertainties = Column(JSON, nullable=False, default=list, comment="不确定信息")
+    recommended_actions = Column(JSON, nullable=False, default=list, comment="建议措施")
+    llm_model = Column(String(100), nullable=True, comment="生成说明时使用的模型")
+    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
+    updated_at = Column(
+        DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间"
+    )
+
+    task = relationship("DetectionTask", back_populates="severity_assessments")
 
 
 # ==============================================================================
@@ -663,7 +734,50 @@ class DatasetLabel(Base):
 
 
 # ==============================================================================
-# 六、系统运维
+# 六、知识库管理
+# ==============================================================================
+
+
+class KnowledgeDocument(Base):
+    """知识库文档表 - 管理文档从上传到审核发布的完整生命周期"""
+
+    __tablename__ = "knowledge_documents"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(255), nullable=False, comment="文档标题")
+    file_path = Column(String(500), nullable=False, comment="文件存储路径")
+    
+    uploader_id = Column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True, comment="上传者ID"
+    )
+    status = Column(
+        String(20),
+        default="pending",
+        nullable=False,
+        comment="状态: pending/approved/rejected/processing/failed",
+    )
+    
+    reviewer_id = Column(
+        Integer, ForeignKey("users.id"), nullable=True, comment="审核者ID"
+    )
+    review_comment = Column(Text, nullable=True, comment="审核意见/驳回原因")
+    reviewed_at = Column(DateTime, nullable=True, comment="审核时间")
+    
+    visibility = Column(
+        String(20), default="public", comment="可见性: public/private"
+    )
+    chunk_count = Column(Integer, default=0, comment="分块数量")
+    
+    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+
+    # 关联
+    uploader = relationship("User", foreign_keys=[uploader_id], lazy="select")
+    reviewer = relationship("User", foreign_keys=[reviewer_id], lazy="select")
+
+
+# ==============================================================================
+# 七、系统运维
 # ==============================================================================
 
 

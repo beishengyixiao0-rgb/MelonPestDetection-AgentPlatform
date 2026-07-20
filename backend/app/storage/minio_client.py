@@ -160,3 +160,17 @@ class MinIOClient:
             )
         except S3Error:
             pass
+
+    def download_text(self, object_name: str, encoding: str = "utf-8") -> str:
+        """
+        从 MinIO 下载文本文件
+
+        Args:
+            object_name: MinIO 中的对象名称（路径）
+            encoding: 文本编码，默认 UTF-8
+
+        Returns:
+            文本内容
+        """
+        data = self.get_object(object_name)
+        return data.decode(encoding)

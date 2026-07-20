@@ -1,0 +1,54 @@
+"""add knowledge_documents table
+
+Revision ID: bd5115dc322e
+Revises: b1f8e8d9c3a0
+Create Date: 2026-07-17 09:51:38.467384
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+revision: str = 'bd5115dc322e'
+down_revision: Union[str, None] = 'b1f8e8d9c3a0'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    op.create_table('knowledge_documents',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('title', sa.String(length=255), nullable=False, comment='文档标题'),
+    sa.Column('file_path', sa.String(length=500), nullable=False, comment='文件存储路径'),
+    sa.Column('uploader_id', sa.Integer(), nullable=False, comment='上传者ID'),
+    sa.Column('status', sa.String(length=20), nullable=False, comment='状态: pending/approved/rejected/processing/failed'),
+    sa.Column('reviewer_id', sa.Integer(), nullable=True, comment='审核者ID'),
+    sa.Column('review_comment', sa.Text(), nullable=True, comment='审核意见/驳回原因'),
+    sa.Column('reviewed_at', sa.DateTime(), nullable=True, comment='审核时间'),
+    sa.Column('visibility', sa.String(length=20), nullable=True, comment='可见性: public/private'),
+    sa.Column('chunk_count', sa.Integer(), nullable=True, comment='分块数量'),
+    sa.Column('created_at', sa.DateTime(), nullable=True, comment='创建时间'),
+    sa.Column('updated_at', sa.DateTime(), nullable=True, comment='更新时间'),
+    sa.ForeignKeyConstraint(['reviewer_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['uploader_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_knowledge_documents_uploader_id'), 'knowledge_documents', ['uploader_id'], unique=False)
+    op.alter_column('users', 'display_language',
+               existing_type=sa.VARCHAR(length=8),
+               comment='显示语言: zh/en',
+               existing_nullable=False,
+               existing_server_default=sa.text("'zh'::character varying"))
+
+
+def downgrade() -> None:
+    op.alter_column('users', 'display_language',
+               existing_type=sa.VARCHAR(length=8),
+               comment=None,
+               existing_comment='显示语言: zh/en',
+               existing_nullable=False,
+               existing_server_default=sa.text("'zh'::character varying"))
+    op.drop_index(op.f('ix_knowledge_documents_uploader_id'), table_name='knowledge_documents')
+    op.drop_table('knowledge_documents')

@@ -1,6 +1,6 @@
 <template>
   <aside class="sidebar">
-    <router-link to="/" class="brand"> 🌿 AgriAgent </router-link>
+    <router-link to="/home" class="brand"> 🌿 AgriAgent </router-link>
 
     <button class="new-chat" @click="$emit('new-diagnosis')">
       ＋ {{ tr("sidebar.newDiagnosis") }}

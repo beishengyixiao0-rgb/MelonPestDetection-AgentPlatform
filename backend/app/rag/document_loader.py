@@ -177,5 +177,43 @@ class DocumentLoader:
                 return line[2:].strip()
         return default
 
+    @staticmethod
+    def load_single_document(file_path: str, title: str = None) -> list[dict]:
+        """
+        加载单个文档（支持本地文件路径或 MinIO 对象路径）
+
+        Args:
+            file_path: 文档路径
+            title: 文档标题（可选，不提供则从内容中提取）
+
+        Returns:
+            文档列表（单个元素）
+        """
+        from app.storage.minio_client import MinIOClient
+
+        try:
+            if file_path.startswith("knowledge/documents/"):
+                minio_client = MinIOClient()
+                content = minio_client.download_text(file_path)
+            else:
+                content = Path(file_path).read_text(encoding="utf-8")
+
+            if title is None:
+                title = DocumentLoader._extract_title(content, Path(file_path).stem)
+
+            return [
+                {
+                    "content": content,
+                    "metadata": {
+                        "source": Path(file_path).name,
+                        "title": title,
+                        "file_path": file_path,
+                    },
+                }
+            ]
+        except Exception as e:
+            logger.error("加载单个文档失败: %s, 错误: %s", file_path, str(e))
+            return []
+
 
 document_loader = DocumentLoader()

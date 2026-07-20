@@ -208,5 +208,38 @@ class PgvectorClient:
         finally:
             db.close()
 
+    def delete_by_document_id(self, document_id: int) -> int:
+        """
+        删除指定文档 ID 的所有向量索引
+
+        Args:
+            document_id: 文档 ID
+
+        Returns:
+            删除的向量条数
+        """
+        db = SessionLocal()
+        try:
+            try:
+                result = db.execute(
+                    text("DELETE FROM knowledge_embeddings WHERE metadata ->> 'document_id' = :document_id"),
+                    {"document_id": str(document_id)},
+                )
+                db.commit()
+                deleted_count = result.rowcount
+                logger.info("删除文档向量索引: document_id=%d, deleted=%d", document_id, deleted_count)
+                return deleted_count or 0
+            except Exception as e:
+                if "relation \"knowledge_embeddings\" does not exist" in str(e):
+                    db.rollback()
+                    return 0
+                raise
+        except Exception as e:
+            db.rollback()
+            logger.error("删除文档向量索引失败: %s", str(e))
+            return 0
+        finally:
+            db.close()
+
 
 pgvector_client = PgvectorClient()

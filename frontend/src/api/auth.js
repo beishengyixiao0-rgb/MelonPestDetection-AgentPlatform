@@ -40,3 +40,19 @@ export function updateDisplayLanguageApi(displayLanguage) {
         display_language: displayLanguage === 'en' ? 'en' : 'zh',
     })
 }
+
+/**
+ * 忘记密码 - 生成重置令牌
+ * @param {Object} data - { email }
+ */
+export function forgotPasswordApi(data) {
+    return request.post('/auth/forgot-password', data)
+}
+
+/**
+ * 重置密码 - 验证令牌并更新密码
+ * @param {Object} data - { token, new_password }
+ */
+export function resetPasswordApi(data) {
+    return request.post('/auth/reset-password', data)
+}

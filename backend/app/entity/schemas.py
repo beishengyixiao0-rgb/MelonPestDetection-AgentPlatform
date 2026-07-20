@@ -10,10 +10,16 @@ Pydantic 请求/响应模型
   - List 模型：分⻚列表查询的参数和响应
 """
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+SeverityRiskLevel = Literal[
+    "low", "moderate", "high", "critical", "insufficient_information"
+]
+SeverityAssessmentConfidence = Literal["low", "medium", "high"]
 
 
 # ══════════════════════════════════════════════════════════════
@@ -257,6 +263,64 @@ class DetectionTaskDetail(BaseModel):
     """检测任务详情（含结果列表）"""
     task: DetectionTaskResponse
     results: list[DetectionResultResponse] = []
+
+
+class SeverityAssessmentRequest(BaseModel):
+    """病害严重程度评估请求。"""
+
+    class_name: str = Field(..., min_length=1, max_length=100, description="要评估的检测类别")
+    answers: dict = Field(default_factory=dict, description="用户问卷答案")
+    additional_notes: Optional[str] = Field(None, max_length=1000, description="补充说明")
+
+
+class SeverityAssessmentResult(BaseModel):
+    """严重程度评估结构化输出；规则或 LLM 结果入库前都必须符合该结构。"""
+
+    risk_level: SeverityRiskLevel
+    assessment_confidence: SeverityAssessmentConfidence
+    summary: str = Field(..., min_length=1, max_length=2000)
+    reasons: list[str] = Field(default_factory=list)
+    uncertainties: list[str] = Field(default_factory=list)
+    recommended_actions: list[str] = Field(default_factory=list)
+
+
+class SeverityAssessmentResponse(BaseModel):
+    """病害严重程度评估响应。"""
+
+    class_name: str
+    risk_level: SeverityRiskLevel
+    assessment_confidence: SeverityAssessmentConfidence
+    summary: str
+    reasons: list[str]
+    uncertainties: list[str]
+    recommended_actions: list[str]
+    llm_model: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class TreatmentStatusUpdate(BaseModel):
+    """用户维护治疗状态请求。"""
+
+    status: str = Field(
+        ...,
+        pattern="^(pending|in_progress|monitoring|treated|resolved)$",
+        description="治疗状态",
+    )
+    note: Optional[str] = Field(None, max_length=1000, description="治疗备注")
+
+
+class DetectionTaskLocationUpdate(BaseModel):
+    """检测任务地理位置更新请求。"""
+
+    latitude: float = Field(..., ge=-90, le=90, description="纬度，建议由前端授权定位后传入")
+    longitude: float = Field(..., ge=-180, le=180, description="经度，建议由前端授权定位后传入")
+    location_name: Optional[str] = Field(None, max_length=255, description="地点名称")
+    location_source: str = Field(
+        "manual",
+        pattern="^(browser|manual|exif|other)$",
+        description="位置来源",
+    )
 
 
 # --- 检测统计 ---

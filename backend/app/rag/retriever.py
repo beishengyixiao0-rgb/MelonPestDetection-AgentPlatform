@@ -4,7 +4,7 @@
 职责：
   - 知识库初始化（加载文档 → 分块 → 向量化 → 存储）
   - 语义检索（查询 → 向量化 → Pgvector 检索 → 格式化结果）
-  - 知识库管理（重建索引、清空、统计）
+  - 知识库管理（重建索引、清空、统计、单文档索引）
 
 使用方式：
   from app.rag.retriever import knowledge_retriever
@@ -16,6 +16,7 @@
   results = knowledge_retriever.search("什么是 IoU？", top_k=3)
 """
 
+from app.config.settings import settings
 from app.core.logger import get_logger
 from app.rag.document_loader import document_loader
 from app.rag.embedding import embedding_service
@@ -151,6 +152,83 @@ class KnowledgeRetriever:
             "total_chunks": count,
             "index_built": self._index_built or count > 0,
         }
+
+    def delete_document_index(self, document_id: int) -> int:
+        """
+        删除指定文档的所有向量索引
+
+        Args:
+            document_id: 文档 ID
+
+        Returns:
+            删除的向量条数
+        """
+        return pgvector_client.delete_by_document_id(document_id)
+
+    def index_document(
+        self,
+        document_id: int,
+        file_path: str,
+        title: str,
+        status: str = "approved",
+    ) -> int:
+        """
+        对单个文档建立索引
+
+        Args:
+            document_id: 文档 ID
+            file_path: 文档路径（MinIO 对象路径或本地路径）
+            title: 文档标题
+            status: 文档状态（用于元数据过滤）
+
+        Returns:
+            索引的文本块数量
+        """
+        documents = document_loader.load_single_document(file_path, title)
+        if not documents:
+            logger.warning("文档加载失败: %s", file_path)
+            return 0
+
+        chunks = document_loader.split_documents(
+            documents,
+            chunk_size=settings.RAG_CHUNK_SIZE,
+            chunk_overlap=settings.RAG_CHUNK_OVERLAP,
+        )
+        if not chunks:
+            logger.warning("文档分块后为空: %s", file_path)
+            return 0
+
+        texts = [chunk["content"] for chunk in chunks]
+        metadatas = []
+        for chunk in chunks:
+            metadata = chunk["metadata"].copy()
+            metadata["document_id"] = document_id
+            metadata["status"] = status
+            metadatas.append(metadata)
+
+        embeddings = embedding_service.embed_texts(texts)
+
+        valid_indices = [i for i, emb in enumerate(embeddings) if emb]
+        if not valid_indices:
+            logger.error("所有文本向量化均失败")
+            return 0
+
+        valid_texts = [texts[i] for i in valid_indices]
+        valid_embeddings = [embeddings[i] for i in valid_indices]
+        valid_metadatas = [metadatas[i] for i in valid_indices]
+
+        pgvector_client.insert_embeddings(
+            valid_texts, valid_embeddings, valid_metadatas
+        )
+
+        chunk_count = len(valid_texts)
+        logger.info(
+            "文档索引完成: document_id=%d, file_path=%s, chunks=%d",
+            document_id,
+            file_path,
+            chunk_count,
+        )
+        return chunk_count
 
 
 knowledge_retriever = KnowledgeRetriever()
