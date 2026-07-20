@@ -1,13 +1,18 @@
 """
 认证相关 API 路由
-- POST /api/auth/register          用户注册
-- POST /api/auth/login             用户登录
-- POST /api/auth/forgot-password   忘记密码（生成重置令牌）
-- POST /api/auth/reset-password    重置密码（验证令牌并更新密码）
-- GET    /api/auth/profile         获取个人信息（含检测统计）
-- PUT    /api/auth/profile         修改个人信息
-- PUT    /api/auth/password        修改密码
-- GET    /api/auth/me              获取当前用户信息（兼容旧接口）
+
+接口列表：
+  - POST /api/auth/register                     用户注册
+  - POST /api/auth/login                        用户登录
+  - POST /api/auth/forgot-password              忘记密码（发送验证码）
+  - POST /api/auth/verify-code                  验证邮箱验证码
+  - POST /api/auth/reset-password               重置密码（验证令牌并更新密码）
+  - GET  /api/auth/profile                      获取个人信息（含检测统计）
+  - PUT  /api/auth/profile                      修改个人信息
+  - PUT  /api/auth/password                     修改密码
+  - PUT  /api/auth/preferences                  更新用户偏好
+  - PUT  /api/auth/preferences/display-language 更新显示语言偏好
+  - GET  /api/auth/me                           获取当前用户信息（兼容旧接口）
 """
 
 

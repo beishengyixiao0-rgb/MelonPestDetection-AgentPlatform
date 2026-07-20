@@ -2,8 +2,10 @@
 健康检查 API 路由
 
 接口列表：
-  - GET /api/health             基础健康检查（应用状态）
-  - GET /api/health/detail      详细健康检查（含数据库、Redis、MinIO 状态）
+  - GET /api/health            基础健康检查（应用状态）
+  - GET /api/health/detail     详细健康检查（含数据库、Redis、MinIO 状态）
+  - GET /api/health/redis      Redis 健康检查
+  - GET /api/health/redis/info Redis 连接和运行信息
 
 设计原则：
   - 基础检查不依赖外部服务，响应快

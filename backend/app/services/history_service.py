@@ -948,6 +948,8 @@ class HistoryService:
                 "reasons": assessment.reasons or [],
                 "uncertainties": assessment.uncertainties or [],
                 "recommended_actions": assessment.recommended_actions or [],
+                # 直接返回模型来源，方便前端和接口测试判断是否经过 LLM 增强。
+                "llm_model": assessment.llm_model or "rule-based",
                 "created_at": assessment.created_at.isoformat()
                 if assessment.created_at
                 else None,

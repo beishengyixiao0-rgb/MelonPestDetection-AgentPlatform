@@ -2,12 +2,13 @@
 检测 API 路由 — 快捷检测接口（跳过 LLM，直接调用 YOLO）
 
 接口列表：
-  - POST /api/detection/single     单图检测
-  - POST /api/detection/batch      批量检测
-  - POST /api/detection/zip        ZIP 文件检测
-  - POST /api/detection/video      视频检测
-  - GET  /api/detection/status/:id 查询任务状态
-  - GET  /api/detection/video/status/:id 查询视频检测进度
+  - POST      /api/detection/single                 单图检测
+  - POST      /api/detection/batch                  批量检测
+  - POST      /api/detection/zip                    ZIP 文件检测
+  - GET       /api/detection/status/{task_id}       查询图片/ZIP 检测任务状态
+  - POST      /api/detection/video                  视频检测
+  - GET       /api/detection/video/status/{task_id} 查询视频检测进度
+  - WebSocket /api/detection/camera                 摄像头实时检测
 """
 
 import asyncio

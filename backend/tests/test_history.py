@@ -350,7 +350,30 @@ def test_create_severity_assessment_insufficient_information(client, db_session)
     )
 
     assert response.status_code == 200
-    assert response.json()["risk_level"] == "insufficient_information"
+    data = response.json()
+    assert data["risk_level"] == "insufficient_information"
+    assert data["llm_model"] == "rule-based"
+
+    detail = client.get(f"/api/history/tasks/{task.id}", headers=headers).json()
+    assert detail["task"]["risk_level"] == "insufficient_information"
+
+
+def test_detection_task_risk_level_column_accepts_all_severity_values():
+    """任务摘要风险字段必须能容纳最长的严重程度枚举值。"""
+    from app.entity.db_models import DetectionTask
+
+    max_risk_level_length = max(
+        len(level)
+        for level in [
+            "low",
+            "moderate",
+            "high",
+            "critical",
+            "insufficient_information",
+        ]
+    )
+
+    assert DetectionTask.risk_level.type.length >= max_risk_level_length
 
 
 def test_get_severity_questions(client, db_session):
