@@ -245,7 +245,9 @@ class DetectionTask(Base):
     analysis_report = Column(Text, nullable=True, comment="分析报告 (Markdown 格式)")
     analysis_suggestion = Column(Text, nullable=True, comment="专业建议")
     risk_level = Column(
-        String(20), nullable=True, comment="风险等级: low/medium/high/critical"
+        String(32),
+        nullable=True,
+        comment="风险等级: low/moderate/high/critical/insufficient_information",
     )
     analyzed_at = Column(DateTime, nullable=True, comment="分析完成时间")
     treatment_status = Column(

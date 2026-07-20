@@ -3,21 +3,24 @@
 
 接口列表：
   - 普通用户接口：
-    - POST /api/knowledge/documents    上传文档（待审核）
-    - GET  /api/knowledge/documents    查看已发布文档列表
-    - GET  /api/knowledge/documents/{id} 查看文档详情/预览
-    - GET  /api/knowledge/my-submissions 查看我的投稿及审核状态
-    - POST /api/knowledge/search       手动测试检索（只查已发布）
+    - POST /api/knowledge/documents              上传文档（待审核）
+    - POST /api/knowledge/documents/batch        批量上传文档（待审核）
+    - GET  /api/knowledge/documents              查看已发布文档列表
+    - GET  /api/knowledge/documents/{document_id} 查看文档详情/预览
+    - GET  /api/knowledge/my-submissions         查看我的投稿及审核状态
+    - POST /api/knowledge/search                 手动测试检索（只查已发布）
   
   - 管理员接口：
-    - GET  /api/knowledge/admin/documents 全部文档列表（含筛选）
-    - GET  /api/knowledge/admin/pending    待审核队列
-    - PUT  /api/knowledge/admin/{id}/approve 审核通过（触发向量化）
-    - PUT  /api/knowledge/admin/{id}/reject  驳回（填写原因）
-    - DELETE /api/knowledge/admin/{id}      删除文档（同步删除向量）
-    - POST /api/knowledge/admin/{id}/reindex 重新索引
-    - POST /api/knowledge/build          构建/重建知识库索引
-    - GET  /api/knowledge/stats          知识库统计信息
+    - GET    /api/knowledge/admin/documents              全部文档列表（含筛选）
+    - GET    /api/knowledge/admin/pending                待审核队列
+    - PUT    /api/knowledge/admin/{document_id}/approve  审核通过（触发向量化）
+    - PUT    /api/knowledge/admin/{document_id}/reject   驳回（填写原因）
+    - DELETE /api/knowledge/admin/{document_id}          删除文档（同步删除向量）
+    - POST   /api/knowledge/admin/{document_id}/reindex  重新索引
+
+  - 兼容/统计接口：
+    - POST /api/knowledge/build                          构建/重建知识库索引（管理员）
+    - GET  /api/knowledge/stats                          知识库统计信息
 """
 
 import os

@@ -2,11 +2,18 @@
 检测历史记录 API 路由
 
 接口列表：
-  - GET    /api/history/tasks         检测任务分页列表
-  - GET    /api/history/tasks/{id}    检测任务详情（含结果列表）
-  - DELETE /api/history/tasks/{id}    删除检测任务（级联删除结果）
-  - GET    /api/history/summary       历史记录快速统计
-  - GET    /api/history/scenes        获取所有检测场景列表
+  - GET    /api/history/severity-questions                     严重程度问卷配置
+  - GET    /api/history/tasks                                  检测任务分页列表
+  - GET    /api/history/tasks/{task_id}                        检测任务详情（含结果列表）
+  - PATCH  /api/history/tasks/{task_id}/location               更新检测任务地理位置
+  - GET    /api/history/tasks/{task_id}/weather-risk           刷新天气环境风险
+  - GET    /api/history/tasks/{task_id}/report                 检测报告预览
+  - GET    /api/history/tasks/{task_id}/report/download        下载检测报告
+  - POST   /api/history/tasks/{task_id}/severity-assessment    提交病害严重程度评估
+  - PATCH  /api/history/tasks/{task_id}/treatment-status       更新治疗状态
+  - DELETE /api/history/tasks/{task_id}                        删除检测任务（级联删除结果）
+  - GET    /api/history/summary                                历史记录快速统计
+  - GET    /api/history/scenes                                 获取所有检测场景列表
 """
 
 from typing import Optional
@@ -143,6 +150,7 @@ async def update_task_location(
                 "weather_metrics": weather_result.get("weather_metrics"),
                 "weather_reasons": weather_result.get("reasons"),
                 "weather_updated_at": weather_result.get("weather_updated_at"),
+                "llm_model": weather_result.get("llm_model"),
             }
         )
     return result

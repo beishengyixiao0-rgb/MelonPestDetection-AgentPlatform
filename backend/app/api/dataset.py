@@ -1,14 +1,24 @@
 """
 数据集管理模块 API
 
-功能：
-- 数据集上传
-- 自动解析YOLO格式
-- 图片浏览
-- 标签查看
-- 类别统计
-- 数据导出
-- 系统自动统计
+接口列表：
+  - POST   /api/dataset/create                         创建数据集
+  - GET    /api/dataset/list                           获取数据集列表
+  - GET    /api/dataset/detail/{dataset_id}             获取数据集详情
+  - POST   /api/dataset/{dataset_id}/upload/images      上传图片
+  - POST   /api/dataset/{dataset_id}/upload/labels      上传标签
+  - POST   /api/dataset/{dataset_id}/convert            自动解析 YOLO 标签
+  - GET    /api/dataset/{dataset_id}/images             获取图片列表
+  - GET    /api/dataset/images/{image_id}               获取单张图片详情
+  - DELETE /api/dataset/images/{image_id}               删除单张图片
+  - GET    /api/dataset/{dataset_id}/labels             获取标签列表
+  - GET    /api/dataset/{dataset_id}/statistics         获取数据集统计信息
+  - GET    /api/dataset/{dataset_id}/summary            获取数据集统计摘要
+  - POST   /api/dataset/{dataset_id}/split              划分训练/验证/测试集
+  - POST   /api/dataset/{dataset_id}/export             导出数据集
+  - GET    /api/dataset/disease/class                   获取病害类别列表
+  - DELETE /api/dataset/{dataset_id}                    删除数据集
+  - POST   /api/dataset/{dataset_id}/upload/zip         上传数据集 ZIP 包
 """
 
 from typing import List, Optional

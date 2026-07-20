@@ -348,6 +348,7 @@ class SeverityAssessmentResponse(BaseModel):
     reasons: list[str]
     uncertainties: list[str]
     recommended_actions: list[str]
+    llm_model: Optional[str] = None
     created_at: datetime
 
     model_config = {

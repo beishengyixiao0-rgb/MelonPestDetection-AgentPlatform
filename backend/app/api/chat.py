@@ -2,15 +2,15 @@
 对话相关 API 路由
 
 接口列表：
-  - POST /api/chat/upload    上传图片、视频或 ZIP 文件，返回服务端路径
-  - POST /api/chat/stream    SSE 流式对话（核心接口）
-  - GET  /api/chat/sessions  获取当前用户的会话列表
-  - POST /api/chat/sessions  新建空会话
-  - GET  /api/chat/sessions/{session_id}     获取指定会话及消息历史
-  - PATCH /api/chat/sessions/{session_id}    重命名指定会话
-  - DELETE /api/chat/sessions/{session_id}   删除指定会话
-  - POST /api/chat/clear     清空指定会话的消息
-
+  - POST   /api/chat/upload                               上传图片、视频或 ZIP 文件，返回服务端路径
+  - POST   /api/chat/stream                               SSE 流式对话（核心接口）
+  - POST   /api/chat/sessions/{session_id}/quick-detection 将快捷检测结果写入指定会话
+  - GET    /api/chat/sessions                             获取当前用户的会话列表
+  - POST   /api/chat/sessions                             新建空会话
+  - GET    /api/chat/sessions/{session_id}                 获取指定会话及消息历史
+  - POST   /api/chat/clear                                清空指定会话的消息
+  - PATCH  /api/chat/sessions/{session_id}                 重命名指定会话
+  - DELETE /api/chat/sessions/{session_id}                 删除指定会话
 """
 
 import json
