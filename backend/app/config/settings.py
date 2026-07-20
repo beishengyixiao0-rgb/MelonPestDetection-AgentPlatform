@@ -72,9 +72,9 @@ class Settings(BaseSettings):
     QWEN_PROXY: str = ""
 
     # 可选的 OpenAI 兼容后备配置；未配置时不会初始化远程客户端。
-    OPENAI_API_KEY: str = ""
-    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
-    OPENAI_MODEL: str = "gpt-4o-mini"
+    # OPENAI_API_KEY: str = ""
+    # OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    # OPENAI_MODEL: str = "gpt-4o-mini"
 
     # ── RAG / Embedding 配置 ──────────────────────────
     # 向量模型可使用独立密钥；留空时兼容回退到 QWEN_API_KEY。

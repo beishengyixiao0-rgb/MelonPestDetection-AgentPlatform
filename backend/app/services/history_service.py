@@ -1656,13 +1656,32 @@ class HistoryService:
             raise RuntimeError("PDF 导出依赖 reportlab 未安装，请先执行 pip install -r requirements.txt") from exc
 
         font_name = "Helvetica"
-        for font_path in [r"C:\Windows\Fonts\msyh.ttc", r"C:\Windows\Fonts\simsun.ttc"]:
+        font_candidates = [
+            # Windows
+            r"C:\Windows\Fonts\msyh.ttc",
+            r"C:\Windows\Fonts\simsun.ttc",
+            # macOS（PingFang 使用 PostScript outlines，ReportLab 无法嵌入）
+            "/Library/Fonts/Arial Unicode.ttf",
+            "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+            "/System/Library/Fonts/STHeiti Medium.ttc",
+            "/System/Library/Fonts/STHeiti Light.ttc",
+            "/System/Library/Fonts/Supplemental/Songti.ttc",
+            # Linux / Docker
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        ]
+        for font_path in font_candidates:
+            if not Path(font_path).is_file():
+                continue
             try:
-                pdfmetrics.registerFont(TTFont("ChineseFont", font_path))
-                font_name = "ChineseFont"
+                pdfmetrics.registerFont(TTFont("ReportChineseFont", font_path))
+                font_name = "ReportChineseFont"
                 break
             except Exception:
                 continue
+        if font_name == "Helvetica":
+            logger.warning("未找到可嵌入 PDF 的中文字体，中文报告可能无法正确显示")
 
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=16 * mm, rightMargin=16 * mm)
