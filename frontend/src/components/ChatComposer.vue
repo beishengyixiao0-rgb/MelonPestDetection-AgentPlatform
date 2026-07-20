@@ -58,6 +58,10 @@
         <span class="option-icon"><Picture /></span>
         <span class="option-copy"><strong>{{ tr('composer.agentImage') }}</strong><small>{{ tr('composer.agentImageDesc') }}</small></span>
       </button>
+      <button class="upload-option" @click="$emit('select-upload-mode', 'knowledge')">
+        <span class="option-icon"><DocumentAdd /></span>
+        <span class="option-copy"><strong>{{ tr('composer.knowledge') }}</strong><small>{{ tr('composer.knowledgeDesc') }}</small></span>
+      </button>
       <button class="upload-option" @click="$emit('select-upload-mode', 'image')">
         <span class="option-icon"><Lightning /></span>
         <span class="option-copy"><strong>{{ tr('composer.single') }}</strong><small>{{ tr('composer.singleDesc') }}</small></span>
@@ -158,7 +162,7 @@
 </template>
 
 <script setup>
-import { Camera, Files, Lightning, Microphone, Monitor, Picture, Plus, Promotion, VideoCamera } from '@element-plus/icons-vue'
+import { Camera, DocumentAdd, Files, Lightning, Microphone, Monitor, Picture, Plus, Promotion, VideoCamera } from '@element-plus/icons-vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useLocaleStore } from '@/stores/locale'
 import { t } from '@/utils/i18n'
@@ -246,6 +250,7 @@ const getModeLabel = (mode) => ({
   batch: tr('composer.batch'),
   video: tr('composer.video'),
   camera: tr('composer.camera'),
+  knowledge: tr('composer.knowledge'),
 }[mode] || tr('composer.file'))
 
 const resizeTextarea = () => {

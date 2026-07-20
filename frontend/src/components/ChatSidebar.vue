@@ -71,6 +71,14 @@
       >
         🕒 {{ tr('sidebar.detectionHistory') }}
       </router-link>
+
+      <router-link
+        to="/knowledge"
+        class="nav-item"
+        active-class="nav-item-active"
+      >
+        📖 {{ tr('sidebar.knowledgeContribution') }}
+      </router-link>
     </div>
   </aside>
 

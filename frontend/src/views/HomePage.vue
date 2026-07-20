@@ -10,74 +10,12 @@
           <button @click="go('/ai-chat')">{{ tr('nav.chat') }}</button>
           <button @click="go('/data-analysis')">{{ tr('nav.dashboard') }}</button>
           <button @click="go('/history')">{{ tr('nav.history') }}</button>
+          <button @click="go('/knowledge')">{{ tr('nav.knowledge') }}</button>
           <button @click="go('/training')">{{ tr('nav.training') }}</button>
         </div>
 
         <LanguageSwitcher />
-
-        <div class="user-menu" @mouseenter="showUserMenu = true" @mouseleave="showUserMenu = false">
-          <button class="user-trigger" @click="toggleUserMenu">
-            <span class="avatar">{{ userInitial }}</span>
-            <span class="user-meta">
-              <strong>{{ userStore.username || 'User' }}</strong>
-              <small>{{ roleLabel }}</small>
-            </span>
-          </button>
-
-          <div v-if="showUserMenu" class="user-dropdown">
-            <div class="dropdown-header">
-              <div class="avatar large">{{ userInitial }}</div>
-              <div class="dropdown-identity">
-                <div class="dropdown-name">{{ userStore.username || 'User' }}</div>
-                <div class="dropdown-role" :class="{ admin: userStore.isAdmin }">
-                  {{ roleLabel }}
-                </div>
-              </div>
-            </div>
-
-            <div class="dropdown-body">
-              <div class="info-row">
-                <span>{{ tr('home.email') }}</span>
-                <strong>{{ userStore.user?.email || '—' }}</strong>
-              </div>
-              <div class="info-row">
-                <span>{{ tr('home.role') }}</span>
-                <strong>{{ roleLabel }}</strong>
-              </div>
-              <div class="info-row">
-                <span>{{ tr('home.accountStatus') }}</span>
-                <strong :class="userStore.user?.is_active === false ? 'status-disabled' : 'status-active'">
-                  {{ userStore.user?.is_active === false ? tr('home.disabled') : tr('home.active') }}
-                </strong>
-              </div>
-              <div class="info-row">
-                <span>{{ tr('home.phone') }}</span>
-                <strong>{{ userStore.user?.phone || '—' }}</strong>
-              </div>
-              <div class="info-row">
-                <span>{{ tr('home.lastLogin') }}</span>
-                <strong>{{ formatDate(userStore.user?.last_login_at) }}</strong>
-              </div>
-            </div>
-
-            <div v-if="userStore.user?.detection_stats" class="profile-stats">
-              <div>
-                <strong>{{ userStore.user.detection_stats.total_tasks ?? 0 }}</strong>
-                <span>{{ tr('home.tasks') }}</span>
-              </div>
-              <div>
-                <strong>{{ userStore.user.detection_stats.total_objects ?? 0 }}</strong>
-                <span>{{ tr('home.objects') }}</span>
-              </div>
-            </div>
-
-            <div class="permission-note" :class="{ admin: userStore.isAdmin }">
-              {{ userStore.isAdmin ? '管理员权限已启用' : '可使用检测与智能对话功能' }}
-            </div>
-
-            <button class="logout-btn" @click="handleLogout">{{ tr('user.logout') }}</button>
-          </div>
-        </div>
+        <UserMenu />
       </div>
     </header>
 
@@ -196,6 +134,12 @@
             <h3>Training Records</h3>
             <p>Review imported models, training records, evaluation metrics, and test predictions.</p>
           </div>
+
+          <div class="entry-card" @click="go('/knowledge')">
+            <div class="icon">📖</div>
+            <h3>{{ tr('home.knowledgeTitle') }}</h3>
+            <p>{{ tr('home.knowledgeDesc') }}</p>
+          </div>
         </div>
       </section>
 
@@ -215,25 +159,20 @@
 
 <script setup>
 import { useAgentStore } from '@/stores/agent'
-import { useUserStore } from '@/stores/user'
 import WeatherBadge from '@/components/WeatherBadge.vue'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import UserMenu from '@/components/UserMenu.vue'
 import { useLocaleStore } from '@/stores/locale'
 import { t } from '@/utils/i18n'
 import { Camera, Files, Lightning, Monitor, Picture, Plus, VideoCamera } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
-const userStore = useUserStore()
 const agentStore = useAgentStore()
 const localeStore = useLocaleStore()
 const tr = (key, params) => t(key, localeStore.locale, params)
 
-const roleLabel = computed(() => (userStore.isAdmin ? tr('home.admin') : tr('home.user')))
-const userInitial = computed(() => (userStore.username || 'U').charAt(0).toUpperCase())
-const showUserMenu = ref(false)
 const prompt = ref('')
 const showAttachmentMenu = ref(false)
 const homeFileInputRef = ref(null)
@@ -295,36 +234,6 @@ const handleHomeFileSelection = (event) => {
   routeHomeAction(homeFileMode.value, files)
 }
 
-const toggleUserMenu = () => {
-  showUserMenu.value = !showUserMenu.value
-}
-
-const handleLogout = () => {
-  userStore.logout()
-  showUserMenu.value = false
-  ElMessage.success(tr('home.logoutDone'))
-  router.push('/login')
-}
-
-const formatDate = (value) => {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleString(localeStore.locale === 'en' ? 'en-US' : 'zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-onMounted(async () => {
-  try {
-    await userStore.fetchUserProfile()
-  } catch (error) {
-    console.warn('[用户资料刷新失败]', error)
-  }
-})
 </script>
 
 <style scoped>
@@ -359,179 +268,10 @@ onMounted(async () => {
   gap: 12px;
 }
 
-.nav-links button,
-.user-trigger,
-.logout-btn {
+.nav-links button {
   border: none;
   background: transparent;
   cursor: pointer;
-}
-
-.user-menu {
-  position: relative;
-}
-
-.user-trigger {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 999px;
-  background: #f3f4f6;
-}
-
-.avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #16a34a, #22c55e);
-  color: white;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-}
-
-.avatar.large {
-  width: 42px;
-  height: 42px;
-  font-size: 18px;
-}
-
-.user-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.2;
-}
-
-.user-meta small {
-  color: #6b7280;
-}
-
-.user-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  width: 300px;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  box-shadow: 0 12px 30px rgba(0,0,0,0.08);
-  padding: 14px;
-  z-index: 20;
-}
-
-.dropdown-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.dropdown-name {
-  font-weight: 700;
-}
-
-.dropdown-identity {
-  min-width: 0;
-  flex: 1;
-}
-
-.dropdown-role {
-  color: #6b7280;
-  font-size: 13px;
-}
-
-.dropdown-role.admin {
-  color: #b45309;
-  font-weight: 700;
-}
-
-.dropdown-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 0;
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 13px;
-}
-
-.info-row strong {
-  max-width: 180px;
-  color: #374151;
-  overflow-wrap: anywhere;
-  text-align: right;
-}
-
-.info-row span {
-  color: #6b7280;
-}
-
-.status-active {
-  color: #15803d !important;
-}
-
-.status-disabled {
-  color: #dc2626 !important;
-}
-
-.profile-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.profile-stats > div {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 10px 8px;
-  border-radius: 11px;
-  background: #f0fdf4;
-}
-
-.profile-stats strong {
-  color: #166534;
-  font-size: 17px;
-}
-
-.profile-stats span {
-  color: #6b7280;
-  font-size: 11px;
-}
-
-.permission-note {
-  margin-bottom: 10px;
-  padding: 8px 10px;
-  border-radius: 9px;
-  background: #f3f4f6;
-  color: #4b5563;
-  font-size: 12px;
-  text-align: center;
-}
-
-.permission-note.admin {
-  background: #fffbeb;
-  color: #b45309;
-  font-weight: 700;
-}
-
-.logout-btn {
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: #fef2f2;
-  color: #dc2626;
-  font-weight: 600;
 }
 
 .hero {
@@ -938,8 +678,7 @@ footer {
     padding: 14px 18px;
   }
 
-  .nav-links,
-  .user-meta {
+  .nav-links {
     display: none;
   }
 

@@ -63,6 +63,27 @@ const routes = [
   },
 
   {
+    path: '/knowledge',
+    name: 'KnowledgeContribution',
+    component: () => import('@/views/KnowledgeContributionPage.vue'),
+    meta: {
+      title: 'Knowledge',
+      requiresAuth: true,
+    },
+  },
+
+  {
+    path: '/admin',
+    name: 'Admin',
+    component: () => import('@/views/AdminPage.vue'),
+    meta: {
+      title: 'Admin',
+      requiresAuth: true,
+      requiresAdmin: true,
+    },
+  },
+
+  {
     path: '/training',
     name: 'Training',
     component: () => import('@/views/TrainingPage.vue'),
@@ -86,7 +107,7 @@ const router = createRouter({
 })
 
 // ── 路由守卫 ────────────────────────────────────────
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   // 设置页面标题
   document.title = to.meta.title
     ? `${to.meta.title} - AgriAgent`
@@ -100,6 +121,15 @@ router.beforeEach((to, from, next) => {
     next({ path: '/login', query: { redirect: to.fullPath } })
   } else if ((to.path === '/login' || to.path === '/register') && token) {
     next('/')
+  } else if (to.meta.requiresAdmin) {
+    try {
+      await userStore.fetchUserProfile()
+    } catch {
+      next({ path: '/login', query: { redirect: to.fullPath } })
+      return
+    }
+    if (userStore.isAdmin) next()
+    else next('/')
   } else {
     next()
   }

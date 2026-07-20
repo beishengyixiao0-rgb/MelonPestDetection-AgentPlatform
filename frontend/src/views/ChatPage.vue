@@ -52,6 +52,7 @@
 
 <script setup>
 import { uploadCommonFile } from '@/api/common'
+import { submitKnowledgeDocumentApi } from '@/api/knowledge'
 import {
   detectBatch,
   detectSingle,
@@ -121,6 +122,10 @@ const setUploadMode = (mode) => {
     inputAccept.value = 'image/*'
     inputMultiple.value = false
     inputCapture.value = 'environment'
+  } else if (mode === 'knowledge') {
+    inputAccept.value = '.md,.txt,text/markdown,text/plain'
+    inputMultiple.value = false
+    inputCapture.value = null
   }
 }
 
@@ -175,6 +180,15 @@ const handleUploadModeSelection = (mode) => {
 
   if (mode === 'agent-image') {
     openUploadMenu('agent-image')
+    return
+  }
+
+  if (mode === 'knowledge') {
+    if (uploadQueue.value.length) {
+      ElMessage.warning(tr('chat.knowledge.clearAttachments'))
+      return
+    }
+    openUploadMenu('knowledge')
     return
   }
 
@@ -317,6 +331,11 @@ const handleFileSelection = (files) => {
 
   if (!normalizedFiles.length) return
 
+  if (uploadMode.value === 'knowledge') {
+    void submitKnowledgeFromChat(normalizedFiles[0])
+    return
+  }
+
   if (uploadMode.value === 'camera') {
     handleCameraCapture(normalizedFiles[0])
     return
@@ -327,6 +346,39 @@ const handleFileSelection = (files) => {
     : normalizedFiles.slice(0, 1)
 
   selectedFiles.forEach((file) => createUploadItem(file))
+}
+
+/**
+ * 对话中的知识投稿采用“确定性写入 + LLM 说明”的组合流程：
+ * 先调用知识接口创建 pending 记录，再把真实记录状态作为用户消息交给 Agent。
+ * 当前后端 Agent 只有 search_knowledge，不能让 LLM 自主写知识库。
+ */
+const submitKnowledgeFromChat = async (file) => {
+  if (!file || !/\.(md|txt)$/i.test(file.name)) {
+    ElMessage.warning(tr('knowledge.invalidFile'))
+    return
+  }
+
+  const note = message.value.trim()
+  const submittingNotice = ElMessage({
+    message: tr('chat.knowledge.submitting'),
+    type: 'info',
+    duration: 0,
+  })
+
+  try {
+    const result = await submitKnowledgeDocumentApi(file)
+    ElMessage.success(tr('chat.knowledge.submitted'))
+
+    message.value = tr('chat.knowledge.agentPrompt', {
+      name: file.name,
+      id: result?.document_id ?? '—',
+      note: note || tr('chat.knowledge.noNote'),
+    })
+    await sendMessage()
+  } finally {
+    submittingNotice.close()
+  }
 }
 
 /** 把快捷检测原图上传到持久化存储，供历史会话刷新后恢复预览。 */
