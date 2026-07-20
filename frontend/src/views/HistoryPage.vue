@@ -62,6 +62,39 @@
             </el-select>
           </label>
           <label>
+            <span>{{ copy.riskLevel }}</span>
+            <el-select v-model="filters.riskLevel" clearable :placeholder="copy.allRiskLevels">
+              <el-option :label="copy.lowRisk" value="low" />
+              <el-option :label="copy.moderateRisk" value="moderate" />
+              <el-option :label="copy.highRisk" value="high" />
+              <el-option :label="copy.criticalRisk" value="critical" />
+              <el-option :label="copy.insufficient" value="insufficient_information" />
+            </el-select>
+          </label>
+          <label>
+            <span>{{ copy.treatmentStatus }}</span>
+            <el-select v-model="filters.treatmentStatus" clearable :placeholder="copy.allTreatmentStatuses">
+              <el-option :label="copy.treatmentPending" value="pending" />
+              <el-option :label="copy.treatmentInProgress" value="in_progress" />
+              <el-option :label="copy.monitoring" value="monitoring" />
+              <el-option :label="copy.treated" value="treated" />
+              <el-option :label="copy.resolved" value="resolved" />
+            </el-select>
+          </label>
+          <label>
+            <span>{{ copy.diseaseClass }}</span>
+            <el-select
+              v-model="filters.className"
+              clearable
+              filterable
+              allow-create
+              default-first-option
+              :placeholder="copy.classPlaceholder"
+            >
+              <el-option v-for="item in classOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </label>
+          <label>
             <span>{{ copy.scene }}</span>
             <el-select v-model="filters.sceneId" clearable :placeholder="copy.allScenes">
               <el-option v-for="scene in scenes" :key="scene.id" :label="scene.display_name || scene.name" :value="scene.id" />
@@ -88,7 +121,6 @@
         <p>
           {{ copy.showing }} <b>{{ visibleTasks.length }}</b>
           {{ copy.of }} {{ pagination.total }} {{ copy.records }}
-          <span v-if="filters.keyword">· {{ copy.currentPageSearch }}</span>
         </p>
         <span class="api-note"><i />{{ copy.synced }}</span>
       </div>
@@ -100,6 +132,7 @@
         @open="openDetail"
         @ask-ai="askAi"
         @delete="confirmDelete"
+        @update-treatment="updateTreatmentStatus"
         @clear="clearFilters"
       />
 
@@ -123,6 +156,9 @@
       @close="closeDetail"
       @delete="confirmDelete"
       @ask-ai="askAi"
+      @update-treatment="updateTreatmentStatus"
+      @assessment-updated="handleAssessmentUpdated"
+      @weather-updated="handleWeatherUpdated"
     />
   </div>
 </template>
@@ -139,7 +175,7 @@ import {
   Search,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import {
@@ -148,6 +184,7 @@ import {
   getHistorySummaryApi,
   getHistoryTaskDetailApi,
   getHistoryTasksApi,
+  updateTreatmentStatusApi,
 } from '@/api/history'
 import HistoryDetailDialog from '@/components/history/HistoryDetailDialog.vue'
 import HistorySummaryCards from '@/components/history/HistorySummaryCards.vue'
@@ -171,26 +208,40 @@ const selectedDetail = ref(null)
 const summary = ref({ total_tasks: 0, today_tasks: 0, status_counts: {} })
 
 const pagination = reactive({ page: 1, pageSize: 10, total: 0, totalPages: 0 })
-const filters = reactive({ keyword: '', taskType: '', status: '', sceneId: null, dateRange: [] })
+const filters = reactive({
+  keyword: '', taskType: '', status: '', riskLevel: '', treatmentStatus: '',
+  className: '', sceneId: null, dateRange: [],
+})
 
 const copy = computed(() => {
   const en = localeStore.locale === 'en'
   return en ? {
     back: 'Back to home', title: 'Detection History', subtitle: 'Review your saved YOLO detection tasks', aiAgent: 'AI Agent', analytics: 'Analytics',
-    searchPlaceholder: 'Search this page by task, scene or status…', clear: 'Clear search', filters: 'Filters', refresh: 'Refresh', taskType: 'Detection type', allTypes: 'All types', single: 'Single image', batch: 'Batch images', video: 'Video', status: 'Status', allStatuses: 'All statuses', completed: 'Completed', processing: 'Processing', pending: 'Pending', failed: 'Failed', scene: 'Scene', allScenes: 'All scenes', dateRange: 'Date range', to: 'to', startDate: 'Start date', endDate: 'End date', clearFilters: 'Clear all filters', showing: 'Showing', of: 'of', records: 'records', currentPageSearch: 'search applies to this page', synced: 'Synced with history API', deleteTitle: 'Delete detection record?', deleteMessage: 'This removes the task and its stored detection results. This action cannot be undone.', deleteDone: 'Detection record deleted', deleteFailed: 'Unable to delete detection record', detailFailed: 'Unable to load detection details', loadFailed: 'Unable to load history', askPrompt: 'Analyze detection task #{id}. It is a {type} task with {objects} detected objects. Please explain possible risks and recommended next steps based on my history.',
+    searchPlaceholder: 'Search task, disease class or scene…', clear: 'Clear search', filters: 'Filters', refresh: 'Refresh', taskType: 'Detection type', allTypes: 'All types', single: 'Single image', batch: 'Batch images', video: 'Video', status: 'Detection status', allStatuses: 'All statuses', completed: 'Completed', processing: 'Processing', pending: 'Pending', failed: 'Failed', scene: 'Scene', allScenes: 'All scenes', dateRange: 'Date range', to: 'to', startDate: 'Start date', endDate: 'End date', clearFilters: 'Clear all filters', showing: 'Showing', of: 'of', records: 'records', synced: 'Synced with history API', deleteTitle: 'Delete detection record?', deleteMessage: 'This removes the task and its stored detection results. This action cannot be undone.', deleteDone: 'Detection record deleted', deleteFailed: 'Unable to delete detection record', detailFailed: 'Unable to load detection details', loadFailed: 'Unable to load history', askPrompt: 'Analyze detection task #{id}. It is a {type} task with {objects} detected objects. Please explain possible risks and recommended next steps based on my history.',
+    riskLevel: 'Severity', allRiskLevels: 'All severity levels', unassessed: 'Not assessed', lowRisk: 'Low', moderateRisk: 'Moderate', highRisk: 'High', criticalRisk: 'Critical', insufficient: 'Insufficient information',
+    treatmentStatus: 'Treatment status', allTreatmentStatuses: 'All treatment statuses', treatmentPending: 'Pending treatment', treatmentInProgress: 'In progress', monitoring: 'Monitoring', treated: 'Treated', resolved: 'Resolved', diseaseClass: 'Disease class', classPlaceholder: 'Select or enter a class', treatmentUpdated: 'Treatment status updated', treatmentFailed: 'Unable to update treatment status',
   } : {
     back: '返回首页', title: '检测历史', subtitle: '查看当前账号保存的 YOLO 检测任务', aiAgent: 'AI 智能体', analytics: '数据分析',
-    searchPlaceholder: '搜索本页任务编号、场景或状态…', clear: '清除搜索', filters: '筛选', refresh: '刷新', taskType: '检测类型', allTypes: '全部类型', single: '单图检测', batch: '批量检测', video: '视频检测', status: '任务状态', allStatuses: '全部状态', completed: '已完成', processing: '处理中', pending: '待处理', failed: '失败', scene: '检测场景', allScenes: '全部场景', dateRange: '日期范围', to: '至', startDate: '开始日期', endDate: '结束日期', clearFilters: '清除全部筛选', showing: '当前显示', of: '/', records: '条检测记录', currentPageSearch: '关键词仅筛选当前页', synced: '已连接历史记录接口', deleteTitle: '确认删除检测记录？', deleteMessage: '该操作会同时删除任务及其保存的检测结果，且无法恢复。', deleteDone: '检测记录已删除', deleteFailed: '删除检测记录失败', detailFailed: '检测详情加载失败', loadFailed: '历史记录加载失败', askPrompt: '请分析检测任务 #{id}。这是一次{type}任务，共检测到 {objects} 个目标。请结合我的历史记录说明可能风险和后续建议。',
+    searchPlaceholder: '搜索任务编号、病害类别或场景…', clear: '清除搜索', filters: '筛选', refresh: '刷新', taskType: '检测类型', allTypes: '全部类型', single: '单图检测', batch: '批量检测', video: '视频检测', status: '检测状态', allStatuses: '全部状态', completed: '已完成', processing: '处理中', pending: '待处理', failed: '失败', scene: '检测场景', allScenes: '全部场景', dateRange: '日期范围', to: '至', startDate: '开始日期', endDate: '结束日期', clearFilters: '清除全部筛选', showing: '当前显示', of: '/', records: '条检测记录', synced: '已连接历史记录接口', deleteTitle: '确认删除检测记录？', deleteMessage: '该操作会同时删除任务及其保存的检测结果，且无法恢复。', deleteDone: '检测记录已删除', deleteFailed: '删除检测记录失败', detailFailed: '检测详情加载失败', loadFailed: '历史记录加载失败', askPrompt: '请分析检测任务 #{id}。这是一次{type}任务，共检测到 {objects} 个目标。请结合我的历史记录说明可能风险和后续建议。',
+    riskLevel: '严重程度', allRiskLevels: '全部严重程度', unassessed: '未评估', lowRisk: '低风险', moderateRisk: '中等风险', highRisk: '高风险', criticalRisk: '严重风险', insufficient: '信息不足',
+    treatmentStatus: '处理状态', allTreatmentStatuses: '全部处理状态', treatmentPending: '待处理', treatmentInProgress: '处理中', monitoring: '观察中', treated: '已处理', resolved: '已解决', diseaseClass: '病害类别', classPlaceholder: '选择或输入类别', treatmentUpdated: '处理状态已更新', treatmentFailed: '处理状态更新失败',
   }
 })
 
-const activeFilterCount = computed(() => [filters.taskType, filters.status, filters.sceneId, filters.dateRange?.length].filter(Boolean).length)
-const visibleTasks = computed(() => {
-  const keyword = filters.keyword.toLowerCase()
-  if (!keyword) return tasks.value
-  return tasks.value.filter((task) => [task.id, task.task_type, task.status, task.scene_name]
-    .filter((value) => value !== null && value !== undefined)
-    .some((value) => String(value).toLowerCase().includes(keyword)))
+const activeFilterCount = computed(() => [
+  filters.taskType, filters.status, filters.riskLevel, filters.treatmentStatus,
+  filters.className, filters.sceneId, filters.dateRange?.length,
+].filter(Boolean).length)
+const visibleTasks = computed(() => tasks.value)
+const classOptions = computed(() => {
+  const options = new Map()
+  tasks.value.forEach((task) => {
+    const rawNames = Object.keys(task.class_counts || {})
+    const displayNames = Object.keys(task.class_counts_display || {})
+    rawNames.forEach((value, index) => options.set(value, displayNames[index] || value))
+    if (task.primary_class_name) options.set(task.primary_class_name, task.primary_class_name_display || task.primary_class_name)
+  })
+  return Array.from(options, ([value, label]) => ({ value, label }))
 })
 
 function formatDateParam(value) {
@@ -209,6 +260,10 @@ async function fetchTasks() {
       page_size: pagination.pageSize,
       task_type: filters.taskType || undefined,
       status: filters.status || undefined,
+      keyword: filters.keyword || undefined,
+      risk_level: filters.riskLevel || undefined,
+      treatment_status: filters.treatmentStatus || undefined,
+      class_name: filters.className || undefined,
       scene_id: filters.sceneId || undefined,
       start_date: formatDateParam(filters.dateRange?.[0]),
       end_date: formatDateParam(filters.dateRange?.[1]),
@@ -263,6 +318,34 @@ async function openDetail(task) {
   }
 }
 
+async function updateTreatmentStatus({ task, status, note = null }) {
+  if (!task?.id || !status || task.treatment_status === status) return
+  try {
+    const result = await updateTreatmentStatusApi(task.id, { status, note })
+    Object.assign(task, result)
+    const listTask = tasks.value.find((item) => item.id === task.id)
+    if (listTask && listTask !== task) Object.assign(listTask, result)
+    if (selectedDetail.value?.task?.id === task.id) Object.assign(selectedDetail.value.task, result)
+    await fetchSummary()
+    ElMessage.success(copy.value.treatmentUpdated)
+  } catch (error) {
+    console.error('[History] 更新处理状态失败', error)
+    ElMessage.error(copy.value.treatmentFailed)
+  }
+}
+
+async function handleAssessmentUpdated() {
+  await Promise.all([fetchTasks(), fetchSummary()])
+  if (selectedDetail.value?.task?.id) {
+    selectedDetail.value = await getHistoryTaskDetailApi(selectedDetail.value.task.id)
+  }
+}
+
+async function handleWeatherUpdated(payload) {
+  if (selectedDetail.value?.task && payload) Object.assign(selectedDetail.value.task, payload)
+  await fetchTasks()
+}
+
 function closeDetail() {
   detailVisible.value = false
   selectedDetail.value = null
@@ -303,19 +386,35 @@ function clearFilters() {
   filters.keyword = ''
   filters.taskType = ''
   filters.status = ''
+  filters.riskLevel = ''
+  filters.treatmentStatus = ''
+  filters.className = ''
   filters.sceneId = null
   filters.dateRange = []
 }
 
 watch(
-  () => [filters.taskType, filters.status, filters.sceneId, filters.dateRange?.[0]?.getTime?.(), filters.dateRange?.[1]?.getTime?.()],
+  () => [filters.taskType, filters.status, filters.riskLevel, filters.treatmentStatus, filters.sceneId, filters.dateRange?.[0]?.getTime?.(), filters.dateRange?.[1]?.getTime?.()],
   () => {
     pagination.page = 1
     fetchTasks()
   },
 )
 
+let searchTimer
+watch(
+  () => [filters.keyword, filters.className],
+  () => {
+    window.clearTimeout(searchTimer)
+    searchTimer = window.setTimeout(() => {
+      pagination.page = 1
+      fetchTasks()
+    }, 350)
+  },
+)
+
 onMounted(refreshAll)
+onBeforeUnmount(() => window.clearTimeout(searchTimer))
 </script>
 
 <style scoped>

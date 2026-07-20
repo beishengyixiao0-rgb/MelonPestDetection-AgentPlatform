@@ -3,7 +3,7 @@
  * 管理用户登录信息、Token、角色等
  */
 import { defineStore } from 'pinia'
-import { loginApi, getUserInfoApi } from '@/api/auth'
+import { getUserInfoApi, getUserProfileApi, loginApi } from '@/api/auth'
 import { useLocaleStore } from '@/stores/locale'
 
 const TOKEN_KEY = 'rsod_token'
@@ -32,6 +32,9 @@ export const useUserStore = defineStore('user', {
 
     /** 是否为管理员 */
     isSuperuser: (state) => state.user?.is_superuser || false,
+
+    /** 后端当前使用 roles 数组标识管理员权限。 */
+    isAdmin: (state) => Array.isArray(state.user?.roles) && state.user.roles.includes('admin'),
   },
 
   actions: {
@@ -67,6 +70,26 @@ export const useUserStore = defineStore('user', {
         useLocaleStore().applyLocale(user?.display_language || 'zh')
       } catch {
         this.logout()
+      }
+    },
+
+    /**
+     * 获取包含角色、账号状态和检测统计的完整用户资料。
+     * 管理员入口和管理员路由守卫依赖该方法刷新角色。
+     */
+    async fetchUserProfile() {
+      try {
+        const profile = await getUserProfileApi()
+        this.user = {
+          ...(this.user || {}),
+          ...profile,
+        }
+        localStorage.setItem(USER_KEY, JSON.stringify(this.user))
+        useLocaleStore().applyLocale(profile?.display_language || 'zh')
+        return this.user
+      } catch (error) {
+        this.logout()
+        throw error
       }
     },
 

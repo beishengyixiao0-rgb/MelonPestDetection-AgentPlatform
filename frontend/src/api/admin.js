@@ -16,3 +16,8 @@ export function updateAdminUserApi(userId, data) {
 export function disableAdminUserApi(userId) {
   return request.delete(`/user/${userId}`)
 }
+
+/** 恢复已禁用账号；后端接口为幂等操作。 */
+export function enableAdminUserApi(userId) {
+  return request.patch(`/user/${userId}/enable`)
+}

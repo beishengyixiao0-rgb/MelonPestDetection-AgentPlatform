@@ -67,7 +67,7 @@ const normalizeWeather = (raw, fallback = {}) => {
   }
 }
 
-const readWeatherCache = () => {
+export const readWeatherCache = () => {
   try {
     const cache = JSON.parse(localStorage.getItem(WEATHER_CACHE_KEY) || 'null')
     if (!cache?.savedAt || Date.now() - cache.savedAt > WEATHER_CACHE_TTL) return null
@@ -77,7 +77,7 @@ const readWeatherCache = () => {
   }
 }
 
-const saveWeatherCache = (weather) => {
+export const saveWeatherCache = (weather) => {
   try {
     localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({
       savedAt: Date.now(),
@@ -95,7 +95,7 @@ const getBackendWeather = async () => {
   return normalizeWeather(payload, { source: 'backend' })
 }
 
-const getLocationByIp = async () => {
+export const getApproximateLocationByIp = async () => {
   const payload = await fetchJson('https://ipwho.is/?lang=zh-CN', {}, 5000)
 
   if (payload?.success === false) {
@@ -115,7 +115,7 @@ const getLocationByIp = async () => {
   }
 }
 
-const getWeatherByCoordinates = async (location) => {
+export const getWeatherByCoordinates = async (location) => {
   const query = new URLSearchParams({
     latitude: String(location.latitude),
     longitude: String(location.longitude),
@@ -155,7 +155,7 @@ export const getCurrentWeather = async ({ force = false } = {}) => {
     // 后端接口尚未实现时，静默转入前端真实天气降级流程。
   }
 
-  const location = await getLocationByIp()
+  const location = await getApproximateLocationByIp()
   const weather = await getWeatherByCoordinates(location)
   if (!weather) throw new Error('天气服务未返回有效数据')
 

@@ -27,6 +27,11 @@ export function getUserInfoApi() {
     return request.get('/auth/me')
 }
 
+/** 获取包含角色、账号状态和检测统计的完整用户资料。 */
+export function getUserProfileApi() {
+    return request.get('/auth/profile')
+}
+
 /** 保存当前用户的中英文显示偏好。 */
 export function updateDisplayLanguageApi(display_language) {
     return request.put('/auth/preferences', { display_language })

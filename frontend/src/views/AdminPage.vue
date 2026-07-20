@@ -70,11 +70,19 @@
               <template #default="{ row }">
                 <button class="text-button" type="button" @click="openEditUser(row)">{{ copy.edit }}</button>
                 <button
+                  v-if="row.is_active"
                   class="text-button danger"
                   type="button"
-                  :disabled="!row.is_active || row.id === userStore.user?.id"
+                  :disabled="row.id === userStore.user?.id || isUserBusy(row.id)"
                   @click="disableUser(row)"
                 >{{ copy.disable }}</button>
+                <button
+                  v-else
+                  class="text-button success"
+                  type="button"
+                  :disabled="isUserBusy(row.id)"
+                  @click="enableUser(row)"
+                >{{ copy.enable }}</button>
               </template>
             </el-table-column>
           </el-table>
@@ -194,7 +202,7 @@
 </template>
 
 <script setup>
-import { createAdminUserApi, disableAdminUserApi, getAdminUsersApi, updateAdminUserApi } from '@/api/admin'
+import { createAdminUserApi, disableAdminUserApi, enableAdminUserApi, getAdminUsersApi, updateAdminUserApi } from '@/api/admin'
 import {
   approveKnowledgeDocumentApi,
   deleteKnowledgeDocumentApi,
@@ -215,26 +223,26 @@ const COPY = {
     title: '管理中心', subtitle: '管理用户与知识投稿。', home: '返回首页', users: '用户管理', knowledge: '知识审核',
     userManagement: '用户', knowledgeManagement: '知识投稿', refresh: '刷新', createUser: '新建用户', username: '用户名', email: '邮箱', phone: '手机号',
     role: '角色', status: '状态', createdAt: '创建时间', actions: '操作', admin: '管理员', user: '普通用户', active: '正常', disabled: '已禁用',
-    edit: '编辑', disable: '禁用', editUser: '编辑用户', password: '密码', cancel: '取消', save: '保存', document: '文档', submitter: '提交人', chunks: '分块',
+    edit: '编辑', disable: '禁用', enable: '恢复', editUser: '编辑用户', password: '密码', cancel: '取消', save: '保存', document: '文档', submitter: '提交人', chunks: '分块',
     submittedAt: '提交时间', reviewComment: '审核意见', allStatuses: '全部状态', pending: '待审核', approved: '已发布', rejected: '已驳回',
     processing: '处理中', failed: '失败', approve: '通过', reject: '驳回', reindex: '重建索引', delete: '删除', rejectDocument: '驳回文档', rejectReason: '请输入驳回原因',
     preview: '预览', noContent: '文档内容为空或文件无法读取', close: '关闭',
-    disableConfirm: (name) => `确定禁用用户“${name}”？`, deleteConfirm: (name) => `确定删除文档“${name}”？`, approveConfirm: (name) => `通过“${name}”并加入知识库？`,
+    disableConfirm: (name) => `确定禁用用户“${name}”？`, enableConfirm: (name) => `确定恢复用户“${name}”？恢复后该用户可以重新登录。`, deleteConfirm: (name) => `确定删除文档“${name}”？`, approveConfirm: (name) => `通过“${name}”并加入知识库？`,
     reindexConfirm: (name) => `重新构建“${name}”的索引？`, userCount: (count) => `${count} 个用户`, documentCount: (count) => `${count} 条记录`,
-    saved: '用户信息已保存', created: '用户已创建', disabledDone: '用户已禁用', approvedDone: '文档已发布', rejectedDone: '文档已驳回',
+    saved: '用户信息已保存', created: '用户已创建', disabledDone: '用户已禁用', enabledDone: '用户已恢复', approvedDone: '文档已发布', rejectedDone: '文档已驳回',
     deletedDone: '文档已删除', reindexedDone: '索引已重建', required: '请填写必填项', passwordLength: '密码至少 6 位', noPermission: '仅管理员可访问',
   },
   en: {
     title: 'Admin', subtitle: 'Manage users and knowledge submissions.', home: 'Home', users: 'Users', knowledge: 'Knowledge review',
     userManagement: 'Users', knowledgeManagement: 'Knowledge submissions', refresh: 'Refresh', createUser: 'New user', username: 'Username', email: 'Email', phone: 'Phone',
     role: 'Role', status: 'Status', createdAt: 'Created', actions: 'Actions', admin: 'Admin', user: 'User', active: 'Active', disabled: 'Disabled',
-    edit: 'Edit', disable: 'Disable', editUser: 'Edit user', password: 'Password', cancel: 'Cancel', save: 'Save', document: 'Document', submitter: 'Submitter', chunks: 'Chunks',
+    edit: 'Edit', disable: 'Disable', enable: 'Restore', editUser: 'Edit user', password: 'Password', cancel: 'Cancel', save: 'Save', document: 'Document', submitter: 'Submitter', chunks: 'Chunks',
     submittedAt: 'Submitted', reviewComment: 'Review comment', allStatuses: 'All statuses', pending: 'Pending', approved: 'Published', rejected: 'Rejected',
     processing: 'Processing', failed: 'Failed', approve: 'Approve', reject: 'Reject', reindex: 'Reindex', delete: 'Delete', rejectDocument: 'Reject document', rejectReason: 'Reason for rejection',
     preview: 'Preview', noContent: 'The document is empty or cannot be read', close: 'Close',
-    disableConfirm: (name) => `Disable user "${name}"?`, deleteConfirm: (name) => `Delete document "${name}"?`, approveConfirm: (name) => `Approve "${name}" and publish it?`,
+    disableConfirm: (name) => `Disable user "${name}"?`, enableConfirm: (name) => `Restore user "${name}"? The user will be able to sign in again.`, deleteConfirm: (name) => `Delete document "${name}"?`, approveConfirm: (name) => `Approve "${name}" and publish it?`,
     reindexConfirm: (name) => `Rebuild the index for "${name}"?`, userCount: (count) => `${count} users`, documentCount: (count) => `${count} records`,
-    saved: 'User saved', created: 'User created', disabledDone: 'User disabled', approvedDone: 'Document published', rejectedDone: 'Document rejected',
+    saved: 'User saved', created: 'User created', disabledDone: 'User disabled', enabledDone: 'User restored', approvedDone: 'Document published', rejectedDone: 'Document rejected',
     deletedDone: 'Document deleted', reindexedDone: 'Index rebuilt', required: 'Complete the required fields', passwordLength: 'Password must be at least 6 characters', noPermission: 'Administrator access required',
   },
 }
@@ -247,6 +255,7 @@ const activeTab = ref('users')
 
 const users = ref([])
 const usersLoading = ref(false)
+const busyUserIds = ref(new Set())
 const userDialogVisible = ref(false)
 const editingUserId = ref(null)
 const savingUser = ref(false)
@@ -275,6 +284,14 @@ const formatDate = (value) => {
 }
 
 const statusLabel = (status) => copy.value[status] || status
+
+const markUserBusy = (id, busy) => {
+  const next = new Set(busyUserIds.value)
+  if (busy) next.add(id)
+  else next.delete(id)
+  busyUserIds.value = next
+}
+const isUserBusy = (id) => busyUserIds.value.has(id)
 
 const fetchUsers = async () => {
   usersLoading.value = true
@@ -331,9 +348,30 @@ const disableUser = async (row) => {
   } catch {
     return
   }
-  await disableAdminUserApi(row.id)
-  ElMessage.success(copy.value.disabledDone)
-  await fetchUsers()
+  markUserBusy(row.id, true)
+  try {
+    await disableAdminUserApi(row.id)
+    ElMessage.success(copy.value.disabledDone)
+    await fetchUsers()
+  } finally {
+    markUserBusy(row.id, false)
+  }
+}
+
+const enableUser = async (row) => {
+  try {
+    await ElMessageBox.confirm(copy.value.enableConfirm(row.username), copy.value.enable, { type: 'warning' })
+  } catch {
+    return
+  }
+  markUserBusy(row.id, true)
+  try {
+    await enableAdminUserApi(row.id)
+    ElMessage.success(copy.value.enabledDone)
+    await fetchUsers()
+  } finally {
+    markUserBusy(row.id, false)
+  }
 }
 
 const fetchKnowledge = async () => {

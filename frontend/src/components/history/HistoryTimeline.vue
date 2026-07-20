@@ -21,14 +21,26 @@
 
             <div class="task-main">
               <div class="task-title-row">
-                <h3>{{ taskTitle(task) }}</h3>
+                <h3>{{ diseaseTitle(task) }}</h3>
+                <span class="type-chip">{{ taskTypeLabel(task.task_type) }}</span>
                 <span class="status-chip" :class="statusTone(task.status)">
                   {{ statusLabel(task.status) }}
                 </span>
+                <span class="risk-chip" :class="riskTone(task.risk_level)">
+                  {{ riskLabel(task.risk_level) }}
+                </span>
+                <span class="treatment-chip" :class="`treatment-${task.treatment_status || 'pending'}`">
+                  {{ treatmentLabel(task.treatment_status) }}
+                </span>
               </div>
               <p class="task-subtitle">
+                {{ task.plant_name_display || task.plant_name || (locale === 'en' ? 'Plant unknown' : '植物待确认') }}
+                <span>·</span>
                 {{ task.scene_name || (locale === 'en' ? 'General detection' : '通用检测场景') }}
               </p>
+              <div v-if="classTags(task).length" class="class-preview">
+                <span v-for="item in classTags(task)" :key="item.name">{{ item.name }} <b>{{ item.count }}</b></span>
+              </div>
               <div class="task-metrics">
                 <span><b>{{ task.total_objects ?? 0 }}</b> {{ locale === 'en' ? 'objects' : '个目标' }}</span>
                 <span><b>{{ task.total_images ?? 0 }}</b> {{ locale === 'en' ? 'files' : '个文件' }}</span>
@@ -40,6 +52,21 @@
               <time>{{ formatClock(task.created_at) }}</time>
               <code>#{{ task.id }}</code>
               <div class="task-actions">
+                <el-dropdown trigger="click" @click.stop @command="updateTreatment(task, $event)">
+                  <button type="button" @click.stop>
+                    {{ locale === 'en' ? 'Update status' : '更新状态' }}
+                  </button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item
+                        v-for="option in treatmentOptions"
+                        :key="option.value"
+                        :command="option.value"
+                        :disabled="(task.treatment_status || 'pending') === option.value"
+                      >{{ option.label }}</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
                 <button type="button" @click.stop="$emit('ask-ai', task)">
                   <el-icon><ChatDotRound /></el-icon>
                   {{ locale === 'en' ? 'Ask AI' : '询问 AI' }}
@@ -78,6 +105,7 @@ import {
   Picture,
   VideoCamera,
 } from '@element-plus/icons-vue'
+import { computed } from 'vue'
 
 const props = defineProps({
   items: { type: Array, default: () => [] },
@@ -85,7 +113,23 @@ const props = defineProps({
   locale: { type: String, default: 'zh' },
 })
 
-defineEmits(['open', 'ask-ai', 'delete', 'clear'])
+const emit = defineEmits(['open', 'ask-ai', 'delete', 'clear', 'update-treatment'])
+
+const treatmentOptions = computed(() => props.locale === 'en'
+  ? [
+      { value: 'pending', label: 'Pending treatment' },
+      { value: 'in_progress', label: 'In progress' },
+      { value: 'monitoring', label: 'Monitoring' },
+      { value: 'treated', label: 'Treated' },
+      { value: 'resolved', label: 'Resolved' },
+    ]
+  : [
+      { value: 'pending', label: '待处理' },
+      { value: 'in_progress', label: '处理中' },
+      { value: 'monitoring', label: '观察中' },
+      { value: 'treated', label: '已处理' },
+      { value: 'resolved', label: '已解决' },
+    ])
 
 function parsedDate(value) {
   const date = value ? new Date(value) : null
@@ -123,11 +167,23 @@ function formatTime(value) {
   return Number.isFinite(ms) ? `${ms.toFixed(ms >= 100 ? 0 : 1)} ms` : '0 ms'
 }
 
-function taskTitle(task) {
+function taskTypeLabel(type) {
   const labels = props.locale === 'en'
     ? { single: 'Single-image detection', batch: 'Batch detection', zip: 'ZIP batch detection', video: 'Video detection', realtime: 'Live detection', camera: 'Camera detection' }
     : { single: '单图检测', batch: '批量图片检测', zip: 'ZIP 批量检测', video: '视频检测', realtime: '实时摄像头检测', camera: '相机检测' }
-  return labels[task.task_type] || (props.locale === 'en' ? 'Detection task' : '检测任务')
+  return labels[type] || (props.locale === 'en' ? 'Detection task' : '检测任务')
+}
+
+function diseaseTitle(task) {
+  return task.primary_class_name_display
+    || task.disease_name_display
+    || task.primary_class_name
+    || (props.locale === 'en' ? 'No disease detected' : '暂无病害类别')
+}
+
+function classTags(task) {
+  const counts = task.class_counts_display || task.class_counts || {}
+  return Object.entries(counts).slice(0, 3).map(([name, count]) => ({ name, count }))
 }
 
 function statusLabel(status) {
@@ -139,6 +195,25 @@ function statusLabel(status) {
 
 function statusTone(status) {
   return ['completed', 'processing', 'pending', 'failed'].includes(status) ? status : 'unknown'
+}
+
+function riskLabel(risk) {
+  const labels = props.locale === 'en'
+    ? { low: 'Low risk', moderate: 'Moderate', high: 'High risk', critical: 'Critical', insufficient_information: 'More info needed' }
+    : { low: '低风险', moderate: '中等风险', high: '高风险', critical: '严重风险', insufficient_information: '信息不足' }
+  return labels[risk] || (props.locale === 'en' ? 'Not assessed' : '未评估')
+}
+
+function riskTone(risk) {
+  return ['low', 'moderate', 'high', 'critical', 'insufficient_information'].includes(risk) ? `risk-${risk}` : 'risk-unassessed'
+}
+
+function treatmentLabel(status) {
+  return treatmentOptions.value.find((item) => item.value === (status || 'pending'))?.label || status
+}
+
+function updateTreatment(task, status) {
+  emit('update-treatment', { task, status })
 }
 
 function taskTone(type) {
@@ -176,12 +251,27 @@ function taskIcon(type) {
 .task-main { flex: 1; min-width: 0; }
 .task-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .task-title-row h3 { margin: 0; color: #1a271f; font-size: 14px; font-weight: 700; }
+.type-chip { padding: 3px 7px; border-radius: 999px; background: #eef3f0; color: #68756d; font-size: 9px; font-weight: 700; }
 .status-chip { padding: 3px 8px; border-radius: 999px; border: 1px solid #dfe5e1; background: #f5f7f6; color: #6c7870; font-size: 10px; font-weight: 700; }
 .status-chip.completed { border-color: #c9ead5; background: #eaf8ef; color: #18854b; }
 .status-chip.processing { border-color: #cce1f5; background: #ebf5ff; color: #337ecc; }
 .status-chip.pending { border-color: #f2dfb9; background: #fff6e3; color: #b8790b; }
 .status-chip.failed { border-color: #f0cccc; background: #fff0f0; color: #c94444; }
+.risk-chip, .treatment-chip { padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 750; }
+.risk-low { background: #e9f8ef; color: #18854b; }
+.risk-moderate { background: #fff6e3; color: #ad730d; }
+.risk-high { background: #fff0e7; color: #c45118; }
+.risk-critical { background: #fff0f0; color: #c93636; }
+.risk-insufficient_information, .risk-unassessed { background: #f1f3f2; color: #737d77; }
+.treatment-pending { background: #f3f4f3; color: #6d7771; }
+.treatment-in_progress { background: #eaf4ff; color: #337ecc; }
+.treatment-monitoring { background: #f3efff; color: #7657af; }
+.treatment-treated, .treatment-resolved { background: #e9f8ef; color: #18854b; }
 .task-subtitle { margin: 4px 0 8px; color: #7b877f; font-size: 12px; }
+.task-subtitle span { margin: 0 4px; color: #b0b7b2; }
+.class-preview { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 8px; }
+.class-preview span { padding: 3px 7px; border: 1px solid #e1e9e3; border-radius: 7px; background: #f8faf8; color: #637068; font-size: 9px; }
+.class-preview b { margin-left: 3px; color: #277a49; }
 .task-metrics { display: flex; gap: 15px; flex-wrap: wrap; color: #7b877f; font-size: 11px; }
 .task-metrics b { color: #34443a; font-weight: 700; }
 .task-side { flex: 0 0 auto; min-width: 132px; text-align: right; }

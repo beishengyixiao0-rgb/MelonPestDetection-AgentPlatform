@@ -80,25 +80,25 @@
           @finished="$emit('realtime-finished', { item, result: $event })"
         />
 
-        <AgentResultCard
-          v-else-if="item.type === 'agent-analysis'"
-          :item="item"
-        />
+        <div v-else-if="item.type === 'agent-analysis'" class="result-stack">
+          <AgentResultCard :item="item" />
+          <SeverityAssessmentPanel :result="getDetectionResult(item)" />
+        </div>
 
         <VideoDetectionProgressCard
           v-else-if="item.type === 'video-progress'"
           :item="item"
         />
 
-        <DetectionResultCard
-          v-else-if="isBatchDetection(item)"
-          :result="getDetectionResult(item)"
-        />
+        <div v-else-if="isBatchDetection(item)" class="result-stack">
+          <DetectionResultCard :result="getDetectionResult(item)" />
+          <SeverityAssessmentPanel :result="getDetectionResult(item)" />
+        </div>
 
-        <DiagnosisCard
-          v-else-if="item.type === 'diagnosis' || item.detectionResult"
-          :item="item"
-        />
+        <div v-else-if="item.type === 'diagnosis' || item.detectionResult" class="result-stack">
+          <DiagnosisCard :item="item" />
+          <SeverityAssessmentPanel :result="getDetectionResult(item)" />
+        </div>
 
         <div v-else class="message-bubble" :class="{ loading: item.loading, error: item.error }">
           <span v-if="item.loading" class="loading-dot" />
@@ -115,6 +115,7 @@ import AgentResultCard from '@/components/AgentResultCard.vue'
 import DiagnosisCard from '@/components/DiagnosisCard.vue'
 import DetectionResultCard from '@/components/DetectionResultCard.vue'
 import RealtimeDetectionCard from '@/components/RealtimeDetectionCard.vue'
+import SeverityAssessmentPanel from '@/components/SeverityAssessmentPanel.vue'
 import VideoDetectionProgressCard from '@/components/VideoDetectionProgressCard.vue'
 import { ref } from 'vue'
 import { useLocaleStore } from '@/stores/locale'
@@ -233,6 +234,15 @@ defineExpose({ scrollToBottom })
 
 .message-row.user {
   flex-direction: row-reverse;
+}
+
+.result-stack {
+  display: flex;
+  width: min(100%, 700px);
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .message-avatar {

@@ -13,7 +13,7 @@
 </template>
 
 <script setup>
-import { Check, Clock, DataAnalysis, Sunny } from '@element-plus/icons-vue'
+import { Clock, DataAnalysis, Sunny, Warning } from '@element-plus/icons-vue'
 import { computed } from 'vue'
 
 const props = defineProps({
@@ -23,7 +23,8 @@ const props = defineProps({
 })
 
 const cards = computed(() => {
-  const status = props.summary?.status_counts || {}
+  const risk = props.summary?.risk_counts || {}
+  const treatment = props.summary?.treatment_counts || {}
   const zh = props.locale !== 'en'
   return [
     {
@@ -39,14 +40,14 @@ const cards = computed(() => {
       icon: Sunny,
     },
     {
-      label: zh ? '检测完成' : 'Completed',
-      value: status.completed ?? 0,
-      tone: 'success',
-      icon: Check,
+      label: zh ? '高风险记录' : 'High-risk records',
+      value: (risk.high ?? 0) + (risk.critical ?? 0),
+      tone: 'danger',
+      icon: Warning,
     },
     {
-      label: zh ? '处理中 / 待处理' : 'Active / pending',
-      value: (status.processing ?? 0) + (status.pending ?? 0),
+      label: zh ? '待跟进处理' : 'Needs follow-up',
+      value: (treatment.pending ?? 0) + (treatment.in_progress ?? 0) + (treatment.monitoring ?? 0),
       tone: 'warning',
       icon: Clock,
     },
@@ -88,6 +89,7 @@ const cards = computed(() => {
 .summary-icon.blue { background: #eaf4ff; color: #337ecc; }
 .summary-icon.success { background: #e9f8ef; color: #18864b; }
 .summary-icon.warning { background: #fff5df; color: #b8790b; }
+.summary-icon.danger { background: #fff0f0; color: #c93636; }
 
 .summary-card strong {
   display: block;
@@ -100,6 +102,7 @@ const cards = computed(() => {
 .summary-card strong.blue { color: #337ecc; }
 .summary-card strong.success { color: #18864b; }
 .summary-card strong.warning { color: #b8790b; }
+.summary-card strong.danger { color: #c93636; }
 
 .summary-card span {
   display: block;
