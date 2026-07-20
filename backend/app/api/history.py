@@ -143,6 +143,7 @@ async def update_task_location(
                 "weather_metrics": weather_result.get("weather_metrics"),
                 "weather_reasons": weather_result.get("reasons"),
                 "weather_updated_at": weather_result.get("weather_updated_at"),
+                "llm_model": weather_result.get("llm_model"),
             }
         )
     return result

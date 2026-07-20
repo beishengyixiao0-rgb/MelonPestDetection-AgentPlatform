@@ -273,6 +273,7 @@ class DetectionService:
         task_type: str,
         detections: list,
         annotated_image: bytes,
+        original_image: bytes | None,
         original_filename: str,
         inference_time: float,
         conf: float,
@@ -300,14 +301,20 @@ class DetectionService:
         db.add(task)
         db.flush()  # 获取 task.id
 
-        # ── 上传 标注图到 MinIO ──
+        # ── 上传原图和标注图到 MinIO，报告导出时可直接嵌入图片。 ──
+        source_image_url = None
         annotated_image_url = None
         try:
             minio_client = MinIOClient()
-            object_name = f"detections/{task.id}/{original_filename}"
-            annotated_image_url = minio_client.upload_bytes(object_name, annotated_image, "image/jpeg")
-            # 修正：这里应该更新的是 annotated_image_url 字段，但这个字段不存在于 DetectionTask 中。
-            # 标注图 URL 在下面写入每一条 DetectionResult。
+            if original_image:
+                source_object_name = f"detections/{task.id}/source_{original_filename}"
+                source_image_url = minio_client.upload_bytes(
+                    source_object_name, original_image, "image/jpeg"
+                )
+            annotated_object_name = f"detections/{task.id}/annotated_{original_filename}"
+            annotated_image_url = minio_client.upload_bytes(
+                annotated_object_name, annotated_image, "image/jpeg"
+            )
         except Exception as e:
             logger.warning("MinIO 上传失败（不影响检测结果）: %s", str(e))
 
@@ -315,7 +322,7 @@ class DetectionService:
         for det in detections:
             result = DetectionResult(
                 task_id=task.id,
-                image_path=original_filename,
+                image_path=source_image_url or original_filename,
                 annotated_image_url=annotated_image_url,
                 class_name=det["class_name"],
                 class_name_cn=det.get("class_name_cn"),
@@ -327,7 +334,11 @@ class DetectionService:
             db.add(result)
 
         db.commit()
-        return {"task_id": task.id, "annotated_image_url": annotated_image_url}
+        return {
+            "task_id": task.id,
+            "source_image_url": source_image_url,
+            "annotated_image_url": annotated_image_url,
+        }
 
     def detect_single(
         self,
@@ -427,6 +438,7 @@ class DetectionService:
                     task_type="single",
                     detections=detections,
                     annotated_image=buffer.tobytes(),
+                    original_image=Path(image_path).read_bytes(),
                     original_filename=os.path.basename(image_path),
                     inference_time=float(result.speed.get("inference", 0)),
                     conf=conf,
@@ -513,6 +525,7 @@ class DetectionService:
             total_inference_time = 0
             class_counts = {}
             class_counts_display = {}
+            minio_client = None
 
             for i, image_path in enumerate(image_paths):
                 if Path(image_path).suffix.lower() not in ALLOWED_IMAGE_SUFFIXES:
@@ -549,9 +562,40 @@ class DetectionService:
                 _, buffer = cv2.imencode(".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
                 annotated_images.append({"image_path": os.path.basename(image_path), "annotated_image_base64": base64.b64encode(buffer).decode("utf-8")})
 
-                    # 保存检测结果到数据库
+                source_image_url = None
+                annotated_image_url = None
+                try:
+                    if minio_client is None:
+                        minio_client = MinIOClient()
+                    safe_name = os.path.basename(image_path)
+                    source_image_url = minio_client.upload_file(
+                        f"detections/{task.id}/source_{i}_{safe_name}",
+                        image_path,
+                        content_type="image/jpeg",
+                    )
+                    annotated_image_url = minio_client.upload_bytes(
+                        f"detections/{task.id}/annotated_{i}_{safe_name}",
+                        buffer.tobytes(),
+                        "image/jpeg",
+                    )
+                except Exception as exc:
+                    logger.warning("批量检测图片上传 MinIO 失败（不影响检测结果）: %s", exc)
+
+                # 保存检测结果到数据库
                 for det in image_detections:
-                    db.add(DetectionResult(task_id=task.id, image_path=image_path, class_name=det["class_name"], class_name_cn=det.get("class_name_cn"), class_id=det["class_id"], confidence=det["confidence"], bbox=det["bbox"], inference_time=inference_time))
+                    db.add(
+                        DetectionResult(
+                            task_id=task.id,
+                            image_path=source_image_url or image_path,
+                            annotated_image_url=annotated_image_url,
+                            class_name=det["class_name"],
+                            class_name_cn=det.get("class_name_cn"),
+                            class_id=det["class_id"],
+                            confidence=det["confidence"],
+                            bbox=det["bbox"],
+                            inference_time=inference_time,
+                        )
+                    )
 
             task.status = "completed"
             task.total_objects = total_objects
@@ -956,17 +1000,29 @@ class DetectionService:
                 video_writer.write(annotated_img)
 
                 annotated_base64 = None
+                frame_annotated_url = None
                 if len(key_frames) < 6:
                     _, buffer = cv2.imencode(
                         ".jpg", annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 70]
                     )
-                    annotated_base64 = base64.b64encode(buffer).decode("utf-8")
+                    frame_bytes = buffer.tobytes()
+                    annotated_base64 = base64.b64encode(frame_bytes).decode("utf-8")
+                    try:
+                        minio_client = MinIOClient()
+                        frame_annotated_url = minio_client.upload_bytes(
+                            f"detections/{task_id}/key_frame_{frame_idx}.jpg",
+                            frame_bytes,
+                            "image/jpeg",
+                        )
+                    except Exception as exc:
+                        logger.warning("视频关键帧上传 MinIO 失败（不影响检测结果）: %s", exc)
 
                 key_frames.append(
                     {
                         "frame_index": frame_idx,
                         "timestamp": round(frame_idx / fps, 2),
                         "annotated_image_base64": annotated_base64,
+                        "annotated_image_url": frame_annotated_url,
                         "object_count": len(frame_detections),
                         "new_object_count": sum(
                             1 for det in frame_detections if det["is_new_object"]
@@ -983,6 +1039,7 @@ class DetectionService:
                     db_result = DetectionResult(
                         task_id=task_id,
                         image_path=f"frame_{frame_idx}.jpg",
+                        annotated_image_url=frame_annotated_url,
                         class_name=det["class_name"],
                         class_name_cn=det.get("class_name_cn"),
                         class_id=det["class_id"],

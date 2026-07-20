@@ -12,15 +12,20 @@
 """
 
 import html
+import json
+import re
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy import desc, false, func, or_
 from sqlalchemy.orm import joinedload
 
 from app.config.detection import DetectionConfig
+from app.config.settings import settings
 from app.core.logger import get_logger
 from app.database.session import SessionLocal
 from app.entity.db_models import (
@@ -53,6 +58,8 @@ class HistoryService:
     ]
     WEATHER_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
     WEATHER_RISK_LEVELS = ["low", "moderate", "high", "critical", "unavailable"]
+    CORE_RISK_LEVELS = ["low", "moderate", "high", "critical"]
+    LLM_RESPONSE_PATTERN = re.compile(r"\{.*\}", re.DOTALL)
     QUESTION_DEFINITIONS = [
         {
             "key": "affected_area",
@@ -165,6 +172,75 @@ class HistoryService:
         if isinstance(value, list):
             return not value or all(HistoryService._is_unknown_answer(item) for item in value)
         return False
+
+    @staticmethod
+    def _configured_llm_model() -> str | None:
+        """返回可用 LLM 模型名；测试占位 Key 不触发外部调用。"""
+        qwen_key = getattr(settings, "QWEN_API_KEY", "").strip()
+        qwen_model = getattr(settings, "QWEN_MODEL", "qwen3.7-plus")
+        if qwen_key and qwen_key != "sk-your-qwen-api-key" and qwen_key != "test":
+            return qwen_model
+
+        openai_key = getattr(settings, "OPENAI_API_KEY", "").strip()
+        openai_model = getattr(settings, "OPENAI_MODEL", "gpt-4o-mini")
+        invalid_openai_keys = {"", "test", "sk-your-api-key-here"}
+        if openai_key not in invalid_openai_keys:
+            return openai_model
+        return None
+
+    @staticmethod
+    def _extract_llm_json(response) -> dict | None:
+        """从 LLM 响应中提取 JSON 对象，兼容 ```json 代码块。"""
+        content = getattr(response, "content", response)
+        if not isinstance(content, str):
+            content = str(content)
+        content = content.strip()
+        if content.startswith("```"):
+            content = re.sub(r"^```(?:json)?\s*", "", content)
+            content = re.sub(r"\s*```$", "", content).strip()
+        match = HistoryService.LLM_RESPONSE_PATTERN.search(content)
+        if not match:
+            return None
+        try:
+            payload = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            return None
+        return payload if isinstance(payload, dict) else None
+
+    @staticmethod
+    def _invoke_llm_json(prompt: str) -> tuple[dict | None, str | None]:
+        """调用项目现有 LLM，要求返回 JSON；不可用或失败时返回空结果。"""
+        model_name = HistoryService._configured_llm_model()
+        if not model_name:
+            return None, None
+        try:
+            from app.agent.base_agent import create_llm
+
+            response = create_llm().invoke(prompt)
+            return HistoryService._extract_llm_json(response), model_name
+        except Exception as exc:
+            logger.warning("历史风险 LLM 增强失败，已回退规则结果: %s", exc)
+            return None, None
+
+    @staticmethod
+    def _merge_risk_level(rule_level: str, llm_level: str | None) -> str:
+        """LLM 最多只能在规则等级基础上上下调整一级，避免极端跳变。"""
+        if rule_level not in HistoryService.CORE_RISK_LEVELS:
+            return rule_level
+        if llm_level not in HistoryService.CORE_RISK_LEVELS:
+            return rule_level
+        rule_index = HistoryService.CORE_RISK_LEVELS.index(rule_level)
+        llm_index = HistoryService.CORE_RISK_LEVELS.index(llm_level)
+        bounded_index = max(rule_index - 1, min(rule_index + 1, llm_index))
+        return HistoryService.CORE_RISK_LEVELS[bounded_index]
+
+    @staticmethod
+    def _clean_text_list(value, fallback: list[str], max_items: int = 6) -> list[str]:
+        """清洗 LLM 返回的字符串列表，空结果使用规则建议兜底。"""
+        if not isinstance(value, list):
+            return fallback
+        items = [str(item).strip() for item in value if str(item).strip()]
+        return items[:max_items] if items else fallback
 
     @staticmethod
     def _format_result(result: DetectionResult, display_language: str, class_names_cn: dict | None = None) -> dict:
@@ -547,6 +623,7 @@ class HistoryService:
                     "environment_risk_level": task.environment_risk_level,
                     "weather_summary": task.weather_summary,
                     "weather_recommendations": task.weather_recommendations or [],
+                    "weather_snapshot": task.weather_snapshot or {},
                     "weather_updated_at": task.weather_updated_at.isoformat()
                     if task.weather_updated_at
                     else None,
@@ -704,6 +781,84 @@ class HistoryService:
         return SeverityAssessmentResult(**payload).model_dump()
 
     @staticmethod
+    def _enhance_severity_with_llm(
+        rule_result: dict,
+        class_name: str,
+        answers: dict,
+        result_count: int,
+    ) -> tuple[dict, str]:
+        """用 LLM 增强严重程度评估；失败时返回规则结果。"""
+        if rule_result.get("risk_level") == "insufficient_information":
+            return rule_result, "rule-based"
+
+        prompt = f"""
+你是果蔬病虫害风险评估助手。请基于检测结果、用户问卷和规则评分，输出更贴近现场的严重程度评估。
+
+要求：
+1. 只返回一个 JSON 对象，不要 Markdown，不要额外解释。
+2. risk_level 只能是 low、moderate、high、critical。
+3. assessment_confidence 只能是 low、medium、high。
+4. risk_level 应尊重规则评分，除非问卷信息明显支持调整。
+5. summary、reasons、uncertainties、recommended_actions 用中文，建议具体、可执行。
+
+输入：
+{json.dumps({
+    "class_name": class_name,
+    "detected_object_count": result_count,
+    "answers": answers,
+    "rule_result": rule_result,
+}, ensure_ascii=False)}
+
+返回 JSON 格式：
+{{
+  "risk_level": "high",
+  "assessment_confidence": "high",
+  "summary": "一句话评估摘要",
+  "reasons": ["原因1", "原因2"],
+  "uncertainties": ["仍不确定的信息"],
+  "recommended_actions": ["建议1", "建议2"]
+}}
+"""
+        llm_payload, model_name = HistoryService._invoke_llm_json(prompt)
+        if not llm_payload:
+            return rule_result, "rule-based"
+
+        merged_payload = {
+            "risk_level": HistoryService._merge_risk_level(
+                rule_result["risk_level"],
+                str(llm_payload.get("risk_level", "")).strip(),
+            ),
+            "assessment_confidence": str(
+                llm_payload.get(
+                    "assessment_confidence",
+                    rule_result["assessment_confidence"],
+                )
+            ).strip(),
+            "summary": str(llm_payload.get("summary") or rule_result["summary"]).strip(),
+            "reasons": HistoryService._clean_text_list(
+                llm_payload.get("reasons"),
+                rule_result["reasons"],
+            ),
+            "uncertainties": HistoryService._clean_text_list(
+                llm_payload.get("uncertainties"),
+                rule_result["uncertainties"],
+            ),
+            "recommended_actions": HistoryService._clean_text_list(
+                llm_payload.get("recommended_actions"),
+                rule_result["recommended_actions"],
+            ),
+        }
+        if merged_payload["assessment_confidence"] not in {"low", "medium", "high"}:
+            merged_payload["assessment_confidence"] = rule_result["assessment_confidence"]
+        try:
+            return SeverityAssessmentResult(**merged_payload).model_dump(), (
+                model_name or "rule-based"
+            )
+        except Exception as exc:
+            logger.warning("LLM 严重程度结果结构无效，已回退规则结果: %s", exc)
+            return rule_result, "rule-based"
+
+    @staticmethod
     def create_severity_assessment(
         user_id: int,
         task_id: int,
@@ -739,6 +894,12 @@ class HistoryService:
             if additional_notes:
                 assessment_answers["additional_notes"] = additional_notes
             scored = HistoryService._score_severity(assessment_answers, len(results))
+            scored, scored_model = HistoryService._enhance_severity_with_llm(
+                scored,
+                class_name=class_name,
+                answers=assessment_answers,
+                result_count=len(results),
+            )
 
             assessment = (
                 db.query(SeverityAssessment)
@@ -759,7 +920,7 @@ class HistoryService:
             assessment.reasons = scored["reasons"]
             assessment.uncertainties = scored["uncertainties"]
             assessment.recommended_actions = scored["recommended_actions"]
-            assessment.llm_model = "rule-based"
+            assessment.llm_model = scored_model
             assessment.updated_at = datetime.now()
 
             # 任务层保留最新一次评估摘要，方便历史列表和统计快速读取。
@@ -914,6 +1075,74 @@ class HistoryService:
         }
 
     @staticmethod
+    def _enhance_weather_risk_with_llm(
+        rule_risk: dict,
+        task: DetectionTask,
+        results: list[DetectionResult],
+    ) -> dict:
+        """用 LLM 增强天气风险分析；失败时返回规则结果。"""
+        if rule_risk.get("environment_risk_level") == "unavailable":
+            return rule_risk
+
+        detection_summary = {}
+        for result in results:
+            detection_summary[result.class_name] = (
+                detection_summary.get(result.class_name, 0) + 1
+            )
+
+        prompt = f"""
+你是果蔬病虫害环境风险分析助手。请基于天气指标、检测类别、问卷严重程度和规则评分，输出未来 3 天病害扩散环境风险。
+
+要求：
+1. 只返回一个 JSON 对象，不要 Markdown，不要额外解释。
+2. environment_risk_level 只能是 low、moderate、high、critical。
+3. environment_risk_level 应尊重规则评分，除非检测类别或已有问卷严重程度明显支持调整。
+4. summary 和 recommendations 用中文，建议应具体、可执行，避免泛泛而谈。
+
+输入：
+{json.dumps({
+    "detection_summary": detection_summary,
+    "task_risk_level_from_questionnaire": task.risk_level,
+    "weather_metrics": rule_risk.get("weather_metrics", {}),
+    "rule_environment_risk_level": rule_risk.get("environment_risk_level"),
+    "rule_summary": rule_risk.get("weather_summary"),
+    "rule_recommendations": rule_risk.get("weather_recommendations", []),
+    "rule_reasons": rule_risk.get("reasons", []),
+}, ensure_ascii=False)}
+
+返回 JSON 格式：
+{{
+  "environment_risk_level": "high",
+  "summary": "一句话天气风险摘要",
+  "recommendations": ["建议1", "建议2"],
+  "reasons": ["判断依据1", "判断依据2"]
+}}
+"""
+        llm_payload, model_name = HistoryService._invoke_llm_json(prompt)
+        if not llm_payload:
+            return rule_risk
+
+        enhanced = dict(rule_risk)
+        enhanced["environment_risk_level"] = HistoryService._merge_risk_level(
+            rule_risk["environment_risk_level"],
+            str(llm_payload.get("environment_risk_level", "")).strip(),
+        )
+        summary = str(llm_payload.get("summary") or "").strip()
+        if summary:
+            enhanced["weather_summary"] = summary
+        enhanced["weather_recommendations"] = HistoryService._clean_text_list(
+            llm_payload.get("recommendations"),
+            rule_risk["weather_recommendations"],
+        )
+        enhanced["reasons"] = HistoryService._clean_text_list(
+            llm_payload.get("reasons"),
+            rule_risk.get("reasons", []),
+        )
+        if model_name:
+            enhanced["llm_model"] = model_name
+        return enhanced
+
+    @staticmethod
     def _score_weather_risk(
         task: DetectionTask,
         results: list[DetectionResult],
@@ -990,13 +1219,14 @@ class HistoryService:
                 "记录处理日期和复查结果，必要时在历史记录中更新治疗状态。",
             ]
         )
-        return {
+        rule_risk = {
             "environment_risk_level": level,
             "weather_summary": summary,
             "weather_recommendations": recommendations,
             "weather_metrics": metrics,
             "reasons": reasons or ["当前天气指标未触发明显高风险规则。"],
         }
+        return HistoryService._enhance_weather_risk_with_llm(rule_risk, task, results)
 
     @staticmethod
     def refresh_weather_risk(user_id: int, task_id: int) -> dict | None:
@@ -1043,19 +1273,209 @@ class HistoryService:
             db.close()
 
     @staticmethod
+    def _report_question_answers(assessments: list[dict]) -> list[dict]:
+        """把问卷答案转换成带问题标签的列表，便于报告直接展示。"""
+        question_map = {item["key"]: item for item in HistoryService.QUESTION_DEFINITIONS}
+        answer_items = []
+        for assessment in assessments:
+            answers = assessment.get("answers") or {}
+            for key, value in answers.items():
+                question = question_map.get(key)
+                label = question["label_zh"] if question else key
+                answer_items.append(
+                    {
+                        "class_name_display": assessment.get("class_name_display"),
+                        "key": key,
+                        "label": label,
+                        "answer": value,
+                    }
+                )
+        return answer_items
+
+    @staticmethod
+    def _report_images(results: list[dict]) -> list[dict]:
+        """按图片路径聚合原图和标注图，避免报告中同一图片重复展示过多。"""
+        images = {}
+        for item in results:
+            image_path = item.get("image_path") or "unknown"
+            current = images.setdefault(
+                image_path,
+                {
+                    "image_path": item.get("image_path"),
+                    "annotated_image_url": item.get("annotated_image_url"),
+                    "classes": [],
+                },
+            )
+            class_name = item.get("class_name_display") or item.get("class_name")
+            if class_name and class_name not in current["classes"]:
+                current["classes"].append(class_name)
+            if not current.get("annotated_image_url") and item.get("annotated_image_url"):
+                current["annotated_image_url"] = item.get("annotated_image_url")
+        return list(images.values())
+
+    @staticmethod
+    def _report_weather_metrics(task: dict) -> dict:
+        """从已保存天气快照提取报告指标；没有快照时返回空指标。"""
+        snapshot = task.get("weather_snapshot") or {}
+        return HistoryService._weather_metrics(snapshot) if snapshot else {}
+
+    @staticmethod
+    def _dedupe_keep_order(items: list[str]) -> list[str]:
+        """保持顺序去重，用于合并严重程度建议和天气建议。"""
+        seen = set()
+        result = []
+        for item in items:
+            text = str(item).strip()
+            if text and text not in seen:
+                seen.add(text)
+                result.append(text)
+        return result
+
+    @staticmethod
+    def _report_action_items(task: dict, assessments: list[dict]) -> list[str]:
+        """生成报告行动清单，优先包含高风险处理和复查动作。"""
+        actions = []
+        risk_level = task.get("risk_level")
+        environment_level = task.get("environment_risk_level")
+        if risk_level in {"high", "critical"} or environment_level in {"high", "critical"}:
+            actions.append("优先处理高风险区域，并在 24-48 小时内复查。")
+        for item in assessments:
+            actions.extend(item.get("recommended_actions") or [])
+        actions.extend(task.get("weather_recommendations") or [])
+        actions.extend(
+            [
+                "记录处理日期、处理方式和复查结果，便于后续对比病害变化。",
+                "如病害继续扩散或出现大面积萎蔫、落叶，应咨询当地农技人员。",
+            ]
+        )
+        return HistoryService._dedupe_keep_order(actions)
+
+    @staticmethod
+    def _report_conclusion(task: dict, results: list[dict], action_items: list[str]) -> str:
+        """生成报告综合结论，突出主要病害、严重程度、天气风险和下一步动作。"""
+        primary = results[0] if results else {}
+        disease = primary.get("class_name_display") or primary.get("class_name") or "未识别到明确病害"
+        risk_level = task.get("risk_level") or "unassessed"
+        environment_level = task.get("environment_risk_level") or "unavailable"
+        treatment_status = task.get("treatment_status") or "pending"
+        next_action = action_items[0] if action_items else "建议持续观察并补充现场信息。"
+        return (
+            f"本次检测主要结果为 {disease}，严重程度为 {risk_level}，"
+            f"天气环境风险为 {environment_level}，当前处理状态为 {treatment_status}。"
+            f"{next_action}"
+        )
+
+    @staticmethod
+    def _report_value(value) -> str:
+        """把列表、字典和空值转换为报告中可读的文本。"""
+        if value is None:
+            return ""
+        if isinstance(value, list):
+            return "、".join(str(item) for item in value)
+        if isinstance(value, dict):
+            return json.dumps(value, ensure_ascii=False)
+        return str(value)
+
+    @staticmethod
+    def _is_report_image_reference(value: str | None) -> bool:
+        """判断路径或 URL 是否可能被后端读取并嵌入 PDF。"""
+        if not value:
+            return False
+        parsed = urlparse(value)
+        if parsed.scheme in {"http", "https"}:
+            # 测试数据中常见的 http://minio/... 不是可直连地址；真实 URL 会继续尝试下载。
+            return parsed.hostname != "minio"
+        return Path(value).is_file()
+
+    @staticmethod
+    def _load_report_image_bytes(reference: str | None) -> bytes | None:
+        """读取本地图片或 MinIO 预签名 URL；失败时返回 None，不阻断报告导出。"""
+        if not HistoryService._is_report_image_reference(reference):
+            return None
+        parsed = urlparse(reference or "")
+        try:
+            if parsed.scheme in {"http", "https"}:
+                response = httpx.get(reference, timeout=5, follow_redirects=True)
+                response.raise_for_status()
+                content_type = response.headers.get("content-type", "")
+                if content_type and "image" not in content_type:
+                    return None
+                return response.content
+            return Path(reference or "").read_bytes()
+        except Exception as exc:
+            logger.warning("报告图片读取失败，已跳过嵌入: %s", exc)
+            return None
+
+    @staticmethod
+    def _select_report_image_samples(report: dict) -> list[dict]:
+        """按任务类型选择 PDF 中嵌入的图片数量。"""
+        task_type = (report.get("task") or {}).get("task_type")
+        images = report.get("inspection_images") or []
+        if task_type == "video":
+            limit = 6
+            # 视频历史可能只有部分帧保存了关键帧图；PDF 只展示可嵌入帧，避免输出占位提示。
+            images = [
+                item
+                for item in images
+                if HistoryService._is_report_image_reference(item.get("annotated_image_url"))
+            ]
+        elif task_type == "batch":
+            limit = len(images) if len(images) <= 4 else 4
+        else:
+            limit = 1
+        samples = []
+        for item in images[:limit]:
+            samples.append(
+                {
+                    "title": HistoryService._report_value(item.get("classes")) or "检测图片",
+                    "source": item.get("image_path") if task_type != "video" else None,
+                    "annotated": item.get("annotated_image_url"),
+                    "image_path": item.get("image_path"),
+                }
+            )
+        return samples
+
+    @staticmethod
     def _report_data(user_id: int, task_id: int, display_language: str = "zh") -> dict | None:
         """聚合报告需要的检测、评估、治疗、位置和天气信息。"""
         detail = HistoryService.get_task_detail(user_id, task_id, display_language)
         if not detail:
             return None
         task = detail["task"]
+        results = detail["results"]
+        assessments = detail.get("severity_assessments", [])
+        action_items = HistoryService._report_action_items(task, assessments)
+        weather_metrics = HistoryService._report_weather_metrics(task)
         return {
             "generated_at": datetime.now().isoformat(),
             "task": task,
             "class_counts": detail["class_counts"],
             "class_counts_display": detail["class_counts_display"],
-            "results": detail["results"],
-            "severity_assessments": detail.get("severity_assessments", []),
+            "results": results,
+            "inspection_images": HistoryService._report_images(results),
+            "severity_assessments": assessments,
+            "question_answers": HistoryService._report_question_answers(assessments),
+            "weather_metrics": weather_metrics,
+            "integrated_conclusion": HistoryService._report_conclusion(
+                task,
+                results,
+                action_items,
+            ),
+            "action_items": action_items,
+            "data_sources": {
+                "detection_model": "YOLO",
+                "weather_source": "Open-Meteo",
+                "severity_source": "rule-based + optional LLM enhancement",
+                "generated_by": "RSOD Agent Platform",
+                "disclaimer": "AI 检测、天气风险和建议仅作辅助决策，最终处理应结合现场情况和当地农技意见。",
+            },
+            "follow_up_template": [
+                "复查日期：",
+                "复查结果：",
+                "是否继续扩散：",
+                "已采取处理措施：",
+                "后续备注：",
+            ],
             "report_summary": {
                 "risk_level": task.get("risk_level") or "unassessed",
                 "treatment_status": task.get("treatment_status") or "pending",
@@ -1073,11 +1493,19 @@ class HistoryService:
         def esc(value) -> str:
             return html.escape("" if value is None else str(value))
 
+        def fmt(value) -> str:
+            return esc(HistoryService._report_value(value))
+
         result_rows = "\n".join(
             f"<tr><td>{esc(item.get('class_name_display'))}</td><td>{esc(item.get('plant_name_display'))}</td>"
             f"<td>{esc(item.get('disease_name_display'))}</td><td>{esc(item.get('confidence'))}</td>"
-            f"<td>{esc(item.get('annotated_image_url'))}</td></tr>"
+            f"<td>{fmt(item.get('bbox'))}</td><td>{esc(item.get('annotated_image_url'))}</td></tr>"
             for item in results
+        )
+        image_rows = "\n".join(
+            f"<tr><td>{esc(item.get('image_path'))}</td><td>{esc(item.get('annotated_image_url'))}</td>"
+            f"<td>{fmt(item.get('classes'))}</td></tr>"
+            for item in report.get("inspection_images", [])
         )
         assessment_blocks = "\n".join(
             "<section><h3>"
@@ -1095,6 +1523,39 @@ class HistoryService:
         )
         if not assessment_blocks:
             assessment_blocks = "<p>暂未填写严重程度问卷。</p>"
+        question_rows = "\n".join(
+            f"<tr><td>{esc(item.get('class_name_display'))}</td><td>{esc(item.get('label'))}</td>"
+            f"<td>{fmt(item.get('answer'))}</td></tr>"
+            for item in report.get("question_answers", [])
+        )
+        weather_metrics = report.get("weather_metrics") or {}
+        weather_rows = "\n".join(
+            f"<tr><th>{esc(label)}</th><td>{fmt(value)}</td></tr>"
+            for label, value in [
+                ("未来 3 天平均湿度", weather_metrics.get("avg_humidity")),
+                ("未来 3 天平均温度", weather_metrics.get("avg_temperature")),
+                ("最大降雨概率", weather_metrics.get("max_precipitation_probability")),
+                ("累计降雨量", weather_metrics.get("total_precipitation")),
+                ("逐日降雨量", weather_metrics.get("daily_precipitation_sum")),
+            ]
+        )
+        action_items = "".join(
+            f"<li>{esc(item)}</li>" for item in report.get("action_items", [])
+        )
+        sources = report.get("data_sources") or {}
+        source_rows = "\n".join(
+            f"<tr><th>{esc(label)}</th><td>{esc(value)}</td></tr>"
+            for label, value in [
+                ("目标检测模型", sources.get("detection_model")),
+                ("天气数据来源", sources.get("weather_source")),
+                ("严重程度来源", sources.get("severity_source")),
+                ("报告生成系统", sources.get("generated_by")),
+                ("使用说明", sources.get("disclaimer")),
+            ]
+        )
+        follow_up_items = "".join(
+            f"<li>{esc(item)}</li>" for item in report.get("follow_up_template", [])
+        )
 
         return f"""<!doctype html>
 <html lang="zh-CN">
@@ -1116,24 +1577,42 @@ class HistoryService:
   <h1>农作物病害检测报告</h1>
   <p class="muted">生成时间：{esc(report.get("generated_at"))}</p>
 
+  <h2>综合结论</h2>
+  <p>{esc(report.get("integrated_conclusion"))}</p>
+
   <h2>任务信息</h2>
   <table>
     <tr><th>任务 ID</th><td>{esc(task.get("id"))}</td></tr>
     <tr><th>检测场景</th><td>{esc(task.get("scene_name"))}</td></tr>
     <tr><th>检测时间</th><td>{esc(task.get("created_at"))}</td></tr>
+    <tr><th>检测类型</th><td>{esc(task.get("task_type"))}</td></tr>
     <tr><th>图片数量</th><td>{esc(task.get("total_images"))}</td></tr>
     <tr><th>目标数量</th><td>{esc(task.get("total_objects"))}</td></tr>
+    <tr><th>严重程度</th><td>{esc(task.get("risk_level") or "unassessed")}</td></tr>
     <tr><th>治疗状态</th><td>{esc(task.get("treatment_status"))}</td></tr>
+    <tr><th>处理备注</th><td>{esc(task.get("treatment_note"))}</td></tr>
+  </table>
+
+  <h2>检测图片</h2>
+  <table>
+    <tr><th>原图路径</th><th>标注图 URL</th><th>识别类别</th></tr>
+    {image_rows}
   </table>
 
   <h2>检测结果</h2>
   <table>
-    <tr><th>类别</th><th>植物</th><th>病害</th><th>置信度</th><th>标注图 URL</th></tr>
+    <tr><th>类别</th><th>植物</th><th>病害</th><th>置信度</th><th>检测框</th><th>标注图 URL</th></tr>
     {result_rows}
   </table>
 
   <h2>严重程度评估</h2>
   {assessment_blocks}
+
+  <h2>问卷答案</h2>
+  <table>
+    <tr><th>评估类别</th><th>问题</th><th>答案</th></tr>
+    {question_rows}
+  </table>
 
   <h2>天气与环境风险</h2>
   <table>
@@ -1141,10 +1620,21 @@ class HistoryService:
     <tr><th>经纬度</th><td>{esc(task.get("latitude"))}, {esc(task.get("longitude"))}</td></tr>
     <tr><th>环境风险</th><td>{esc(task.get("environment_risk_level"))}</td></tr>
     <tr><th>天气摘要</th><td>{esc(task.get("weather_summary"))}</td></tr>
+    <tr><th>更新时间</th><td>{esc(task.get("weather_updated_at"))}</td></tr>
+    {weather_rows}
   </table>
   <ul>
     {"".join(f"<li>{esc(item)}</li>" for item in task.get("weather_recommendations", []))}
   </ul>
+
+  <h2>后续行动清单</h2>
+  <ul>{action_items}</ul>
+
+  <h2>数据来源说明</h2>
+  <table>{source_rows}</table>
+
+  <h2>复查记录</h2>
+  <ul>{follow_up_items}</ul>
 </main>
 </body>
 </html>"""
@@ -1159,7 +1649,7 @@ class HistoryService:
             from reportlab.lib.units import mm
             from reportlab.pdfbase import pdfmetrics
             from reportlab.pdfbase.ttfonts import TTFont
-            from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+            from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
         except ImportError as exc:
             raise RuntimeError("PDF 导出依赖 reportlab 未安装，请先执行 pip install -r requirements.txt") from exc
 
@@ -1177,48 +1667,172 @@ class HistoryService:
         styles = getSampleStyleSheet()
         for style in styles.byName.values():
             style.fontName = font_name
+            style.leading = max(getattr(style, "leading", 12), getattr(style, "fontSize", 10) + 3)
+        styles["Title"].textColor = colors.HexColor("#166534")
+        styles["Heading2"].textColor = colors.HexColor("#14532d")
+        styles["Heading3"].textColor = colors.HexColor("#1f2937")
+
+        def p(value, style_name: str = "Normal"):
+            return Paragraph(html.escape(HistoryService._report_value(value)), styles[style_name])
+
+        def apply_table_style(table: Table) -> Table:
+            table.setStyle(
+                TableStyle(
+                    [
+                        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#cbd5e1")),
+                        ("FONT", (0, 0), (-1, -1), font_name),
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#dcfce7")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#14532d")),
+                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                        ("TOPPADDING", (0, 0), (-1, -1), 5),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ]
+                )
+            )
+            return table
+
+        def image_flowable(reference: str | None, max_width: float, max_height: float):
+            image_bytes = HistoryService._load_report_image_bytes(reference)
+            if not image_bytes:
+                return p("图片暂不可嵌入，保留路径/URL。")
+            flowable = Image(BytesIO(image_bytes))
+            ratio = min(max_width / flowable.imageWidth, max_height / flowable.imageHeight)
+            ratio = min(ratio, 1)
+            flowable.drawWidth = flowable.imageWidth * ratio
+            flowable.drawHeight = flowable.imageHeight * ratio
+            return flowable
 
         task = report["task"]
         story = [
             Paragraph("农作物病害检测报告", styles["Title"]),
             Paragraph(f"生成时间：{report.get('generated_at')}", styles["Normal"]),
             Spacer(1, 8),
+            Paragraph("综合结论", styles["Heading2"]),
+            p(report.get("integrated_conclusion")),
+            Spacer(1, 8),
             Paragraph("任务信息", styles["Heading2"]),
         ]
         task_table = Table(
             [
-                ["任务 ID", str(task.get("id"))],
-                ["检测场景", task.get("scene_name") or ""],
-                ["检测时间", task.get("created_at") or ""],
-                ["目标数量", str(task.get("total_objects") or 0)],
-                ["严重程度", task.get("risk_level") or "unassessed"],
-                ["治疗状态", task.get("treatment_status") or "pending"],
-                ["环境风险", task.get("environment_risk_level") or "unavailable"],
+                [p("任务 ID"), p(task.get("id"))],
+                [p("检测场景"), p(task.get("scene_name"))],
+                [p("检测时间"), p(task.get("created_at"))],
+                [p("检测类型"), p(task.get("task_type"))],
+                [p("图片数量"), p(task.get("total_images") or 0)],
+                [p("目标数量"), p(task.get("total_objects") or 0)],
+                [p("严重程度"), p(task.get("risk_level") or "unassessed")],
+                [p("治疗状态"), p(task.get("treatment_status") or "pending")],
+                [p("环境风险"), p(task.get("environment_risk_level") or "unavailable")],
+                [p("处理备注"), p(task.get("treatment_note"))],
             ],
             colWidths=[36 * mm, 120 * mm],
         )
-        task_table.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.5, colors.grey), ("FONT", (0, 0), (-1, -1), font_name)]))
-        story.extend([task_table, Spacer(1, 8), Paragraph("检测结果", styles["Heading2"])])
+        story.extend([apply_table_style(task_table), Spacer(1, 8)])
 
-        rows = [["类别", "植物", "病害", "置信度"]]
+        story.append(Paragraph("图片预览", styles["Heading2"]))
+        samples = HistoryService._select_report_image_samples(report)
+        if not samples:
+            story.append(p("暂无可嵌入报告的图片。"))
+        for index, sample in enumerate(samples, start=1):
+            story.append(p(f"样本 {index}：{sample.get('title')}", "Heading3"))
+            source_ref = sample.get("source")
+            annotated_ref = sample.get("annotated")
+            if source_ref and annotated_ref:
+                image_table = Table(
+                    [
+                        [p("原图"), p("标注图")],
+                        [
+                            image_flowable(source_ref, 72 * mm, 54 * mm),
+                            image_flowable(annotated_ref, 72 * mm, 54 * mm),
+                        ],
+                    ],
+                    colWidths=[78 * mm, 78 * mm],
+                )
+            else:
+                display_ref = annotated_ref or source_ref or sample.get("image_path")
+                image_table = Table(
+                    [
+                        [p("关键帧/检测图")],
+                        [image_flowable(display_ref, 150 * mm, 78 * mm)],
+                    ],
+                    colWidths=[156 * mm],
+                )
+            story.extend([apply_table_style(image_table), Spacer(1, 6)])
+
+        story.extend([Spacer(1, 8), Paragraph("检测结果", styles["Heading2"])])
+
+        rows = [[p("类别"), p("植物"), p("病害"), p("置信度"), p("检测框")]]
         for item in report["results"]:
             rows.append([
-                item.get("class_name_display") or "",
-                item.get("plant_name_display") or "",
-                item.get("disease_name_display") or "",
-                str(item.get("confidence") or ""),
+                p(item.get("class_name_display")),
+                p(item.get("plant_name_display")),
+                p(item.get("disease_name_display")),
+                p(item.get("confidence")),
+                p(item.get("bbox")),
             ])
-        result_table = Table(rows, colWidths=[48 * mm, 35 * mm, 45 * mm, 24 * mm])
-        result_table.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.5, colors.grey), ("FONT", (0, 0), (-1, -1), font_name)]))
-        story.append(result_table)
+        result_table = Table(rows, colWidths=[40 * mm, 28 * mm, 34 * mm, 20 * mm, 34 * mm])
+        story.append(apply_table_style(result_table))
 
-        story.extend([Spacer(1, 8), Paragraph("建议", styles["Heading2"])])
-        actions = []
-        for item in report["severity_assessments"]:
-            actions.extend(item.get("recommended_actions", []))
-        actions.extend(task.get("weather_recommendations") or [])
-        for action in actions or ["暂未生成建议。"]:
-            story.append(Paragraph(f"- {action}", styles["Normal"]))
+        story.extend([Spacer(1, 8), Paragraph("严重程度评估", styles["Heading2"])])
+        if report["severity_assessments"]:
+            for item in report["severity_assessments"]:
+                story.append(p(item.get("class_name_display"), "Heading3"))
+                story.append(p(f"严重程度：{item.get('risk_level')}，可信度：{item.get('assessment_confidence')}，模型：{item.get('llm_model')}"))
+                story.append(p(item.get("summary")))
+                for reason in item.get("reasons", []):
+                    story.append(p(f"- {reason}"))
+        else:
+            story.append(p("暂未填写严重程度问卷。"))
+
+        story.extend([Spacer(1, 8), Paragraph("问卷答案", styles["Heading2"])])
+        question_rows = [[p("评估类别"), p("问题"), p("答案")]]
+        for item in report.get("question_answers", []):
+            question_rows.append(
+                [p(item.get("class_name_display")), p(item.get("label")), p(item.get("answer"))]
+            )
+        question_table = Table(question_rows, colWidths=[36 * mm, 76 * mm, 44 * mm])
+        story.append(apply_table_style(question_table))
+
+        story.extend([Spacer(1, 8), Paragraph("天气与环境风险", styles["Heading2"])])
+        metrics = report.get("weather_metrics") or {}
+        weather_rows = [
+            [p("地点"), p(task.get("location_name"))],
+            [p("经纬度"), p(f"{task.get('latitude')}, {task.get('longitude')}")],
+            [p("环境风险"), p(task.get("environment_risk_level") or "unavailable")],
+            [p("天气摘要"), p(task.get("weather_summary"))],
+            [p("平均湿度"), p(metrics.get("avg_humidity"))],
+            [p("平均温度"), p(metrics.get("avg_temperature"))],
+            [p("最大降雨概率"), p(metrics.get("max_precipitation_probability"))],
+            [p("累计降雨量"), p(metrics.get("total_precipitation"))],
+            [p("逐日降雨量"), p(metrics.get("daily_precipitation_sum"))],
+        ]
+        weather_table = Table(weather_rows, colWidths=[42 * mm, 114 * mm])
+        story.append(apply_table_style(weather_table))
+
+        story.extend([Spacer(1, 8), Paragraph("后续行动清单", styles["Heading2"])])
+        for action in report.get("action_items", []) or ["暂未生成建议。"]:
+            story.append(p(f"- {action}"))
+
+        story.extend([Spacer(1, 8), Paragraph("数据来源说明", styles["Heading2"])])
+        sources = report.get("data_sources") or {}
+        source_table = Table(
+            [
+                [p("目标检测模型"), p(sources.get("detection_model"))],
+                [p("天气数据来源"), p(sources.get("weather_source"))],
+                [p("严重程度来源"), p(sources.get("severity_source"))],
+                [p("报告生成系统"), p(sources.get("generated_by"))],
+                [p("使用说明"), p(sources.get("disclaimer"))],
+            ],
+            colWidths=[42 * mm, 114 * mm],
+        )
+        story.append(apply_table_style(source_table))
+
+        story.extend([Spacer(1, 8), Paragraph("复查记录", styles["Heading2"])])
+        for item in report.get("follow_up_template", []):
+            story.append(p(f"- {item}"))
 
         doc.build(story)
         return buffer.getvalue()

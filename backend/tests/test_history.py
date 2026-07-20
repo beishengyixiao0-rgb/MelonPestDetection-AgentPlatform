@@ -3,6 +3,8 @@
 """
 
 import pytest
+import base64
+from datetime import datetime
 from app.core.security import create_access_token
 from app.entity.db_models import DetectionResult, DetectionScene, DetectionTask, User
 
@@ -276,6 +278,59 @@ def test_create_severity_assessment_high_risk(client, db_session):
     assert detail["task"]["risk_level"] == "high"
 
 
+def test_create_severity_assessment_uses_llm_enhancement(
+    client, db_session, monkeypatch
+):
+    """配置 LLM 时，严重程度摘要和建议可由大模型增强，等级仍受规则限幅。"""
+    from app.services.history_service import HistoryService
+
+    user = _create_user(db_session, "history_severity_llm_user")
+    task = _create_history_task(db_session, _get_user_id(user))
+    headers = _get_headers(_get_user_id(user))
+
+    def fake_llm_json(_prompt):
+        return (
+            {
+                "risk_level": "critical",
+                "assessment_confidence": "high",
+                "summary": "LLM 综合问卷和检测结果后认为需要立即处理。",
+                "reasons": ["扩散速度快", "受影响植株较多"],
+                "uncertainties": ["尚未确认是否已传播到相邻地块"],
+                "recommended_actions": ["24 小时内处理重症叶片", "48 小时后复查"],
+            },
+            "qwen-test",
+        )
+
+    monkeypatch.setattr(HistoryService, "_invoke_llm_json", staticmethod(fake_llm_json))
+
+    response = client.post(
+        f"/api/history/tasks/{task.id}/severity-assessment",
+        headers=headers,
+        json={
+            "class_name": "Tomato leaf late blight",
+            "answers": {
+                "affected_area": "10%～30%",
+                "spread_speed": "最近几天明显增加",
+                "affected_plants": "少量植株",
+                "functional_damage": ["暂无以上情况"],
+                "growth_stage": "结果期",
+                "treatment": "尚未处理",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    # 规则结果约为 moderate，LLM 请求 critical 时最多上调一级到 high。
+    assert data["risk_level"] == "high"
+    assert data["summary"].startswith("LLM 综合问卷")
+    assert "24 小时内处理重症叶片" in data["recommended_actions"]
+
+    detail = client.get(f"/api/history/tasks/{task.id}", headers=headers).json()
+    assessment = detail["severity_assessments"][0]
+    assert assessment["llm_model"] == "qwen-test"
+
+
 def test_create_severity_assessment_insufficient_information(client, db_session):
     """关键信息不足时必须返回 insufficient_information。"""
     user = _create_user(db_session, "history_severity_empty_user")
@@ -401,6 +456,78 @@ def test_update_location_can_skip_weather_refresh(client, db_session, monkeypatc
     assert detail["task"]["environment_risk_level"] is None
 
 
+def test_update_location_weather_risk_uses_llm_enhancement(
+    client, db_session, monkeypatch
+):
+    """默认天气分析可采用 LLM 摘要和建议，风险等级仍受规则限幅。"""
+    from app.services.history_service import HistoryService
+
+    user = _create_user(db_session, "history_weather_llm_user")
+    task = _create_history_task(db_session, _get_user_id(user))
+    headers = _get_headers(_get_user_id(user))
+
+    class FakeWeatherResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "hourly": {
+                    "temperature_2m": [24] * 72,
+                    "relative_humidity_2m": [76] * 72,
+                    "precipitation": [0] * 72,
+                    "precipitation_probability": [10] * 72,
+                },
+                "daily": {
+                    "precipitation_sum": [0, 0, 0],
+                    "temperature_2m_max": [28, 27, 26],
+                    "temperature_2m_min": [20, 21, 20],
+                },
+            }
+
+    def fake_get(*_args, **_kwargs):
+        return FakeWeatherResponse()
+
+    def fake_llm_json(_prompt):
+        return (
+            {
+                "environment_risk_level": "critical",
+                "summary": "LLM 认为未来三天仍需重点防范叶部病害扩散。",
+                "recommendations": ["控制棚内湿度", "雨后或浇水后 48 小时复查"],
+                "reasons": ["湿度偏高", "检测类别对湿度敏感"],
+            },
+            "qwen-test",
+        )
+
+    from app.services import history_service as history_service_module
+
+    monkeypatch.setattr(history_service_module.httpx, "get", fake_get)
+    monkeypatch.setattr(HistoryService, "_invoke_llm_json", staticmethod(fake_llm_json))
+
+    response = client.patch(
+        f"/api/history/tasks/{task.id}/location",
+        headers=headers,
+        json={
+            "latitude": 30.52,
+            "longitude": 114.31,
+            "location_name": "试验田 A 区",
+            "location_source": "browser",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    # 规则结果约为 moderate，LLM 请求 critical 时最多上调一级到 high。
+    assert data["environment_risk_level"] == "high"
+    assert data["weather_summary"].startswith("LLM 认为")
+    assert "控制棚内湿度" in data["weather_recommendations"]
+    assert data["llm_model"] == "qwen-test"
+
+    detail = client.get(f"/api/history/tasks/{task.id}", headers=headers).json()
+    assert detail["task"]["environment_risk_level"] == "high"
+    assert detail["task"]["weather_summary"].startswith("LLM 认为")
+
+
 def test_refresh_weather_risk_requires_location(client, db_session):
     """没有位置时不能调用天气分析，前端应先提示用户授权定位或手动填写地点。"""
     user = _create_user(db_session, "history_weather_no_location_user")
@@ -430,11 +557,38 @@ def test_report_preview_and_html_download(client, db_session):
             },
         },
     )
+    task.latitude = 30.52
+    task.longitude = 114.31
+    task.location_name = "试验田 A 区"
+    task.environment_risk_level = "high"
+    task.weather_summary = "未来三天湿度偏高，需要重点观察。"
+    task.weather_recommendations = ["控制棚内湿度", "雨后 48 小时复查"]
+    task.weather_snapshot = {
+        "hourly": {
+            "temperature_2m": [24] * 72,
+            "relative_humidity_2m": [88] * 72,
+            "precipitation": [0.2] * 72,
+            "precipitation_probability": [65] * 72,
+        },
+        "daily": {"precipitation_sum": [3, 4, 5]},
+    }
+    task.weather_updated_at = datetime.now()
+    task.treatment_note = "已去除部分病叶"
+    db_session.commit()
 
     preview = client.get(f"/api/history/tasks/{task.id}/report", headers=headers)
     assert preview.status_code == 200
-    assert preview.json()["task"]["id"] == task.id
-    assert preview.json()["severity_assessments"][0]["risk_level"] == "moderate"
+    preview_data = preview.json()
+    assert preview_data["task"]["id"] == task.id
+    assert preview_data["severity_assessments"][0]["risk_level"] == "moderate"
+    assert preview_data["inspection_images"][0]["annotated_image_url"] == "http://minio/result-a.jpg"
+    assert preview_data["question_answers"][0]["label"] == "目前出现症状的叶片大约占整株多少？"
+    assert preview_data["weather_metrics"]["avg_humidity"] == 88.0
+    assert "番茄晚疫病" in preview_data["integrated_conclusion"]
+    assert "天气环境风险为 high" in preview_data["integrated_conclusion"]
+    assert "控制棚内湿度" in preview_data["action_items"]
+    assert preview_data["data_sources"]["weather_source"] == "Open-Meteo"
+    assert "复查日期：" in preview_data["follow_up_template"]
 
     download = client.get(
         f"/api/history/tasks/{task.id}/report/download?format=html",
@@ -444,21 +598,77 @@ def test_report_preview_and_html_download(client, db_session):
     assert "text/html" in download.headers["content-type"]
     assert "attachment" in download.headers["content-disposition"]
     assert "农作物病害检测报告" in download.text
+    assert "综合结论" in download.text
+    assert "检测图片" in download.text
+    assert "问卷答案" in download.text
+    assert "未来 3 天平均湿度" in download.text
+    assert "数据来源说明" in download.text
+    assert "复查记录" in download.text
 
 
-def test_report_download_defaults_to_pdf(client, db_session):
-    """不传 format 时默认导出 PDF；未安装 reportlab 时返回可操作的 503。"""
+def test_report_download_defaults_to_pdf(client, db_session, tmp_path):
+    """不传 format 时默认导出 PDF，并可嵌入本地原图和标注图。"""
     user = _create_user(db_session, "history_pdf_report_user")
     task = _create_history_task(db_session, _get_user_id(user))
     headers = _get_headers(_get_user_id(user))
+    image_bytes = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
+    )
+    source_image = tmp_path / "source.png"
+    annotated_image = tmp_path / "annotated.png"
+    source_image.write_bytes(image_bytes)
+    annotated_image.write_bytes(image_bytes)
+    for result in db_session.query(DetectionResult).filter(DetectionResult.task_id == task.id):
+        result.image_path = str(source_image)
+        result.annotated_image_url = str(annotated_image)
+    db_session.commit()
 
     response = client.get(f"/api/history/tasks/{task.id}/report/download", headers=headers)
 
     assert response.status_code in {200, 503}
     if response.status_code == 200:
         assert response.headers["content-type"] == "application/pdf"
+        assert response.content.startswith(b"%PDF")
     else:
         assert "reportlab" in response.text
+
+
+def test_video_report_samples_skip_unembeddable_frames(tmp_path):
+    """视频 PDF 只选择可嵌入的关键帧，避免显示不可嵌入占位。"""
+    from app.services.history_service import HistoryService
+
+    image_path = tmp_path / "frame.png"
+    image_path.write_bytes(
+        base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
+        )
+    )
+
+    samples = HistoryService._select_report_image_samples(
+        {
+            "task": {"task_type": "video"},
+            "inspection_images": [
+                {
+                    "image_path": "frame_1.jpg",
+                    "annotated_image_url": str(image_path),
+                    "classes": ["马铃薯晚疫病"],
+                },
+                {
+                    "image_path": "frame_2.jpg",
+                    "annotated_image_url": None,
+                    "classes": ["马铃薯晚疫病"],
+                },
+                {
+                    "image_path": "frame_3.jpg",
+                    "annotated_image_url": "http://minio/missing.jpg",
+                    "classes": ["马铃薯晚疫病"],
+                },
+            ],
+        }
+    )
+
+    assert len(samples) == 1
+    assert samples[0]["annotated"] == str(image_path)
 
 
 # ============================================================
