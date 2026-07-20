@@ -282,6 +282,71 @@ class TestAccountDisable:
         assert response.status_code == 404
         assert "用户不存在" in response.json().get("message", "")
 
+    def test_admin_can_enable_disabled_user(self, client, admin_headers, db_session):
+        """管理员可以重新启用已禁用用户。"""
+        create_user(client, "enable_target", "enable_target@example.com")
+        user = get_user_by_username(db_session, "enable_target")
+        assert user is not None
+
+        disable_response = client.delete(f"/api/user/{user.id}", headers=admin_headers)
+        assert disable_response.status_code == 200
+
+        enable_response = client.patch(
+            f"/api/user/{user.id}/enable",
+            headers=admin_headers,
+        )
+        assert enable_response.status_code == 200
+        assert enable_response.json().get("message") == "账户已启用"
+
+        db_session.refresh(user)
+        assert user.is_active is True
+
+    def test_enabled_user_can_login_again(self, client, admin_headers, db_session):
+        """重新启用后用户可以再次登录。"""
+        create_user(client, "enable_login_target", "enable_login@example.com")
+        user = get_user_by_username(db_session, "enable_login_target")
+        assert user is not None
+
+        assert client.delete(f"/api/user/{user.id}", headers=admin_headers).status_code == 200
+        assert (
+            client.patch(f"/api/user/{user.id}/enable", headers=admin_headers).status_code
+            == 200
+        )
+
+        login_response = client.post(
+            "/api/auth/login",
+            json={"username": "enable_login_target", "password": "123456"},
+        )
+        assert login_response.status_code == 200
+        assert "access_token" in login_response.json()
+
+    def test_enable_already_enabled_user(self, client, admin_headers, db_session):
+        """启用已启用的用户应返回 200（幂等设计）。"""
+        create_user(client, "already_enabled_target", "already_enabled@example.com")
+        user = get_user_by_username(db_session, "already_enabled_target")
+        assert user is not None
+        assert user.is_active is True
+
+        response = client.patch(f"/api/user/{user.id}/enable", headers=admin_headers)
+        assert response.status_code == 200
+        assert response.json().get("message") == "账户已启用"
+
+    def test_regular_user_cannot_enable_user(self, client, user_headers, db_session):
+        """普通用户不能启用账户。"""
+        create_user(client, "regular_enable_target", "regular_enable@example.com")
+        user = get_user_by_username(db_session, "regular_enable_target")
+        assert user is not None
+
+        response = client.patch(f"/api/user/{user.id}/enable", headers=user_headers)
+        assert response.status_code == 403
+        assert "需要管理员权限" in response.json().get("message", "")
+
+    def test_enable_nonexistent_user(self, client, admin_headers):
+        """启用不存在的用户应返回 404。"""
+        response = client.patch("/api/user/999999/enable", headers=admin_headers)
+        assert response.status_code == 404
+        assert "用户不存在" in response.json().get("message", "")
+
     def test_cannot_disable_last_admin(self, client, admin_headers, db_session):
         """不能禁用最后一个管理员"""
         # 查找当前有多少个管理员

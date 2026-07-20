@@ -314,8 +314,8 @@ def test_get_severity_questions(client, db_session):
     assert data["minimum_known_answers"] == 3
 
 
-def test_update_location_and_refresh_weather_risk(client, db_session, monkeypatch):
-    """补充位置后，后端可以生成天气环境风险并保存到任务。"""
+def test_update_location_refreshes_weather_risk_by_default(client, db_session, monkeypatch):
+    """补充位置默认会同步生成天气环境风险并保存到任务。"""
     user = _create_user(db_session, "history_weather_user")
     task = _create_history_task(db_session, _get_user_id(user))
     headers = _get_headers(_get_user_id(user))
@@ -357,20 +357,48 @@ def test_update_location_and_refresh_weather_risk(client, db_session, monkeypatc
         },
     )
     assert location_response.status_code == 200
-    assert location_response.json()["location_source"] == "browser"
-
-    weather_response = client.get(
-        f"/api/history/tasks/{task.id}/weather-risk",
-        headers=headers,
-    )
-    assert weather_response.status_code == 200
-    data = weather_response.json()
+    data = location_response.json()
+    assert data["location_source"] == "browser"
     assert data["environment_risk_level"] in {"high", "critical"}
     assert data["weather_recommendations"]
 
     detail = client.get(f"/api/history/tasks/{task.id}", headers=headers).json()
     assert detail["task"]["location_name"] == "试验田 A 区"
     assert detail["task"]["environment_risk_level"] in {"high", "critical"}
+
+
+def test_update_location_can_skip_weather_refresh(client, db_session, monkeypatch):
+    """前端可关闭自动天气分析，只保存位置。"""
+    user = _create_user(db_session, "history_location_only_user")
+    task = _create_history_task(db_session, _get_user_id(user))
+    headers = _get_headers(_get_user_id(user))
+
+    from app.services import history_service as history_service_module
+
+    def fail_if_called(*_args, **_kwargs):
+        raise AssertionError("weather service should not be called")
+
+    monkeypatch.setattr(history_service_module.httpx, "get", fail_if_called)
+
+    response = client.patch(
+        f"/api/history/tasks/{task.id}/location?refresh_weather=false",
+        headers=headers,
+        json={
+            "latitude": 30.52,
+            "longitude": 114.31,
+            "location_name": "试验田 A 区",
+            "location_source": "manual",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["location_source"] == "manual"
+    assert "environment_risk_level" not in data
+
+    detail = client.get(f"/api/history/tasks/{task.id}", headers=headers).json()
+    assert detail["task"]["location_name"] == "试验田 A 区"
+    assert detail["task"]["environment_risk_level"] is None
 
 
 def test_refresh_weather_risk_requires_location(client, db_session):

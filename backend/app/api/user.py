@@ -5,6 +5,7 @@
   - GET    /api/user/list           获取用户列表
   - POST   /api/user/create         创建用户
   - PUT    /api/user/{user_id}      编辑用户
+  - PATCH  /api/user/{user_id}/enable 启用用户
   - DELETE /api/user/{user_id}      删除用户
 """
 
@@ -141,3 +142,20 @@ def delete_user(
     user.is_active = False
     db.commit()
     return ApiResponse(message="账户已禁用")
+
+
+@router.patch("/{user_id}/enable", response_model=ApiResponse)
+def enable_user(
+    user_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+):
+    """启用用户账户，恢复其登录和受保护接口访问权限。"""
+    user = user_service.get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    # 幂等处理：已启用账户重复启用仍返回成功，方便前端按状态按钮直接调用。
+    user.is_active = True
+    db.commit()
+    return ApiResponse(message="账户已启用")
