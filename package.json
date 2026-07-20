@@ -1,0 +1,14 @@
+ {
+   "name": "rsod-platform",
+   "private": true,
+   "scripts": {
+     "dev": "concurrently -n infra,backend,frontend -c blue,green,yellow \"npm run services:up\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+     "dev:backend": "cd backend && uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+     "dev:frontend": "cd frontend && npm run dev",
+     "services:up": "docker compose up -d",
+     "services:down": "docker compose down"
+   },
+   "devDependencies": {
+     "concurrently": "^9.1.0"
+   }
+ }
