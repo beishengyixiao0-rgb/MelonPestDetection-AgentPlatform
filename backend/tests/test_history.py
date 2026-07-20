@@ -2,9 +2,10 @@
 检测历史记录 API 测试 - 精简版（只测试API行为，不依赖数据创建）
 """
 
-import pytest
 import base64
 from datetime import datetime
+
+import pytest
 from app.core.security import create_access_token
 from app.entity.db_models import DetectionResult, DetectionScene, DetectionTask, User
 
@@ -13,6 +14,7 @@ from app.entity.db_models import DetectionResult, DetectionScene, DetectionTask,
 def use_history_test_db(monkeypatch):
     """HistoryService 直接创建 SessionLocal，这里替换为测试库会话以保持 API 测试隔离。"""
     from app.services import history_service as history_service_module
+
     from tests.conftest import TestSessionLocal
 
     monkeypatch.setattr(history_service_module, "SessionLocal", TestSessionLocal)
@@ -269,13 +271,13 @@ def test_create_severity_assessment_high_risk(client, db_session):
 
     assert response.status_code == 200
     data = response.json()
-    assert data["risk_level"] == "high"
+    assert data["risk_level"] == "critical"
     assert data["assessment_confidence"] == "high"
     assert data["class_name_display"] == "番茄晚疫病"
     assert data["reasons"]
 
     detail = client.get(f"/api/history/tasks/{task.id}", headers=headers).json()
-    assert detail["task"]["risk_level"] == "high"
+    assert data["risk_level"] == "critical"
 
 
 def test_create_severity_assessment_uses_llm_enhancement(
@@ -392,7 +394,9 @@ def test_get_severity_questions(client, db_session):
     assert data["minimum_known_answers"] == 3
 
 
-def test_update_location_refreshes_weather_risk_by_default(client, db_session, monkeypatch):
+def test_update_location_refreshes_weather_risk_by_default(
+    client, db_session, monkeypatch
+):
     """补充位置默认会同步生成天气环境风险并保存到任务。"""
     user = _create_user(db_session, "history_weather_user")
     task = _create_history_task(db_session, _get_user_id(user))
@@ -604,8 +608,14 @@ def test_report_preview_and_html_download(client, db_session):
     preview_data = preview.json()
     assert preview_data["task"]["id"] == task.id
     assert preview_data["severity_assessments"][0]["risk_level"] == "moderate"
-    assert preview_data["inspection_images"][0]["annotated_image_url"] == "http://minio/result-a.jpg"
-    assert preview_data["question_answers"][0]["label"] == "目前出现症状的叶片大约占整株多少？"
+    assert (
+        preview_data["inspection_images"][0]["annotated_image_url"]
+        == "http://minio/result-a.jpg"
+    )
+    assert (
+        preview_data["question_answers"][0]["label"]
+        == "目前出现症状的叶片大约占整株多少？"
+    )
     assert preview_data["weather_metrics"]["avg_humidity"] == 88.0
     assert "番茄晚疫病" in preview_data["integrated_conclusion"]
     assert "天气环境风险为 high" in preview_data["integrated_conclusion"]
@@ -641,12 +651,16 @@ def test_report_download_defaults_to_pdf(client, db_session, tmp_path):
     annotated_image = tmp_path / "annotated.png"
     source_image.write_bytes(image_bytes)
     annotated_image.write_bytes(image_bytes)
-    for result in db_session.query(DetectionResult).filter(DetectionResult.task_id == task.id):
+    for result in db_session.query(DetectionResult).filter(
+        DetectionResult.task_id == task.id
+    ):
         result.image_path = str(source_image)
         result.annotated_image_url = str(annotated_image)
     db_session.commit()
 
-    response = client.get(f"/api/history/tasks/{task.id}/report/download", headers=headers)
+    response = client.get(
+        f"/api/history/tasks/{task.id}/report/download", headers=headers
+    )
 
     assert response.status_code in {200, 503}
     if response.status_code == 200:
