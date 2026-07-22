@@ -20,7 +20,7 @@
           <h1>用 AI 赋能农业，</h1>
           <h1>守护每一寸农田</h1>
           <p>
-            集作物病虫害检测、土壤分析、天气预测与产量优化于一体的
+            集作物病害检测、土壤分析、天气预测与产量优化于一体的
             智能化农业综合服务平台，让种植更科学、管理更高效。
           </p>
           <div class="hero-buttons">
@@ -182,7 +182,7 @@ const carouselImages = [
   {
     url: "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=healthy%20green%20crops%20in%20agricultural%20field%20with%20sunlight%2C%20modern%20farming%2C%20natural%20environment&image_size=landscape_16_9",
     title: "健康作物",
-    description: "实时监测作物健康状况，AI智能预警病虫害风险",
+    description: "实时监测作物健康状况，AI智能预警病害风险",
   },
   {
     url: "https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=AI%20plant%20disease%20diagnosis%20with%20green%20leaves%2C%20technology%20interface%2C%20smart%20agriculture&image_size=landscape_16_9",

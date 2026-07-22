@@ -1,17 +1,55 @@
 <template>
   <div class="chat-page">
-    <ChatSidebar
-      :sessions="sessions"
-      :current-session-id="currentSessionId"
-      @new-diagnosis="startNewDiagnosis"
-      @select-session="handleSelectSession"
-      @delete-session="handleDeleteSession"
-      @rename-session="handleRenameSession"
+    <button
+      v-if="sidebarOpen"
+      class="sidebar-backdrop"
+      type="button"
+      :aria-label="tr('sidebar.close')"
+      @click="closeSidebar"
     />
+
+    <div
+      id="chat-sidebar-drawer"
+      class="sidebar-drawer"
+      :class="{ open: sidebarOpen }"
+      :aria-hidden="!sidebarOpen"
+      :inert="!sidebarOpen"
+    >
+      <ChatSidebar
+        :sessions="sessions"
+        :current-session-id="currentSessionId"
+        @new-diagnosis="handleNewDiagnosisFromSidebar"
+        @select-session="handleSelectSessionFromSidebar"
+        @delete-session="handleDeleteSession"
+        @rename-session="handleRenameSession"
+      />
+      <button
+        class="drawer-close"
+        type="button"
+        :aria-label="tr('sidebar.close')"
+        @click="closeSidebar"
+      >
+        ×
+      </button>
+    </div>
 
     <main class="main-area">
       <header class="topbar">
-        <span>{{ tr('chat.title') }}</span>
+        <div class="topbar-title">
+          <button
+            class="sidebar-toggle"
+            type="button"
+            aria-controls="chat-sidebar-drawer"
+            :aria-expanded="sidebarOpen"
+            :aria-label="sidebarOpen ? tr('sidebar.close') : tr('sidebar.open')"
+            @click="toggleSidebar"
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+          <span>{{ tr('chat.title') }}</span>
+        </div>
         <div class="topbar-actions">
           <span class="model-status">🟢 {{ tr('chat.modelReady') }}</span>
           <LanguageSwitcher />
@@ -93,6 +131,34 @@ const cameraError = ref('')
 
 const chatComposerRef = ref(null)
 const chatMessageListRef = ref(null)
+const COMPACT_BREAKPOINT = 900
+const isCompactViewport = ref(
+  typeof window !== 'undefined' && window.innerWidth <= COMPACT_BREAKPOINT,
+)
+const sidebarOpen = ref(!isCompactViewport.value)
+
+const closeSidebar = () => {
+  sidebarOpen.value = false
+}
+
+const toggleSidebar = () => {
+  sidebarOpen.value = !sidebarOpen.value
+}
+
+const closeSidebarOnCompact = () => {
+  if (isCompactViewport.value) closeSidebar()
+}
+
+const handleViewportResize = () => {
+  const nextCompact = window.innerWidth <= COMPACT_BREAKPOINT
+  if (nextCompact === isCompactViewport.value) return
+  isCompactViewport.value = nextCompact
+  sidebarOpen.value = !nextCompact
+}
+
+const handleSidebarKeydown = (event) => {
+  if (event.key === 'Escape' && sidebarOpen.value) closeSidebar()
+}
 
 const scrollToBottom = async () => {
   await nextTick()
@@ -969,6 +1035,9 @@ const sendMessage = async () => {
 }
 
 onMounted(async () => {
+  handleViewportResize()
+  window.addEventListener('resize', handleViewportResize)
+  window.addEventListener('keydown', handleSidebarKeydown)
   await agentStore.loadSessions()
   const pendingPrompt = agentStore.consumePendingPrompt()
 
@@ -1024,6 +1093,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   activeVideoPolls.clear()
+  window.removeEventListener('resize', handleViewportResize)
+  window.removeEventListener('keydown', handleSidebarKeydown)
 })
 
 const useSuggestion = (text) => {
@@ -1056,6 +1127,11 @@ const startNewDiagnosis = () => {
   cameraError.value = ''
 }
 
+const handleNewDiagnosisFromSidebar = () => {
+  startNewDiagnosis()
+  closeSidebarOnCompact()
+}
+
 const handleSelectSession = async (sessionId) => {
   if (sessionId === currentSessionId.value) return
 
@@ -1080,6 +1156,11 @@ const handleSelectSession = async (sessionId) => {
 
   await agentStore.loadSessionMessages(sessionId)
   await scrollToBottom()
+}
+
+const handleSelectSessionFromSidebar = async (sessionId) => {
+  await handleSelectSession(sessionId)
+  closeSidebarOnCompact()
 }
 
 const handleDeleteSession = async (sessionId) => {
@@ -1107,7 +1188,58 @@ const handleRenameSession = async (sessionId, newTitle) => {
 .chat-page {
   display: flex;
   height: 100vh;
+  min-width: 0;
+  overflow: hidden;
   background: #fafafa;
+}
+
+.sidebar-drawer {
+  position: relative;
+  z-index: 30;
+  width: 300px;
+  flex: 0 0 300px;
+  overflow: hidden;
+  background: #fff;
+  transform: translateX(0);
+  transition: width .24s ease, flex-basis .24s ease, transform .24s ease;
+}
+
+.sidebar-drawer:not(.open) {
+  width: 0;
+  flex-basis: 0;
+  transform: translateX(-100%);
+}
+
+.sidebar-drawer :deep(.sidebar) {
+  box-sizing: border-box;
+  width: 300px;
+}
+
+.drawer-close {
+  position: absolute;
+  top: 13px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: #f3f5f3;
+  color: #667069;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.drawer-close:hover,
+.sidebar-toggle:hover {
+  background: #eaf5ed;
+  color: #168149;
+}
+
+.sidebar-backdrop {
+  display: none;
 }
 
 .main-area {
@@ -1129,6 +1261,44 @@ const handleRenameSession = async (sessionId, newTitle) => {
   justify-content: space-between;
 }
 
+.topbar-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar-title > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-toggle {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+  border: 1px solid #e1e7e3;
+  border-radius: 10px;
+  background: #fff;
+  color: #536158;
+  cursor: pointer;
+  transition: .18s ease;
+}
+
+.sidebar-toggle span {
+  width: 15px;
+  height: 1.5px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
 .topbar-actions {
   display: flex;
   align-items: center;
@@ -1139,6 +1309,74 @@ const handleRenameSession = async (sessionId, newTitle) => {
   font-size: 13px;
   color: #6b7280;
   font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .chat-page {
+    height: 100dvh;
+  }
+
+  .sidebar-drawer,
+  .sidebar-drawer:not(.open) {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 80;
+    width: min(86vw, 320px);
+    height: 100dvh;
+    flex: none;
+    overflow: visible;
+    visibility: hidden;
+    transform: translateX(-102%);
+    transition: transform .24s ease, visibility .24s ease;
+  }
+
+  .sidebar-drawer.open {
+    width: min(86vw, 320px);
+    visibility: visible;
+    transform: translateX(0);
+    box-shadow: 18px 0 42px rgba(20, 35, 25, .18);
+  }
+
+  .sidebar-drawer :deep(.sidebar) {
+    width: 100%;
+    height: 100dvh;
+    padding: 18px;
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: block;
+    border: 0;
+    background: rgba(24, 34, 28, .34);
+    backdrop-filter: blur(2px);
+  }
+
+  .topbar {
+    min-height: 62px;
+    box-sizing: border-box;
+    padding: 12px 14px;
+  }
+}
+
+@media (max-width: 520px) {
+  .topbar-title {
+    gap: 9px;
+  }
+
+  .topbar-title > span {
+    max-width: 45vw;
+    font-size: 14px;
+  }
+
+  .topbar-actions {
+    gap: 7px;
+  }
+
+  .model-status {
+    display: none;
+  }
 }
 
 </style>

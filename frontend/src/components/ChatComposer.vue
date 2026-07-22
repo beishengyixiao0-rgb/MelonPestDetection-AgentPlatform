@@ -1030,11 +1030,13 @@ defineExpose({ openFilePicker })
 
 @media (max-width: 640px) {
   .chat-footer {
-    padding: 30px 10px 12px;
+    padding: 22px 10px max(12px, env(safe-area-inset-bottom));
   }
 
   .input-wrapper {
     min-height: 58px;
+    gap: 8px;
+    padding: 8px 10px;
     border-radius: 28px;
   }
 

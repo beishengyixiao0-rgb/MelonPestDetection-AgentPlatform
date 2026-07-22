@@ -350,7 +350,74 @@ defineExpose({ scrollToBottom })
 
 @media (max-width: 640px) {
   .messages {
-    padding: 24px 14px 140px;
+    padding: 18px 12px 126px;
+  }
+
+  .welcome-panel {
+    justify-content: flex-start;
+    padding-top: 9vh;
+  }
+
+  .welcome-icon {
+    margin-bottom: 12px;
+    font-size: 50px;
+  }
+
+  .welcome-panel h1 {
+    margin-bottom: 10px;
+    font-size: 27px;
+  }
+
+  .welcome-desc {
+    margin-bottom: 22px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .suggestions-grid {
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+
+  .suggestion-card {
+    padding: 13px 14px;
+    border-radius: 13px;
+  }
+
+  .chat-messages {
+    gap: 18px;
+  }
+
+  .message-row {
+    gap: 8px;
+  }
+
+  .message-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 11px;
+  }
+
+  .message-bubble {
+    max-width: calc(100% - 44px);
+    padding: 11px 13px;
+    border-radius: 15px;
+    font-size: 14px;
+  }
+
+  .result-stack,
+  .image-message,
+  .video-message,
+  .batch-message {
+    max-width: calc(100% - 42px);
+  }
+
+  .batch-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .batch-grid .chat-image {
+    height: 96px;
   }
 }
 </style>
