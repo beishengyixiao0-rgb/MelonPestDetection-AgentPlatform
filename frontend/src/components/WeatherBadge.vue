@@ -35,7 +35,7 @@
 </template>
 
 <script setup>
-import { getApproximateLocationByIp, getWeatherByCoordinates, readWeatherCache, saveWeatherCache } from '@/api/weather'
+import { getApproximateLocationByIp, getCityByCoordinates, getWeatherByCoordinates, readWeatherCache, saveWeatherCache } from '@/api/weather'
 import { getBrowserLocation } from '@/utils/geolocation'
 import { useLocaleStore } from '@/stores/locale'
 import { computed, onMounted, ref } from 'vue'
@@ -68,10 +68,14 @@ async function loadWeather() {
     const location = await getBrowserLocation()
     let city = localeStore.locale === 'en' ? 'Current city' : '当前城市'
     try {
-      const approximateLocation = await getApproximateLocationByIp()
-      city = approximateLocation.city || city
+      city = await getCityByCoordinates(location, localeStore.locale)
     } catch {
-      // 城市名称仅用于展示；IP 城市解析失败不影响精确坐标天气。
+      try {
+        const approximateLocation = await getApproximateLocationByIp()
+        city = approximateLocation.city || city
+      } catch {
+        // 城市名称仅用于展示；反向解析和 IP 城市均失败时不影响精确坐标天气。
+      }
     }
     weather.value = {
       ...await getWeatherByCoordinates({
@@ -107,6 +111,8 @@ onMounted(() => {
   const invalidCity = !cached.city
     || cached.city === '当前位置'
     || cached.city === 'Current location'
+    || cached.city === '当前城市'
+    || cached.city === 'Current city'
     || /^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/.test(cached.city)
   if (invalidCity) return
   weather.value = cached

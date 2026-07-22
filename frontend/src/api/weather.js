@@ -115,6 +115,47 @@ export const getApproximateLocationByIp = async () => {
   }
 }
 
+/**
+ * 将浏览器定位得到的经纬度反向解析为城市名称。
+ *
+ * 使用 BigDataCloud 面向浏览器的免费客户端接口，无需 API Key。
+ * 该请求只在用户主动授权首页天气定位后发起；失败时由调用方降级到 IP 城市。
+ */
+export const getCityByCoordinates = async (location, locale = 'zh') => {
+  const latitude = Number(location?.latitude)
+  const longitude = Number(location?.longitude)
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    throw new Error('反向地理编码需要有效经纬度')
+  }
+
+  const query = new URLSearchParams({
+    latitude: String(latitude),
+    longitude: String(longitude),
+    localityLanguage: locale === 'en' ? 'en' : 'zh',
+  })
+  const payload = await fetchJson(
+    `https://api.bigdatacloud.net/data/reverse-geocode-client?${query.toString()}`,
+    {},
+    5000,
+  )
+
+  const administrativeCity = Array.isArray(payload?.localityInfo?.administrative)
+    ? payload.localityInfo.administrative.find((item) => (
+        item?.name && ['city', 'municipality'].includes(String(item?.adminLevelName || '').toLowerCase())
+      ))?.name
+    : ''
+  const city = payload?.city
+    || payload?.locality
+    || administrativeCity
+    || payload?.principalSubdivision
+    || payload?.countryName
+
+  if (!String(city || '').trim()) {
+    throw new Error('反向地理编码未返回城市名称')
+  }
+  return String(city).trim()
+}
+
 export const getWeatherByCoordinates = async (location) => {
   const query = new URLSearchParams({
     latitude: String(location.latitude),

@@ -147,7 +147,7 @@
               </el-dropdown-menu>
             </template>
           </el-dropdown>
-          <el-button type="primary" @click="$emit('ask-ai', detail?.task)">
+          <el-button type="primary" @click="$emit('ask-ai', detail)">
             <el-icon><ChatDotRound /></el-icon>{{ locale === 'en' ? 'Ask AI' : '询问 AI' }}
           </el-button>
         </div>

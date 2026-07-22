@@ -218,13 +218,13 @@ const copy = computed(() => {
   const en = localeStore.locale === 'en'
   return en ? {
     back: 'Back to home', title: 'Detection History', subtitle: 'Review your saved YOLO detection tasks', aiAgent: 'AI Agent', analytics: 'Analytics',
-    searchPlaceholder: 'Search task, disease class or scene…', clear: 'Clear search', filters: 'Filters', refresh: 'Refresh', taskType: 'Detection type', allTypes: 'All types', single: 'Single image', batch: 'Batch images', video: 'Video', status: 'Detection status', allStatuses: 'All statuses', completed: 'Completed', processing: 'Processing', pending: 'Pending', failed: 'Failed', scene: 'Scene', allScenes: 'All scenes', dateRange: 'Date range', to: 'to', startDate: 'Start date', endDate: 'End date', clearFilters: 'Clear all filters', showing: 'Showing', of: 'of', records: 'records', synced: 'Synced with history API', deleteTitle: 'Delete detection record?', deleteMessage: 'This removes the task and its stored detection results. This action cannot be undone.', deleteDone: 'Detection record deleted', deleteFailed: 'Unable to delete detection record', detailFailed: 'Unable to load detection details', loadFailed: 'Unable to load history', askPrompt: 'Analyze detection task #{id}. It is a {type} task with {objects} detected objects. Please explain possible risks and recommended next steps based on my infomation.',
+    searchPlaceholder: 'Search task, disease class or scene…', clear: 'Clear search', filters: 'Filters', refresh: 'Refresh', taskType: 'Detection type', allTypes: 'All types', single: 'Single image', batch: 'Batch images', video: 'Video', status: 'Detection status', allStatuses: 'All statuses', completed: 'Completed', processing: 'Processing', pending: 'Pending', failed: 'Failed', scene: 'Scene', allScenes: 'All scenes', dateRange: 'Date range', to: 'to', startDate: 'Start date', endDate: 'End date', clearFilters: 'Clear all filters', showing: 'Showing', of: 'of', records: 'records', synced: 'Synced with history API', deleteTitle: 'Delete detection record?', deleteMessage: 'This removes the task and its stored detection results. This action cannot be undone.', deleteDone: 'Detection record deleted', deleteFailed: 'Unable to delete detection record', detailFailed: 'Unable to load detection details', loadFailed: 'Unable to load history',
     plantSearchPlaceholder: 'Search task, disease class or plant…',
     riskLevel: 'Severity', allRiskLevels: 'All severity levels', unassessed: 'Not assessed', lowRisk: 'Low', moderateRisk: 'Moderate', highRisk: 'High', criticalRisk: 'Critical', insufficient: 'Insufficient information',
     treatmentStatus: 'Treatment status', allTreatmentStatuses: 'All treatment statuses', treatmentPending: 'Pending treatment', treatmentInProgress: 'In progress', monitoring: 'Monitoring', treated: 'Treated', resolved: 'Resolved', diseaseClass: 'Disease class', classPlaceholder: 'Select or enter a class', plantName: 'Plant', plantPlaceholder: 'Select or enter a plant', treatmentUpdated: 'Treatment status updated', treatmentFailed: 'Unable to update treatment status', treatmentNoteTitle: 'Treatment note', treatmentNotePrompt: 'Optional: record what was done or the next follow-up plan', downloadDone: 'Report downloaded', downloadFailed: 'Unable to download report',
   } : {
     back: '返回首页', title: '检测历史', subtitle: '查看当前账号保存的 YOLO 检测任务', aiAgent: 'AI 智能体', analytics: '数据分析',
-    searchPlaceholder: '搜索任务编号、病害类别或场景…', clear: '清除搜索', filters: '筛选', refresh: '刷新', taskType: '检测类型', allTypes: '全部类型', single: '单图检测', batch: '批量检测', video: '视频检测', status: '检测状态', allStatuses: '全部状态', completed: '已完成', processing: '处理中', pending: '待处理', failed: '失败', scene: '检测场景', allScenes: '全部场景', dateRange: '日期范围', to: '至', startDate: '开始日期', endDate: '结束日期', clearFilters: '清除全部筛选', showing: '当前显示', of: '/', records: '条检测记录', synced: '已连接历史记录接口', deleteTitle: '确认删除检测记录？', deleteMessage: '该操作会同时删除任务及其保存的检测结果，且无法恢复。', deleteDone: '检测记录已删除', deleteFailed: '删除检测记录失败', detailFailed: '检测详情加载失败', loadFailed: '历史记录加载失败', askPrompt: '请分析检测任务 #{id}。这是一次{type}任务，共检测到 {objects} 个目标。请结合我的信息说明可能风险和后续建议。',
+    searchPlaceholder: '搜索任务编号、病害类别或场景…', clear: '清除搜索', filters: '筛选', refresh: '刷新', taskType: '检测类型', allTypes: '全部类型', single: '单图检测', batch: '批量检测', video: '视频检测', status: '检测状态', allStatuses: '全部状态', completed: '已完成', processing: '处理中', pending: '待处理', failed: '失败', scene: '检测场景', allScenes: '全部场景', dateRange: '日期范围', to: '至', startDate: '开始日期', endDate: '结束日期', clearFilters: '清除全部筛选', showing: '当前显示', of: '/', records: '条检测记录', synced: '已连接历史记录接口', deleteTitle: '确认删除检测记录？', deleteMessage: '该操作会同时删除任务及其保存的检测结果，且无法恢复。', deleteDone: '检测记录已删除', deleteFailed: '删除检测记录失败', detailFailed: '检测详情加载失败', loadFailed: '历史记录加载失败',
     plantSearchPlaceholder: '搜索任务编号、病害类别或植物…',
     riskLevel: '严重程度', allRiskLevels: '全部严重程度', unassessed: '未评估', lowRisk: '低风险', moderateRisk: '中等风险', highRisk: '高风险', criticalRisk: '严重风险', insufficient: '信息不足',
     treatmentStatus: '处理状态', allTreatmentStatuses: '全部处理状态', treatmentPending: '待处理', treatmentInProgress: '处理中', monitoring: '观察中', treated: '已处理', resolved: '已解决', diseaseClass: '病害类别', classPlaceholder: '选择或输入类别', plantName: '植物', plantPlaceholder: '选择或输入植物名称', treatmentUpdated: '处理状态已更新', treatmentFailed: '处理状态更新失败', treatmentNoteTitle: '处理备注', treatmentNotePrompt: '可选：记录已采取的措施或下一步复查计划', downloadDone: '报告已下载', downloadFailed: '报告下载失败',
@@ -408,16 +408,107 @@ async function confirmDelete(task) {
   }
 }
 
-function askAi(task) {
-  if (!task?.id) return
-  const type = localeStore.locale === 'en'
-    ? ({ single: 'single-image', batch: 'batch-image', video: 'video' }[task.task_type] || 'detection')
-    : ({ single: '单图检测', batch: '批量检测', video: '视频检测' }[task.task_type] || '检测')
-  const prompt = copy.value.askPrompt
-    .replace('{id}', task.id)
-    .replace('{type}', type)
-    .replace('{objects}', task.total_objects ?? 0)
-  agentStore.queueHomePrompt(prompt)
+const valueText = (value, fallback) => {
+  if (value === null || value === undefined || value === '') return fallback
+  return String(value)
+}
+
+const riskText = (level, en) => ({
+  low: en ? 'Low' : '低风险',
+  moderate: en ? 'Moderate' : '中等风险',
+  high: en ? 'High' : '高风险',
+  critical: en ? 'Critical' : '严重风险',
+  insufficient_information: en ? 'Insufficient information' : '信息不足',
+  unavailable: en ? 'Unavailable' : '暂不可用',
+}[level] || (en ? 'Not assessed' : '未评估'))
+
+const treatmentText = (status, en) => ({
+  pending: en ? 'Pending treatment' : '待处理',
+  in_progress: en ? 'In progress' : '处理中',
+  monitoring: en ? 'Monitoring' : '观察中',
+  treated: en ? 'Treated' : '已处理',
+  resolved: en ? 'Resolved' : '已解决',
+}[status] || (en ? 'Not recorded' : '未记录'))
+
+function buildHistoryPrompt(detail, fallbackTask) {
+  const en = localeStore.locale === 'en'
+  const task = { ...(fallbackTask || {}), ...(detail?.task || {}) }
+  const missing = en ? 'Not recorded' : '未记录'
+  const displayCounts = detail?.class_counts_display || task.class_counts_display || {}
+  const rawCounts = detail?.class_counts || task.class_counts || {}
+  const counts = Object.keys(displayCounts).length ? displayCounts : rawCounts
+  const diseases = Object.entries(counts)
+    .map(([name, count]) => `${name} (${count})`)
+    .join(en ? ', ' : '、') || missing
+  const plants = Array.from(new Set((detail?.results || [])
+    .map((item) => item.plant_name_display || item.plant_name)
+    .filter(Boolean)))
+  const plant = plants.join(en ? ', ' : '、')
+    || task.plant_name_display
+    || task.plant_name
+    || missing
+  const assessments = Array.isArray(detail?.severity_assessments)
+    ? detail.severity_assessments
+    : []
+  const assessmentText = assessments.length
+    ? assessments.map((item) => {
+        const name = item.class_name_display || item.class_name || missing
+        const summary = item.summary ? `; ${item.summary}` : ''
+        return `${name}: ${riskText(item.risk_level, en)}${summary}`
+      }).join('\n  - ')
+    : missing
+  const weatherRecommendations = Array.isArray(task.weather_recommendations)
+    ? task.weather_recommendations.join(en ? '; ' : '；')
+    : ''
+
+  if (en) {
+    return `Please analyze the disease-state history for record #${task.id}. The following information comes from the saved history detail, not from a new detection:\n` +
+      `- Plant: ${plant}\n` +
+      `- Disease classes: ${diseases}\n` +
+      `- Overall severity: ${riskText(task.risk_level, true)}\n` +
+      `- Per-disease assessments:\n  - ${assessmentText}\n` +
+      `- Location: ${valueText(task.location_name, missing)}\n` +
+      `- Environmental risk: ${riskText(task.environment_risk_level, true)}\n` +
+      `- Weather summary: ${valueText(task.weather_summary, missing)}\n` +
+      `- Weather recommendations: ${valueText(weatherRecommendations, missing)}\n` +
+      `- Treatment status: ${treatmentText(task.treatment_status, true)}\n` +
+      `- Treatment note: ${valueText(task.treatment_note, missing)}\n` +
+      `- Recorded at: ${valueText(task.completed_at || task.created_at, missing)}\n\n` +
+      'Focus on the current disease condition, severity, possible weather influence, treatment progress, remaining risks, and practical follow-up actions. Do not focus on the detection method or inference metrics. Do not invent trends or facts that are absent from this single record.'
+  }
+
+  return `请分析历史病害档案 #${task.id} 的状态。以下内容来自已保存的历史详情，并非要求重新检测：\n` +
+    `- 植物：${plant}\n` +
+    `- 病害类型：${diseases}\n` +
+    `- 综合严重程度：${riskText(task.risk_level, false)}\n` +
+    `- 分病害评估：\n  - ${assessmentText}\n` +
+    `- 记录地点：${valueText(task.location_name, missing)}\n` +
+    `- 天气环境风险：${riskText(task.environment_risk_level, false)}\n` +
+    `- 天气摘要：${valueText(task.weather_summary, missing)}\n` +
+    `- 天气相关建议：${valueText(weatherRecommendations, missing)}\n` +
+    `- 当前处理状态：${treatmentText(task.treatment_status, false)}\n` +
+    `- 处理备注：${valueText(task.treatment_note, missing)}\n` +
+    `- 记录时间：${valueText(task.completed_at || task.created_at, missing)}\n\n` +
+    '请重点分析当前病害状态、严重程度、天气可能造成的影响、处理进展、剩余风险和下一步复查建议。不要重点复述检测方式、目标总数或推理指标；对于本记录中没有的信息，不要推测或虚构变化趋势。'
+}
+
+async function askAi(source) {
+  const sourceTask = source?.task || source
+  if (!sourceTask?.id) return
+
+  let detail = source?.task ? source : null
+  if (!detail && selectedDetail.value?.task?.id === sourceTask.id) {
+    detail = selectedDetail.value
+  }
+  if (!detail) {
+    try {
+      detail = await getHistoryTaskDetailApi(sourceTask.id)
+    } catch (error) {
+      console.warn('[History] 读取AI分析所需详情失败，使用列表信息降级', error)
+    }
+  }
+
+  agentStore.queueHomePrompt(buildHistoryPrompt(detail, sourceTask))
   router.push('/ai-chat')
 }
 
