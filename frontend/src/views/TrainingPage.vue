@@ -461,7 +461,7 @@ const exportForm = ref({
 const showPredictDialog = ref(false);
 const predicting = ref(false);
 const predictFile = ref(null);
-const predictConf = ref(0.25);
+const predictConf = ref(0.5);
 const predictIou = ref(0.45);
 const predictResult = ref(null);
 

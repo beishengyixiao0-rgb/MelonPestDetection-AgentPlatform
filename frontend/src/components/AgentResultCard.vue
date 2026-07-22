@@ -48,8 +48,53 @@
         </div>
       </div>
 
+      <div v-if="isVideoResult" class="agent-video-section">
+        <div class="video-toolbar">
+          <strong>标注视频</strong>
+          <a
+            v-if="annotatedVideoUrl"
+            :href="annotatedVideoUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            新窗口打开
+          </a>
+        </div>
+
+        <video
+          v-if="annotatedVideoUrl && !videoPlaybackFailed"
+          :src="annotatedVideoUrl"
+          class="agent-video"
+          controls
+          playsinline
+          preload="metadata"
+          @error="handleVideoPlaybackError"
+        />
+
+        <p v-if="videoPlaybackFailed && annotatedVideoUrl" class="video-warning">
+          浏览器内嵌播放失败，可点击“新窗口打开”查看标注视频。
+        </p>
+
+        <div v-if="(!annotatedVideoUrl || videoPlaybackFailed) && thumbnailFrames.length" class="video-frame-grid">
+          <button
+            v-for="(frame, index) in thumbnailFrames"
+            :key="frame.frame_index ?? index"
+            type="button"
+            class="video-frame-button"
+            @click="openPreview(getVideoFrameImage(frame))"
+          >
+            <img :src="getVideoFrameImage(frame)" :alt="`视频关键帧 ${index + 1}`" />
+            <span>{{ frame.timestamp ?? 0 }}s</span>
+          </button>
+        </div>
+
+        <p v-else-if="!annotatedVideoUrl && !thumbnailFrames.length" class="empty-targets">
+          标注视频暂不可用，请查看检测统计或稍后重试。
+        </p>
+      </div>
+
       <button
-        v-if="annotatedImage"
+        v-else-if="annotatedImage"
         type="button"
         class="annotated-image-button"
         @click="openPreview(annotatedImage)"
@@ -58,7 +103,7 @@
         <span>{{ tr('agent.viewImage') }}</span>
       </button>
 
-      <div v-if="batchImages.length" class="batch-grid">
+      <div v-if="!isVideoResult && batchImages.length" class="batch-grid">
         <button
           v-for="(image, index) in batchImages"
           :key="`${image.name}-${index}`"
@@ -118,6 +163,24 @@
           <ol v-else-if="block.type === 'ordered-list'">
             <li v-for="(line, lineIndex) in block.items" :key="lineIndex">{{ line }}</li>
           </ol>
+          <div v-else-if="block.type === 'table'" class="analysis-table-wrap">
+            <table class="analysis-table">
+              <thead>
+                <tr>
+                  <th v-for="(cell, cellIndex) in block.headers" :key="cellIndex">
+                    {{ cell }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, rowIndex) in block.rows" :key="rowIndex">
+                  <td v-for="(cell, cellIndex) in row" :key="cellIndex">
+                    {{ cell }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <p v-else>{{ block.text }}</p>
         </template>
         <span v-if="item.loading" class="stream-cursor" />
@@ -166,6 +229,11 @@ const previewSrc = ref('')
 
 const resultData = computed(() => props.item.detectionResult?.data || props.item.detectionResult || {})
 const hasResult = computed(() => Object.keys(resultData.value).length > 0 && !resultData.value.error)
+const isVideoResult = computed(() => (
+  resultData.value.type === 'video'
+  || Boolean(resultData.value.annotated_video_url)
+  || Boolean(resultData.value.source_video_url)
+))
 const detections = computed(() => (
   Array.isArray(resultData.value.detections) ? resultData.value.detections : []
 ))
@@ -221,6 +289,45 @@ const annotatedImage = computed(() => toImageSource(
   resultData.value.annotated_image_base64 || resultData.value.annotated_image,
 ))
 
+const annotatedVideoUrl = computed(() => (
+  resultData.value.annotated_video_url
+  || resultData.value.annotatedVideoUrl
+  || resultData.value.result_video_url
+  || resultData.value.resultVideoUrl
+  || resultData.value.video_url
+  || ''
+))
+const videoFrames = computed(() => (
+  Array.isArray(resultData.value.key_frames)
+    ? resultData.value.key_frames
+    : Array.isArray(resultData.value.frames)
+      ? resultData.value.frames
+      : []
+))
+const videoPlaybackFailed = ref(false)
+
+const getVideoFrameImage = (frame) => {
+  const source = frame.annotated_image_base64
+    || frame.image_base64
+    || frame.annotated_image_url
+    || frame.image_url
+    || ''
+
+  if (!source || source.startsWith('data:') || source.startsWith('http') || source.startsWith('/')) {
+    return source
+  }
+
+  return `data:image/jpeg;base64,${source}`
+}
+
+const thumbnailFrames = computed(() => (
+  videoFrames.value.filter((frame) => Boolean(getVideoFrameImage(frame))).slice(0, 12)
+))
+
+const handleVideoPlaybackError = () => {
+  videoPlaybackFailed.value = true
+}
+
 const batchImages = computed(() => {
   const images = resultData.value.annotated_images
   if (!Array.isArray(images)) return []
@@ -238,6 +345,20 @@ const cleanInlineMarkdown = (text) => text
   .replace(/__(.*?)__/g, '$1')
   .replace(/`([^`]+)`/g, '$1')
   .trim()
+
+const isMarkdownTableLine = (line) => /^\|.+\|$/.test(line.trim())
+
+const parseTableCells = (line) => line
+  .trim()
+  .replace(/^\|/, '')
+  .replace(/\|$/, '')
+  .split('|')
+  .map((cell) => cleanInlineMarkdown(cell))
+
+const isTableSeparator = (line) => {
+  const cells = parseTableCells(line)
+  return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()))
+}
 
 /**
  * YOLO 结果已由上方检测卡片展示。过滤大模型重复生成的检测统计表格和标注图链接，
@@ -261,6 +382,7 @@ const contentBlocks = computed(() => {
   const blocks = []
   let paragraph = []
   let list = null
+  let table = null
 
   const flushParagraph = () => {
     if (!paragraph.length) return
@@ -272,12 +394,18 @@ const contentBlocks = computed(() => {
     blocks.push(list)
     list = null
   }
+  const flushTable = () => {
+    if (!table) return
+    if (table.headers.length && table.rows.length) blocks.push(table)
+    table = null
+  }
 
   lines.forEach((rawLine) => {
     const line = rawLine.trim()
     if (!line) {
       flushParagraph()
       flushList()
+      flushTable()
       return
     }
 
@@ -285,12 +413,24 @@ const contentBlocks = computed(() => {
     const unordered = line.match(/^[-*•]\s+(.+)$/)
     const ordered = line.match(/^\d+[.)、]\s*(.+)$/)
 
-    if (heading) {
+    if (isMarkdownTableLine(line)) {
       flushParagraph()
       flushList()
+      if (isTableSeparator(line)) return
+      const cells = parseTableCells(line)
+      if (!table) {
+        table = { type: 'table', headers: cells, rows: [] }
+      } else {
+        table.rows.push(cells)
+      }
+    } else if (heading) {
+      flushParagraph()
+      flushList()
+      flushTable()
       blocks.push({ type: 'heading', text: cleanInlineMarkdown(heading[1]) })
     } else if (unordered || ordered) {
       flushParagraph()
+      flushTable()
       const type = unordered ? 'list' : 'ordered-list'
       if (!list || list.type !== type) {
         flushList()
@@ -299,12 +439,14 @@ const contentBlocks = computed(() => {
       list.items.push(cleanInlineMarkdown((unordered || ordered)[1]))
     } else {
       flushList()
+      flushTable()
       paragraph.push(line)
     }
   })
 
   flushParagraph()
   flushList()
+  flushTable()
   return blocks
 })
 
@@ -354,6 +496,16 @@ const openPreview = (src) => {
 .annotated-image-button { width: 100%; margin-top: 14px; padding: 0; }
 .annotated-image-button img { display: block; width: 100%; max-height: 340px; object-fit: contain; border: 1px solid #e5e7eb; border-radius: 12px; background: #f9fafb; }
 .annotated-image-button span { display: block; margin-top: 5px; color: #9ca3af; font-size: 11px; }
+.agent-video-section { margin-top: 14px; }
+.video-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; color: #374151; font-size: 13px; }
+.video-toolbar a { flex-shrink: 0; color: #15803d; font-size: 12px; font-weight: 700; text-decoration: none; }
+.video-toolbar a:hover { text-decoration: underline; }
+.agent-video { display: block; width: 100%; max-height: 360px; border: 1px solid #e5e7eb; border-radius: 12px; background: #111827; }
+.video-warning { margin: 8px 0 10px; padding: 9px 11px; border: 1px solid #fed7aa; border-radius: 9px; background: #fff7ed; color: #9a3412; font-size: 12px; line-height: 1.5; }
+.video-frame-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 9px; max-height: 360px; overflow-y: auto; }
+.video-frame-button { min-width: 0; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.video-frame-button img { width: 100%; height: 120px; object-fit: contain; border: 1px solid #e5e7eb; border-radius: 9px; background: #f9fafb; }
+.video-frame-button span { display: block; margin-top: 4px; color: #6b7280; font-size: 11px; }
 .batch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 9px; max-height: 480px; margin-top: 14px; overflow-y: auto; }
 .batch-image-button { min-width: 0; padding: 0; }
 .batch-image-button img { width: 100%; height: 120px; object-fit: contain; border: 1px solid #e5e7eb; border-radius: 9px; background: #f9fafb; }
@@ -382,6 +534,11 @@ const openPreview = (src) => {
 .formatted-answer p { margin: 8px 0; }
 .formatted-answer ul, .formatted-answer ol { margin: 8px 0; padding-left: 22px; }
 .formatted-answer li { margin: 5px 0; }
+.analysis-table-wrap { overflow-x: auto; margin: 10px 0; }
+.analysis-table { width: 100%; min-width: 360px; border-collapse: collapse; font-size: 12px; }
+.analysis-table th, .analysis-table td { padding: 8px 10px; border: 1px solid #e9d5ff; text-align: left; vertical-align: top; }
+.analysis-table th { background: #f5f3ff; color: #4c1d95; font-weight: 700; }
+.analysis-table td { color: #374151; }
 .stream-cursor { display: inline-block; width: 7px; height: 15px; margin-left: 4px; vertical-align: -2px; border-radius: 2px; background: #8b5cf6; animation: blink 0.8s infinite; }
 
 .model-error, .request-error { margin-top: 14px; padding: 12px; border-radius: 12px; background: #fef2f2; color: #b91c1c; }

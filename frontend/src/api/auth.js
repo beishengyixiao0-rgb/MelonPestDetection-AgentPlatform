@@ -32,6 +32,11 @@ export function getUserProfileApi() {
     return request.get('/auth/profile')
 }
 
+/** 修改当前用户个人信息。 */
+export function updateUserProfileApi(data) {
+    return request.put('/auth/profile', data)
+}
+
 /** 保存当前用户的中英文显示偏好。 */
 export function updateDisplayLanguageApi(display_language) {
     return request.put('/auth/preferences', { display_language })

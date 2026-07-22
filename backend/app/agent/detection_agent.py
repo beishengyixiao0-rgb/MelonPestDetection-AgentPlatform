@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from typing import AsyncGenerator
 
-from app.agent.base_agent import BaseAgent, create_llm, _is_video_path
+from app.agent.base_agent import BaseAgent, create_llm, _is_video_path, _is_zip_path
 from app.agent.prompts import get_detection_agent_prompt
 from app.agent.tools.detection_tool import (
     DETECTION_TOOLS,
@@ -251,6 +251,16 @@ class DetectionAgent(BaseAgent):
                         "result": serialized_output,
                     }
 
+            if tool_results and not assistant_parts:
+                fallback_text = (
+                    "Detection completed. Please review the result card, confidence values, and annotated outputs. "
+                    "Use clear original images and field observations for final confirmation."
+                    if display_language == "en"
+                    else "检测已完成，请查看结果卡片、置信度和标注结果。最终判断仍建议结合清晰原图和现场情况复核。"
+                )
+                assistant_parts.append(fallback_text)
+                yield {"type": "text_chunk", "content": fallback_text}
+
         except Exception as e:
             logger.error("Agent 流式执行异常: %s", str(e), exc_info=True)
             # LLM 临时不可用时，有附件的请求仍可直接执行本地检测并返回结果卡片。
@@ -310,6 +320,43 @@ class DetectionAgent(BaseAgent):
             yield {"type": "error", "content": error_msg}
             return
 
+        if len(attachment_paths) > 1:
+            if any(_is_video_path(path) or _is_zip_path(path) for path in attachment_paths):
+                error_msg = (
+                    "Please upload either multiple images, one ZIP file, or one video file."
+                    if display_language == "en"
+                    else "请上传多张图片、单个 ZIP 文件或单个视频文件，不要混合上传。"
+                )
+                yield {"type": "error", "content": error_msg}
+                return
+
+            yield {
+                "type": "tool_call",
+                "tool": "detect_batch_images",
+                "input": {"image_paths": attachment_paths},
+            }
+            try:
+                result = detection_service.detect_batch(
+                    attachment_paths,
+                    scene_id=_tool_scene_id.get(),
+                    user_id=_tool_user_id.get(),
+                    display_language=_tool_display_language.get(),
+                )
+                yield {
+                    "type": "tool_result",
+                    "tool": "detect_batch_images",
+                    "result": json.dumps(result, ensure_ascii=False),
+                }
+                yield {
+                    "type": "text_chunk",
+                    "content": "Batch detection completed. Please review the result card."
+                    if display_language == "en"
+                    else "批量检测完成，请查看结果卡片。",
+                }
+            except Exception as e:
+                yield {"type": "error", "content": str(e)}
+            return
+
         for path in attachment_paths:
             if _is_video_path(path):
                 yield {
@@ -335,6 +382,32 @@ class DetectionAgent(BaseAgent):
                         "content": "Video detection completed. Please review the result card."
                         if display_language == "en"
                         else "视频检测完成，请查看结果卡片。",
+                    }
+                except Exception as e:
+                    yield {"type": "error", "content": str(e)}
+            elif _is_zip_path(path):
+                yield {
+                    "type": "tool_call",
+                    "tool": "detect_zip_images_file",
+                    "input": {"zip_path": path},
+                }
+                try:
+                    result = detection_service.detect_zip(
+                        path,
+                        scene_id=_tool_scene_id.get(),
+                        user_id=_tool_user_id.get(),
+                        display_language=_tool_display_language.get(),
+                    )
+                    yield {
+                        "type": "tool_result",
+                        "tool": "detect_zip_images_file",
+                        "result": json.dumps(result, ensure_ascii=False),
+                    }
+                    yield {
+                        "type": "text_chunk",
+                        "content": "ZIP detection completed. Please review the result card."
+                        if display_language == "en"
+                        else "ZIP 检测完成，请查看结果卡片。",
                     }
                 except Exception as e:
                     yield {"type": "error", "content": str(e)}

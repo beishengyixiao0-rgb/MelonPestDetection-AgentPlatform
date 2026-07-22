@@ -79,6 +79,7 @@ backend/datasets/
 *.csv
 *.xlsx
 *.parquet
+datasets/
 
 ## 图片/视频（根据项目需要调整）
 images/

@@ -70,8 +70,22 @@
         </div>
 
         <div v-else-if="item.type === 'video'" class="video-message">
-          <video :src="item.videoUrl" class="chat-video" controls playsinline />
+          <video
+            :src="item.videoUrl"
+            class="chat-video"
+            controls
+            playsinline
+            @error="handleVideoError(item)"
+          />
           <div v-if="item.content" class="media-caption">{{ item.content }}</div>
+        </div>
+
+        <div v-else-if="item.type === 'file'" class="file-message">
+          <div class="file-icon">{{ item.fileType || 'FILE' }}</div>
+          <div class="file-info">
+            <strong>{{ item.fileName || item.content }}</strong>
+            <span v-if="item.content && item.fileName">{{ item.content }}</span>
+          </div>
         </div>
 
         <RealtimeDetectionCard
@@ -184,6 +198,11 @@ const isBatchDetection = (item) => (
   Array.isArray(getDetectionResult(item).annotated_images)
   && getDetectionResult(item).annotated_images.length > 0
 )
+
+const handleVideoError = (item) => {
+  if (!item?.videoFallbackUrl || item.videoUrl === item.videoFallbackUrl) return
+  item.videoUrl = item.videoFallbackUrl
+}
 
 const messageEndRef = ref(null)
 
@@ -367,7 +386,8 @@ defineExpose({ scrollToBottom })
 }
 
 .image-message,
-.video-message {
+.video-message,
+.file-message {
   max-width: 420px;
   padding: 8px;
   background: white;
@@ -392,6 +412,44 @@ defineExpose({ scrollToBottom })
   padding: 8px 6px 2px;
   color: #4b5563;
   font-size: 13px;
+}
+
+.file-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.file-icon {
+  min-width: 48px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #ecfdf5;
+  color: #15803d;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.file-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.file-info strong {
+  overflow: hidden;
+  color: #374151;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-info span {
+  color: #6b7280;
+  font-size: 12px;
 }
 
 .batch-message {
@@ -469,6 +527,7 @@ defineExpose({ scrollToBottom })
   .result-stack,
   .image-message,
   .video-message,
+  .file-message,
   .batch-message {
     max-width: calc(100% - 42px);
   }

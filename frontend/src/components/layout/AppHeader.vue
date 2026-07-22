@@ -20,7 +20,7 @@
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item command="profile">
-              <el-icon><User /></el-icon>{{ tr('user.profile') }}
+              <el-icon><User /></el-icon>{{ tr('profile.editAction') }}
             </el-dropdown-item>
             <el-dropdown-item command="logout" divided>
               <el-icon><SwitchButton /></el-icon>{{ tr('user.logout') }}
@@ -29,6 +29,8 @@
         </template>
       </el-dropdown>
     </div>
+
+    <ProfileEditDialog v-model="profileEditorOpen" />
   </header>
 </template>
 
@@ -40,17 +42,20 @@ import { useUserStore } from '@/stores/user'
 import { useLocaleStore } from '@/stores/locale'
 import { t } from '@/utils/i18n'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import ProfileEditDialog from '@/components/ProfileEditDialog.vue'
+import { ref } from 'vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 const localeStore = useLocaleStore()
 const tr = (key) => t(key, localeStore.locale)
+const profileEditorOpen = ref(false)
 
 /** 处理下拉菜单命令 */
 function handleCommand(command) {
   switch (command) {
     case 'profile':
-      // 个人中心（后续实现）
+      profileEditorOpen.value = true
       break
     case 'logout':
       ElMessageBox.confirm(tr('user.logoutConfirm'), tr('common.tip'), {

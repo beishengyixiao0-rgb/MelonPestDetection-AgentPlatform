@@ -196,7 +196,7 @@ const isConnecting = ref(false);
 
 // 检测配置
 const detectMode = ref("cpu");
-const confThreshold = ref(0.25);
+const confThreshold = ref(0.5);
 
 // 实时统计
 const currentFps = ref(0);

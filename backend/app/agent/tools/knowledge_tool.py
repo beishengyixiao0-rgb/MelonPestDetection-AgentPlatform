@@ -7,6 +7,7 @@
 
 import json
 
+from app.config.settings import settings
 from app.core.logger import get_logger
 from app.rag.retriever import knowledge_retriever
 from langchain_core.tools import tool
@@ -40,6 +41,10 @@ def search_knowledge(query: str, top_k: int = 3) -> str:
                 {
                     "knowledge": [],
                     "sources": [],
+                    "count": 0,
+                    "hit": False,
+                    "max_similarity": 0,
+                    "threshold": settings.RAG_SIMILARITY_THRESHOLD,
                     "fallback_to_llm": True,
                 },
                 ensure_ascii=False,
@@ -59,6 +64,9 @@ def search_knowledge(query: str, top_k: int = 3) -> str:
             {
                 "knowledge": formatted,
                 "count": len(formatted),
+                "hit": True,
+                "max_similarity": max((item["similarity"] for item in formatted), default=0),
+                "threshold": settings.RAG_SIMILARITY_THRESHOLD,
                 "fallback_to_llm": False,
             },
             ensure_ascii=False,

@@ -15,7 +15,7 @@
  *
  * const ws = createCameraWs({
  *   mode: "cpu",
- *   conf: 0.25,
+ *   conf: 0.5,
  *   onResult: (data) => {},
  *   onConfigOk: () => {},
  *   onError: (msg) => {},
@@ -35,7 +35,7 @@ class CameraWs {
 
     // 检测配置
     this.mode = options.mode || "cpu";
-    this.conf = options.conf || 0.25;
+    this.conf = options.conf || 0.5;
     this.iou = options.iou || 0.45;
     this.sceneId = options.sceneId;
 

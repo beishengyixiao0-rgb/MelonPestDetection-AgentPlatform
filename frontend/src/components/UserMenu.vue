@@ -43,12 +43,19 @@
         ⚙️ {{ tr('admin.entry') }}
       </router-link>
 
+      <button class="profile-edit-button" type="button" @click="openProfileEditor">
+        {{ tr('profile.editAction') }}
+      </button>
+
       <button class="logout-button" type="button" @click="logout">{{ tr('user.logout') }}</button>
     </div>
+
+    <ProfileEditDialog v-model="profileEditorOpen" />
   </div>
 </template>
 
 <script setup>
+import ProfileEditDialog from '@/components/ProfileEditDialog.vue'
 import { useLocaleStore } from '@/stores/locale'
 import { useUserStore } from '@/stores/user'
 import { t } from '@/utils/i18n'
@@ -61,6 +68,7 @@ const userStore = useUserStore()
 const localeStore = useLocaleStore()
 const tr = (key, params) => t(key, localeStore.locale, params)
 const open = ref(false)
+const profileEditorOpen = ref(false)
 
 const roleLabel = computed(() => (userStore.isAdmin ? tr('home.admin') : tr('home.user')))
 const userInitial = computed(() => (userStore.username || 'U').charAt(0).toUpperCase())
@@ -79,6 +87,11 @@ const logout = () => {
   open.value = false
   ElMessage.success(tr('home.logoutDone'))
   router.push('/login')
+}
+
+const openProfileEditor = () => {
+  open.value = false
+  profileEditorOpen.value = true
 }
 
 onMounted(async () => {
@@ -143,6 +156,7 @@ onMounted(async () => {
 .profile-stats strong { color: #166534; }
 .profile-stats span { color: #6b7280; font-size: 11px; }
 .admin-link,
+.profile-edit-button,
 .logout-button {
   display: block;
   box-sizing: border-box;
@@ -158,6 +172,8 @@ onMounted(async () => {
 }
 .admin-link { margin-bottom: 8px; background: #ecfdf5; color: #15803d; }
 .admin-link:hover { background: #dcfce7; }
+.profile-edit-button { margin-bottom: 8px; background: #f0fdf4; color: #166534; }
+.profile-edit-button:hover { background: #dcfce7; }
 .logout-button { background: #fef2f2; color: #dc2626; }
 
 @media (max-width: 760px) {

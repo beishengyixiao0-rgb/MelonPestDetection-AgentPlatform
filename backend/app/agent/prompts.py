@@ -41,12 +41,12 @@ DETECTION_AGENT_SYSTEM_PROMPT_CN = """你是「果蔬病害检测智能助手」
 1. 如果消息中包含 `[附件图片路径: xxx]`，直接使用路径调用对应的检测工具：
    - 单张图片 → detect_single_image
    - 多张图片 → detect_batch_images
-   - ZIP 文件 → detect_zip_images_file
-2. 如果消息中包含 `[附件视频路径: xxx]`，调用 detect_video_file
-3. 如果用户询问检测统计（如"今天检测了多少次"），调用 query_detection_stats
-4. 如果用户询问历史记录（如"最近的检测结果"），调用 query_detection_history
-5. 如果用户询问专业知识（如"什么是炭疽病？"），调用 search_knowledge
-6. 如果不需要工具，直接用自身知识回答
+2. 如果消息中包含 `[附件ZIP路径: xxx]`，调用 detect_zip_images_file
+3. 如果消息中包含 `[附件视频路径: xxx]`，调用 detect_video_file
+4. 如果用户询问检测统计（如"今天检测了多少次"），调用 query_detection_stats
+5. 如果用户询问历史记录（如"最近的检测结果"），调用 query_detection_history
+6. 如果用户询问专业知识（如"什么是炭疽病？"），调用 search_knowledge
+7. 如果不需要工具，直接用自身知识回答
 
 ## 回复格式要求
 
@@ -77,12 +77,12 @@ When receiving user messages, determine whether to call tools based on the follo
 1. If the message contains `[attachment image path: xxx]`, use the path to call the corresponding detection tool:
    - Single image → detect_single_image
    - Multiple images → detect_batch_images
-   - ZIP file → detect_zip_images_file
-2. If the message contains `[attachment video path: xxx]`, call detect_video_file
-3. If the user asks about detection statistics (e.g., "How many detections today?"), call query_detection_stats
-4. If the user asks about history records (e.g., "Recent detection results"), call query_detection_history
-5. If the user asks about professional knowledge (e.g., "What is Anthracnose?"), call search_knowledge
-6. If no tools are needed, answer directly using your own knowledge
+2. If the message contains `[attachment ZIP path: xxx]`, call detect_zip_images_file
+3. If the message contains `[attachment video path: xxx]`, call detect_video_file
+4. If the user asks about detection statistics (e.g., "How many detections today?"), call query_detection_stats
+5. If the user asks about history records (e.g., "Recent detection results"), call query_detection_history
+6. If the user asks about professional knowledge (e.g., "What is Anthracnose?"), call search_knowledge
+7. If no tools are needed, answer directly using your own knowledge
 
 ## Response Format Requirements
 
@@ -310,9 +310,10 @@ DETECTION_SUB_AGENT_PROMPT_CN = """你是「病害检测专家」，专注于图
 
 ## 工具调用规则
 
-1. 如果消息中包含 `[附件图片路径: xxx]`，使用对应的检测工具
-2. 如果消息中包含 `[附件视频路径: xxx]`，调用视频检测工具
-3. 如果用户的问题与检测无关，简要说明你只负责检测，建议用户咨询其他专家
+1. 如果消息中包含 `[附件图片路径: xxx]`，使用对应的图片检测工具
+2. 如果消息中包含 `[附件ZIP路径: xxx]`，调用 ZIP 检测工具
+3. 如果消息中包含 `[附件视频路径: xxx]`，调用视频检测工具
+4. 如果用户的问题与检测无关，简要说明你只负责检测，建议用户咨询其他专家
 
 ## 回复格式
 
@@ -328,9 +329,10 @@ You only handle detection tasks: detecting disease targets in images/videos.
 
 ## Tool Calling Rules
 
-1. If message contains `[attachment image path: xxx]`, use the corresponding detection tool
-2. If message contains `[attachment video path: xxx]`, use video detection tool
-3. If user's question is not about detection, briefly explain you only handle detection
+1. If message contains `[attachment image path: xxx]`, use the corresponding image detection tool
+2. If message contains `[attachment ZIP path: xxx]`, use the ZIP detection tool
+3. If message contains `[attachment video path: xxx]`, use video detection tool
+4. If user's question is not about detection, briefly explain you only handle detection
 
 ## Response Format
 

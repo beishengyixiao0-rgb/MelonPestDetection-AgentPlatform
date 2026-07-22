@@ -30,6 +30,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 logger = get_logger(__name__)
 
 VIDEO_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv"}
+ZIP_SUFFIXES = {".zip"}
 FAKE_TOOL_CALL_PATTERN = re.compile(
     r"^\s*(?:call|tool_call|function_call)?\s*`{0,3}\s*\{[^{}]*(?:\"name\"|'name')[^{}]*(?:\"arguments\"|'arguments')",
     re.IGNORECASE | re.DOTALL,
@@ -38,6 +39,10 @@ FAKE_TOOL_CALL_PATTERN = re.compile(
 
 def _is_video_path(path: str) -> bool:
     return Path(path).suffix.lower() in VIDEO_SUFFIXES
+
+
+def _is_zip_path(path: str) -> bool:
+    return Path(path).suffix.lower() in ZIP_SUFFIXES
 
 
 def create_llm():
@@ -136,13 +141,14 @@ class BaseAgent:
         attachment_paths = image_paths or ([image_path] if image_path else [])
         if len(attachment_paths) == 1:
             is_video = _is_video_path(attachment_paths[0])
+            is_zip = _is_zip_path(attachment_paths[0])
             if display_language == "en":
-                label = "video" if is_video else "image"
+                label = "video" if is_video else "ZIP" if is_zip else "image"
                 return (
                     f"{message}\n[attachment {label} path: {attachment_paths[0]}]",
                     attachment_paths,
                 )
-            label = "视频" if is_video else "图片"
+            label = "视频" if is_video else "ZIP" if is_zip else "图片"
             return (
                 f"{message}\n[附件{label}路径: {attachment_paths[0]}]",
                 attachment_paths,
@@ -165,10 +171,11 @@ class BaseAgent:
             return message
         if len(attachment_paths) == 1:
             is_video = _is_video_path(attachment_paths[0])
+            is_zip = _is_zip_path(attachment_paths[0])
             if display_language == "en":
-                attachment_label = "video" if is_video else "image"
+                attachment_label = "video" if is_video else "ZIP" if is_zip else "image"
                 return f"{message}\n[{attachment_label} attachment uploaded in this turn]"
-            attachment_label = "视频" if is_video else "图片"
+            attachment_label = "视频" if is_video else "ZIP" if is_zip else "图片"
             return f"{message}\n[本轮已上传{attachment_label}附件]"
         if display_language == "en":
             return f"{message}\n[{len(attachment_paths)} image attachments uploaded in this turn]"
@@ -267,7 +274,15 @@ class BaseAgent:
 
         fallback = bool(data.get("fallback_to_llm"))
         count = int(data.get("count") or len(data.get("knowledge") or []))
-        if fallback or count <= 0:
+        hit = bool(data.get("hit", count > 0 and not fallback))
+        max_similarity = data.get("max_similarity")
+        threshold = data.get("threshold")
+        if max_similarity is not None and threshold is not None:
+            try:
+                hit = hit and float(max_similarity) >= float(threshold)
+            except (TypeError, ValueError):
+                pass
+        if fallback or count <= 0 or not hit:
             return (
                 "Knowledge base not hit; answering with general model knowledge.\n\n"
                 if display_language == "en"

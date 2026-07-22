@@ -22,13 +22,13 @@
             <img :src="item.previewUrl" alt="preview" />
           </div>
           <div class="upload-preview video-preview" v-else>
-            <span>{{ item.type === 'video' ? '🎬' : '📷' }}</span>
+            <span>{{ getUploadIcon(item) }}</span>
           </div>
 
           <div class="upload-info">
             <div class="upload-name">{{ item.name }}</div>
             <div class="upload-meta">
-              {{ item.type === 'video' ? tr('composer.video') : tr('composer.image') }} · {{ getModeLabel(item.mode) }}
+              {{ getUploadTypeLabel(item) }} · {{ getModeLabel(item.mode) }}
             </div>
             <div class="upload-progress-track">
               <div class="upload-progress-bar" :style="{ width: item.progress + '%' }" />
@@ -252,6 +252,18 @@ const getModeLabel = (mode) => ({
   camera: tr('composer.camera'),
   knowledge: tr('composer.knowledge'),
 }[mode] || tr('composer.file'))
+
+const getUploadTypeLabel = (item) => ({
+  image: tr('composer.image'),
+  video: tr('composer.video'),
+  zip: 'ZIP',
+}[item?.type] || tr('composer.file'))
+
+const getUploadIcon = (item) => ({
+  image: '📷',
+  video: '🎬',
+  zip: 'ZIP',
+}[item?.type] || 'FILE')
 
 const resizeTextarea = () => {
   const textarea = textareaRef.value

@@ -3,7 +3,7 @@
  * 管理用户登录信息、Token、角色等
  */
 import { defineStore } from 'pinia'
-import { getUserInfoApi, getUserProfileApi, loginApi } from '@/api/auth'
+import { getUserInfoApi, getUserProfileApi, loginApi, updateUserProfileApi } from '@/api/auth'
 import { useLocaleStore } from '@/stores/locale'
 
 const TOKEN_KEY = 'rsod_token'
@@ -91,6 +91,17 @@ export const useUserStore = defineStore('user', {
         this.logout()
         throw error
       }
+    },
+
+    /** 修改当前登录用户的个人信息。 */
+    async updateProfile(data) {
+      const profile = await updateUserProfileApi(data)
+      this.user = {
+        ...(this.user || {}),
+        ...profile,
+      }
+      localStorage.setItem(USER_KEY, JSON.stringify(this.user))
+      return this.user
     },
 
     /**
