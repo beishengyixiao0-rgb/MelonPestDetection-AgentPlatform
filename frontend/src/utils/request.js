@@ -56,6 +56,9 @@ request.interceptors.response.use(
     if (response) {
       switch (response.status) {
         case 401:
+          // 登录接口的 401 表示凭据错误，应由 LoginPage 展示后端 detail，
+          // 不能误提示为“登录已过期”或重复跳转登录页。
+          if (error.config?.url === '/auth/login') break
           // Token 过期或无效，清除用户信息并跳转登录页
           ElMessage.error('登录已过期，请重新登录')
           const userStore = useUserStore()

@@ -100,7 +100,7 @@
     </section>
 
     <!-- LLM 解读固定放在检测目标之后，避免与原始检测数据混在一起。 -->
-    <section v-if="item.content && !item.error" class="analysis-section">
+    <section v-if="displayContent && !item.error" class="analysis-section">
       <div class="analysis-title">
         <span class="analysis-icon">AI</span>
         <div>
@@ -239,9 +239,25 @@ const cleanInlineMarkdown = (text) => text
   .replace(/`([^`]+)`/g, '$1')
   .trim()
 
+/**
+ * YOLO 结果已由上方检测卡片展示。过滤大模型重复生成的检测统计表格和标注图链接，
+ * 仅保留病害解读、风险说明与处理建议；历史会话中的旧回复同样适用。
+ */
+const displayContent = computed(() => String(props.item.content || '')
+  .replace(/\r/g, '')
+  .replace(
+    /(?:^|\n)\s*(?:#{1,6}\s*)?📋\s*检测结果\s*\n[\s\S]*?(?:\n\s*---+\s*(?=\n|$)|$)/g,
+    '\n',
+  )
+  .replace(
+    /(?:^|\n)\s*(?:#{1,6}\s*)?📋\s*Detection Results?\s*\n[\s\S]*?(?:\n\s*---+\s*(?=\n|$)|$)/gi,
+    '\n',
+  )
+  .trim())
+
 /** 将常见 Markdown 风格回复整理为标题、段落和列表，不使用 v-html。 */
 const contentBlocks = computed(() => {
-  const lines = String(props.item.content || '').replace(/\r/g, '').split('\n')
+  const lines = displayContent.value.split('\n')
   const blocks = []
   let paragraph = []
   let list = null

@@ -5,7 +5,7 @@
         <router-link to="/home" class="icon-button" :aria-label="copy.back">
           <el-icon><ArrowLeft /></el-icon>
         </router-link>
-        <div class="brand-mark"><el-icon><Grape /></el-icon></div>
+        <div class="brand-mark"><HeaderSeedlingIcon /></div>
         <div>
           <h1>{{ copy.title }}</h1>
           <p>{{ copy.subtitle }}</p>
@@ -170,7 +170,6 @@ import {
   ChatDotRound,
   Close,
   DataAnalysis,
-  Grape,
   Operation,
   Refresh,
   Search,
@@ -187,6 +186,7 @@ import {
   getHistoryTasksApi,
   updateTreatmentStatusApi,
 } from '@/api/history'
+import HeaderSeedlingIcon from '@/components/HeaderSeedlingIcon.vue'
 import HistoryDetailDialog from '@/components/history/HistoryDetailDialog.vue'
 import HistorySummaryCards from '@/components/history/HistorySummaryCards.vue'
 import HistoryTimeline from '@/components/history/HistoryTimeline.vue'
@@ -218,13 +218,13 @@ const copy = computed(() => {
   const en = localeStore.locale === 'en'
   return en ? {
     back: 'Back to home', title: 'Detection History', subtitle: 'Review your saved YOLO detection tasks', aiAgent: 'AI Agent', analytics: 'Analytics',
-    searchPlaceholder: 'Search task, disease class or scene…', clear: 'Clear search', filters: 'Filters', refresh: 'Refresh', taskType: 'Detection type', allTypes: 'All types', single: 'Single image', batch: 'Batch images', video: 'Video', status: 'Detection status', allStatuses: 'All statuses', completed: 'Completed', processing: 'Processing', pending: 'Pending', failed: 'Failed', scene: 'Scene', allScenes: 'All scenes', dateRange: 'Date range', to: 'to', startDate: 'Start date', endDate: 'End date', clearFilters: 'Clear all filters', showing: 'Showing', of: 'of', records: 'records', synced: 'Synced with history API', deleteTitle: 'Delete detection record?', deleteMessage: 'This removes the task and its stored detection results. This action cannot be undone.', deleteDone: 'Detection record deleted', deleteFailed: 'Unable to delete detection record', detailFailed: 'Unable to load detection details', loadFailed: 'Unable to load history', askPrompt: 'Analyze detection task #{id}. It is a {type} task with {objects} detected objects. Please explain possible risks and recommended next steps based on my history.',
+    searchPlaceholder: 'Search task, disease class or scene…', clear: 'Clear search', filters: 'Filters', refresh: 'Refresh', taskType: 'Detection type', allTypes: 'All types', single: 'Single image', batch: 'Batch images', video: 'Video', status: 'Detection status', allStatuses: 'All statuses', completed: 'Completed', processing: 'Processing', pending: 'Pending', failed: 'Failed', scene: 'Scene', allScenes: 'All scenes', dateRange: 'Date range', to: 'to', startDate: 'Start date', endDate: 'End date', clearFilters: 'Clear all filters', showing: 'Showing', of: 'of', records: 'records', synced: 'Synced with history API', deleteTitle: 'Delete detection record?', deleteMessage: 'This removes the task and its stored detection results. This action cannot be undone.', deleteDone: 'Detection record deleted', deleteFailed: 'Unable to delete detection record', detailFailed: 'Unable to load detection details', loadFailed: 'Unable to load history', askPrompt: 'Analyze detection task #{id}. It is a {type} task with {objects} detected objects. Please explain possible risks and recommended next steps based on my infomation.',
     plantSearchPlaceholder: 'Search task, disease class or plant…',
     riskLevel: 'Severity', allRiskLevels: 'All severity levels', unassessed: 'Not assessed', lowRisk: 'Low', moderateRisk: 'Moderate', highRisk: 'High', criticalRisk: 'Critical', insufficient: 'Insufficient information',
     treatmentStatus: 'Treatment status', allTreatmentStatuses: 'All treatment statuses', treatmentPending: 'Pending treatment', treatmentInProgress: 'In progress', monitoring: 'Monitoring', treated: 'Treated', resolved: 'Resolved', diseaseClass: 'Disease class', classPlaceholder: 'Select or enter a class', plantName: 'Plant', plantPlaceholder: 'Select or enter a plant', treatmentUpdated: 'Treatment status updated', treatmentFailed: 'Unable to update treatment status', treatmentNoteTitle: 'Treatment note', treatmentNotePrompt: 'Optional: record what was done or the next follow-up plan', downloadDone: 'Report downloaded', downloadFailed: 'Unable to download report',
   } : {
     back: '返回首页', title: '检测历史', subtitle: '查看当前账号保存的 YOLO 检测任务', aiAgent: 'AI 智能体', analytics: '数据分析',
-    searchPlaceholder: '搜索任务编号、病害类别或场景…', clear: '清除搜索', filters: '筛选', refresh: '刷新', taskType: '检测类型', allTypes: '全部类型', single: '单图检测', batch: '批量检测', video: '视频检测', status: '检测状态', allStatuses: '全部状态', completed: '已完成', processing: '处理中', pending: '待处理', failed: '失败', scene: '检测场景', allScenes: '全部场景', dateRange: '日期范围', to: '至', startDate: '开始日期', endDate: '结束日期', clearFilters: '清除全部筛选', showing: '当前显示', of: '/', records: '条检测记录', synced: '已连接历史记录接口', deleteTitle: '确认删除检测记录？', deleteMessage: '该操作会同时删除任务及其保存的检测结果，且无法恢复。', deleteDone: '检测记录已删除', deleteFailed: '删除检测记录失败', detailFailed: '检测详情加载失败', loadFailed: '历史记录加载失败', askPrompt: '请分析检测任务 #{id}。这是一次{type}任务，共检测到 {objects} 个目标。请结合我的历史记录说明可能风险和后续建议。',
+    searchPlaceholder: '搜索任务编号、病害类别或场景…', clear: '清除搜索', filters: '筛选', refresh: '刷新', taskType: '检测类型', allTypes: '全部类型', single: '单图检测', batch: '批量检测', video: '视频检测', status: '检测状态', allStatuses: '全部状态', completed: '已完成', processing: '处理中', pending: '待处理', failed: '失败', scene: '检测场景', allScenes: '全部场景', dateRange: '日期范围', to: '至', startDate: '开始日期', endDate: '结束日期', clearFilters: '清除全部筛选', showing: '当前显示', of: '/', records: '条检测记录', synced: '已连接历史记录接口', deleteTitle: '确认删除检测记录？', deleteMessage: '该操作会同时删除任务及其保存的检测结果，且无法恢复。', deleteDone: '检测记录已删除', deleteFailed: '删除检测记录失败', detailFailed: '检测详情加载失败', loadFailed: '历史记录加载失败', askPrompt: '请分析检测任务 #{id}。这是一次{type}任务，共检测到 {objects} 个目标。请结合我的信息说明可能风险和后续建议。',
     plantSearchPlaceholder: '搜索任务编号、病害类别或植物…',
     riskLevel: '严重程度', allRiskLevels: '全部严重程度', unassessed: '未评估', lowRisk: '低风险', moderateRisk: '中等风险', highRisk: '高风险', criticalRisk: '严重风险', insufficient: '信息不足',
     treatmentStatus: '处理状态', allTreatmentStatuses: '全部处理状态', treatmentPending: '待处理', treatmentInProgress: '处理中', monitoring: '观察中', treated: '已处理', resolved: '已解决', diseaseClass: '病害类别', classPlaceholder: '选择或输入类别', plantName: '植物', plantPlaceholder: '选择或输入植物名称', treatmentUpdated: '处理状态已更新', treatmentFailed: '处理状态更新失败', treatmentNoteTitle: '处理备注', treatmentNotePrompt: '可选：记录已采取的措施或下一步复查计划', downloadDone: '报告已下载', downloadFailed: '报告下载失败',

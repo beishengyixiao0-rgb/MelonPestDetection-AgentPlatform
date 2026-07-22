@@ -50,7 +50,8 @@ DETECTION_AGENT_SYSTEM_PROMPT_CN = """你是「果蔬病害检测智能助手」
 
 ## 回复格式要求
 
-- 检测结果：先报告总数 → 列出各类别数量 → 提及推理耗时 → 引导查看标注图
+- 检测工具的原始结果已由前端卡片展示，不要重复输出检测总数、类别统计、推理耗时、Markdown 表格或标注图片链接
+- 调用检测工具后，只补充对病害含义、潜在风险和后续处理建议的简洁分析
 - 知识问答：先给简洁定义 → 再补充关键细节 → 控制在 200 字以内
 - 统计数据：用数字说话 → 适当给出趋势判断
 - 语言风格：简洁专业，中文回复，不要过度解释
@@ -85,7 +86,8 @@ When receiving user messages, determine whether to call tools based on the follo
 
 ## Response Format Requirements
 
-- Detection results: Report total count first → List category counts → Mention inference time → Guide to view annotated images
+- Raw tool results are already displayed in the frontend card. Do not repeat totals, class counts, inference time, Markdown tables, or annotated-image links
+- After using a detection tool, only provide a concise interpretation of disease implications, potential risks, and recommended next steps
 - Knowledge Q&A: Give concise definition first → Add key details → Keep within 200 words
 - Statistical data: Use numbers → Provide trend analysis when appropriate
 - Language style: Concise and professional, reply in English, do not over-explain
@@ -314,7 +316,8 @@ DETECTION_SUB_AGENT_PROMPT_CN = """你是「病害检测专家」，专注于图
 
 ## 回复格式
 
-- 检测结果：先报告总数 → 列出各类别数量 → 提及推理耗时 → 引导查看标注图
+- 检测结果由前端卡片展示，不要重复检测总数、类别统计、推理耗时、Markdown 表格或标注图片链接
+- 只输出病害含义、风险判断和处理建议；没有可靠依据时明确说明需要补充信息
 - 语言风格：简洁专业"""
 
 DETECTION_SUB_AGENT_PROMPT_EN = """You are the 'Disease Detection Expert', specializing in detecting diseases in images/videos.
@@ -331,7 +334,8 @@ You only handle detection tasks: detecting disease targets in images/videos.
 
 ## Response Format
 
-- Detection results: Report total count → List category counts → Mention inference time → Guide to annotated images
+- Detection results are displayed in the frontend card. Do not repeat totals, class counts, inference time, Markdown tables, or annotated-image links
+- Only provide disease interpretation, risk assessment, and recommended actions; state when more information is needed
 - Language style: Concise and professional"""
 
 

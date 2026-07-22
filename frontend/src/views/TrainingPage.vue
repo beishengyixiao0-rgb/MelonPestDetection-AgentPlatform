@@ -856,6 +856,11 @@ async function validateModel() {
   validating.value = true;
   try {
     const taskId = selectedTask.value.id || selectedTask.value.task?.id;
+    if (!taskId) {
+      ElMessage.error("任务 ID 无效");
+      validating.value = false;
+      return;
+    }
     const res = await request.post(
       `/training/validate/${taskId}`,
       {
@@ -869,6 +874,8 @@ async function validateModel() {
     ElMessage.success(`评估完成：mAP@50=${formatPercent(res.overall?.map50)}`);
   } catch (e) {
     console.error("模型评估失败", e);
+    const errorMsg = e.response?.data?.detail || e.response?.data?.message || "模型评估失败";
+    ElMessage.error(errorMsg);
   } finally {
     validating.value = false;
   }

@@ -218,42 +218,31 @@ def get_detection_trend(
     current_user=Depends(get_current_user),
 ):
     """
-    获取检测趋势数据（折线图数据，最近7个月）
+    获取检测趋势数据（折线图数据，最近7天）
     """
     now = datetime.now()
     trend_data = []
 
     for i in range(6, -1, -1):
-        month_start = (now.replace(day=1) - timedelta(days=i * 30)).replace(day=1)
-        month_end = (month_start + timedelta(days=32)).replace(day=1)
+        day_start = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = (day_start + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
-        month_label = month_start.strftime("%b")
+        day_label = day_start.strftime("%m-%d")
 
         tasks_count = (
             db.query(func.count(DetectionTask.id))
             .filter(
                 DetectionTask.user_id == current_user.id,
-                DetectionTask.created_at >= month_start,
-                DetectionTask.created_at < month_end,
+                DetectionTask.created_at >= day_start,
+                DetectionTask.created_at < day_end,
             )
             .scalar()
         ) or 0
 
-        objects_count = (
-            db.query(func.coalesce(func.sum(DetectionTask.total_objects), 0))
-            .filter(
-                DetectionTask.user_id == current_user.id,
-                DetectionTask.created_at >= month_start,
-                DetectionTask.created_at < month_end,
-            )
-            .scalar()
-        )
-
         trend_data.append(
             {
-                "month": month_label,
+                "date": day_label,
                 "detections": tasks_count,
-                "identified": objects_count,
             }
         )
 

@@ -80,7 +80,15 @@
           @finished="$emit('realtime-finished', { item, result: $event })"
         />
 
-        <div v-else-if="item.type === 'agent-analysis'" class="result-stack">
+        <HealthyResult
+          v-else-if="isHealthyImageResult(item)"
+          @redetect="$emit('redetect-single')"
+        />
+
+        <div
+          v-else-if="item.type === 'agent-analysis'"
+          class="result-stack"
+        >
           <AgentResultCard :item="item" />
           <SeverityAssessmentPanel :result="getDetectionResult(item)" />
         </div>
@@ -100,9 +108,18 @@
           <SeverityAssessmentPanel :result="getDetectionResult(item)" />
         </div>
 
-        <div v-else class="message-bubble" :class="{ loading: item.loading, error: item.error }">
-          <span v-if="item.loading" class="loading-dot" />
-          {{ item.content }}
+        <div
+          v-else
+          class="message-bubble"
+          :class="{ loading: item.loading && !item.content, error: item.error }"
+        >
+          <span v-if="item.loading && !item.content" class="loading-dot" />
+          <MarkdownMessage
+            v-if="item.role === 'assistant' && !item.error && item.content"
+            :content="item.content"
+          />
+          <span v-else>{{ item.content }}</span>
+          <span v-if="item.loading && item.content" class="stream-cursor" />
         </div>
       </div>
       <div ref="messageEndRef" class="message-end-anchor"></div>
@@ -112,14 +129,16 @@
 
 <script setup>
 import AgentResultCard from '@/components/AgentResultCard.vue'
-import DiagnosisCard from '@/components/DiagnosisCard.vue'
 import DetectionResultCard from '@/components/DetectionResultCard.vue'
+import DiagnosisCard from '@/components/DiagnosisCard.vue'
+import HealthyResult from '@/components/HealthyResult.vue'
+import MarkdownMessage from '@/components/MarkdownMessage.vue'
 import RealtimeDetectionCard from '@/components/RealtimeDetectionCard.vue'
 import SeverityAssessmentPanel from '@/components/SeverityAssessmentPanel.vue'
 import VideoDetectionProgressCard from '@/components/VideoDetectionProgressCard.vue'
-import { ref } from 'vue'
 import { useLocaleStore } from '@/stores/locale'
 import { t } from '@/utils/i18n'
+import { ref } from 'vue'
 
 const localeStore = useLocaleStore()
 const tr = (key, params) => t(key, localeStore.locale, params)
@@ -131,9 +150,36 @@ const props = defineProps({
   },
 })
 
-defineEmits(['use-suggestion', 'realtime-finished'])
+defineEmits(['use-suggestion', 'realtime-finished', 'redetect-single'])
 
 const getDetectionResult = (item) => item.detectionResult?.data || item.detectionResult || {}
+
+const isHealthyImageResult = (item) => {
+  if (item.loading || item.error || !item.detectionResult) return false
+
+  const result = getDetectionResult(item)
+
+  // 视频、实时摄像头不使用这个静态图片结果卡片
+  if (result.type === 'video' || result.type === 'camera') return false
+
+  // 批量检测继续使用原来的批量结果卡片
+  if (
+    result.source === 'zip'
+    || Number(result.total_images || 0) > 1
+    || Array.isArray(result.annotated_images)
+  ) {
+    return false
+  }
+
+  const totalObjects = Number(
+    result.total_objects
+      ?? result.detections?.length
+      ?? -1,
+  )
+
+  return totalObjects === 0
+}
+
 const isBatchDetection = (item) => (
   Array.isArray(getDetectionResult(item).annotated_images)
   && getDetectionResult(item).annotated_images.length > 0
@@ -281,6 +327,10 @@ defineExpose({ scrollToBottom })
   color: white;
 }
 
+.message-row.assistant .message-bubble {
+  max-width: min(82%, 760px);
+}
+
 .message-bubble.loading {
   display: flex;
   align-items: center;
@@ -299,6 +349,17 @@ defineExpose({ scrollToBottom })
   border-radius: 50%;
   background: #16a34a;
   animation: pulse 1s infinite alternate;
+}
+
+.stream-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 15px;
+  margin-left: 4px;
+  vertical-align: -2px;
+  border-radius: 2px;
+  background: #16a34a;
+  animation: pulse 0.8s infinite alternate;
 }
 
 @keyframes pulse {

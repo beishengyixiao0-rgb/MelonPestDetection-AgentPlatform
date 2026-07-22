@@ -36,3 +36,19 @@ export function getUserProfileApi() {
 export function updateDisplayLanguageApi(display_language) {
     return request.put('/auth/preferences', { display_language })
 }
+
+/**
+ * 忘记密码 - 向注册邮箱发送 6 位验证码
+ * @param {Object} data - { email }
+ */
+export function forgotPasswordApi(data) {
+    return request.post('/auth/forgot-password', data)
+}
+
+/**
+ * 重置密码 - 验证邮箱和验证码并更新密码
+ * @param {Object} data - { email, code, new_password }
+ */
+export function resetPasswordApi(data) {
+    return request.post('/auth/reset-password', data)
+}

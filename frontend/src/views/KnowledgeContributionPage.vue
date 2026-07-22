@@ -1,19 +1,22 @@
 <template>
   <div class="knowledge-page">
     <header class="knowledge-header">
-      <div class="header-brand">
+      <div class="header-left">
         <router-link to="/home" class="icon-button" :aria-label="tr('knowledge.backHome')">
           <el-icon><ArrowLeft /></el-icon>
         </router-link>
-        <router-link to="/home" class="brand-link">🌿 AgriAgent</router-link>
-        <span class="header-divider" />
-        <span class="header-title">{{ tr('nav.knowledge') }}</span>
+        <div class="brand-mark"><HeaderSeedlingIcon /></div>
+        <div>
+          <h1>{{ tr('nav.knowledge') }}</h1>
+          <p>{{ tr('knowledge.subtitle') }}</p>
+        </div>
       </div>
 
-      <div class="header-actions">
+      <nav class="header-nav">
         <LanguageSwitcher />
-        <router-link to="/ai-chat" class="chat-link">🤖 {{ tr('knowledge.chat') }}</router-link>
-      </div>
+        <router-link to="/ai-chat"><el-icon><ChatDotRound /></el-icon>{{ tr('knowledge.chat') }}</router-link>
+        <router-link to="/history"><el-icon><Clock /></el-icon>{{ tr('nav.history') }}</router-link>
+      </nav>
     </header>
 
     <main class="knowledge-container">
@@ -163,10 +166,11 @@
 <script setup>
 import { getMyKnowledgeSubmissionsApi, submitKnowledgeDocumentApi } from '@/api/knowledge'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import HeaderSeedlingIcon from '@/components/HeaderSeedlingIcon.vue'
 import { useLocaleStore } from '@/stores/locale'
 import { t } from '@/utils/i18n'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeft, ChatDotRound, Clock } from '@element-plus/icons-vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 
 const localeStore = useLocaleStore()
@@ -290,48 +294,29 @@ onMounted(fetchSubmissions)
   align-items: center;
   justify-content: space-between;
   min-height: 72px;
-  padding: 0 40px;
-  border-bottom: 1px solid #e2e9e4;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(14px);
+  padding: 12px 28px;
+  box-sizing: border-box;
+  gap: 20px;
+  border-bottom: 1px solid rgba(222, 229, 224, 0.9);
+  background: rgba(250, 252, 250, 0.9);
+  backdrop-filter: blur(16px);
 }
 
-.header-brand,
-.header-actions {
+.header-left,
+.header-nav {
   display: flex;
   align-items: center;
-  gap: 14px;
 }
 
+.header-left { gap: 10px; min-width: 0; }
+.header-nav { gap: 7px; }
 .icon-button { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; color: #68766d; text-decoration: none; }
 .icon-button:hover { background: #edf2ee; color: #25372c; }
-
-.brand-link {
-  color: #15803d;
-  font-size: 20px;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.header-divider {
-  width: 1px;
-  height: 24px;
-  background: #dfe7e1;
-}
-
-.header-title {
-  color: #536158;
-  font-weight: 650;
-}
-
-.chat-link {
-  padding: 10px 15px;
-  border: 1px solid #dce5df;
-  border-radius: 12px;
-  color: #283a2e;
-  font-weight: 650;
-  text-decoration: none;
-}
+.brand-mark { width: 34px; height: 34px; margin-left: 2px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 10px; background: #1c8b51; color: #fff; font-size: 18px; }
+.header-left h1 { margin: 0; color: #17251c; font-size: 18px; font-weight: 800; }
+.header-left p { margin: 2px 0 0; color: #879189; font-size: 12px; }
+.header-nav > a { display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 9px; color: #637068; text-decoration: none; font-size: 13px; }
+.header-nav > a:hover { background: #edf3ef; color: #18834a; }
 
 .knowledge-container {
   width: min(1120px, calc(100% - 40px));
@@ -662,9 +647,10 @@ onMounted(fetchSubmissions)
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 860px) {
-  .knowledge-header { padding: 0 20px; }
-  .header-divider,
-  .header-title { display: none; }
+  .knowledge-header { align-items: flex-start; padding: 12px 16px; }
+  .header-left p { display: none; }
+  .header-nav > a { width: 34px; height: 34px; padding: 0; justify-content: center; font-size: 0; }
+  .header-nav > a .el-icon { font-size: 15px; }
   .hero-panel { padding: 38px 32px; }
   .hero-visual { display: none; }
   .contribution-grid { grid-template-columns: 1fr; }
@@ -672,9 +658,9 @@ onMounted(fetchSubmissions)
 
 @media (max-width: 600px) {
   .knowledge-container { width: min(100% - 24px, 1120px); padding-top: 18px; }
-  .knowledge-header { min-height: 62px; padding: 0 12px; }
-  .brand-link { font-size: 17px; }
-  .chat-link { padding: 8px 10px; font-size: 12px; }
+  .knowledge-header { gap: 8px; }
+  .brand-mark { display: none; }
+  .header-nav { gap: 2px; }
   .hero-panel { min-height: 0; padding: 30px 22px; border-radius: 21px; }
   .hero-copy h1 { font-size: 32px; }
   .hero-copy p { font-size: 14px; }

@@ -61,6 +61,7 @@
         :messages="messages"
         @use-suggestion="useSuggestion"
         @realtime-finished="handleRealtimeFinished"
+        @redetect-single="handleQuickDetect('single')"
       />
 
       <ChatComposer
@@ -90,7 +91,6 @@
 
 <script setup>
 import { uploadCommonFile } from '@/api/common'
-import { submitKnowledgeDocumentApi } from '@/api/knowledge'
 import {
   detectBatch,
   detectSingle,
@@ -98,6 +98,7 @@ import {
   detectZip,
   getVideoStatus,
 } from '@/api/detection'
+import { submitKnowledgeDocumentApi } from '@/api/knowledge'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
