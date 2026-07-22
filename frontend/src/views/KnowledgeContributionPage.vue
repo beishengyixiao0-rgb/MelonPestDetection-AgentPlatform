@@ -134,7 +134,7 @@
                     <i />{{ statusLabel(item.status) }}
                   </span>
                 </div>
-                <p class="file-name">{{ fileName(item.file_path) }}</p>
+                <p class="file-name">{{ item.filename || fileName(item.file_path) }}</p>
                 <div class="submission-meta">
                   <span>{{ tr('knowledge.createdAt') }} · {{ formatDate(item.created_at) }}</span>
                   <span v-if="item.reviewed_at">{{ formatDate(item.reviewed_at) }}</span>
@@ -223,12 +223,26 @@ const submitDocument = async () => {
   submitting.value = true
 
   try {
-    await submitKnowledgeDocumentApi(selectedFile.value, documentTitle.value)
+    const result = await submitKnowledgeDocumentApi(selectedFile.value, documentTitle.value)
+    const submittedRecord = result?.document_id
+      ? {
+          id: result.document_id,
+          title: result.title || documentTitle.value || selectedFile.value.name.replace(/\.(md|txt)$/i, ''),
+          filename: result.filename || selectedFile.value.name,
+          file_path: result.file_path || '',
+          status: result.status || 'pending',
+          created_at: new Date().toISOString(),
+        }
+      : null
     ElMessage.success(tr('knowledge.submitSuccess'))
     selectedFile.value = null
     documentTitle.value = ''
     pagination.page = 1
     await fetchSubmissions()
+    if (submittedRecord && !submissions.value.some((item) => item.id === submittedRecord.id)) {
+      submissions.value = [submittedRecord, ...submissions.value]
+      pagination.total += 1
+    }
   } finally {
     submitting.value = false
   }

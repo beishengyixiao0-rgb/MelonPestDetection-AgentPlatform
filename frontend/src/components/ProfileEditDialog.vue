@@ -33,6 +33,60 @@
           :placeholder="tr('profile.phonePlaceholder')"
         />
       </el-form-item>
+
+      <section class="password-reset-section">
+        <div class="section-heading">
+          <strong>{{ tr('profile.resetPassword') }}</strong>
+          <span>{{ tr('profile.resetPasswordDesc') }}</span>
+        </div>
+
+        <button
+          class="dialog-button secondary reset-code-button"
+          type="button"
+          :disabled="sendingCode"
+          @click="sendResetCode"
+        >
+          {{ sendingCode ? tr('profile.sendingCode') : tr('profile.sendCode') }}
+        </button>
+
+        <el-form-item :label="tr('profile.code')" prop="code">
+          <el-input
+            v-model.trim="form.code"
+            maxlength="6"
+            autocomplete="one-time-code"
+            :placeholder="tr('profile.codePlaceholder')"
+          />
+        </el-form-item>
+
+        <el-form-item :label="tr('profile.newPassword')" prop="newPassword">
+          <el-input
+            v-model="form.newPassword"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            :placeholder="tr('profile.newPasswordPlaceholder')"
+          />
+        </el-form-item>
+
+        <el-form-item :label="tr('profile.confirmPassword')" prop="confirmPassword">
+          <el-input
+            v-model="form.confirmPassword"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            :placeholder="tr('profile.confirmPasswordPlaceholder')"
+          />
+        </el-form-item>
+
+        <button
+          class="dialog-button primary reset-password-button"
+          type="button"
+          :disabled="resettingPassword"
+          @click="resetPassword"
+        >
+          {{ resettingPassword ? tr('profile.resettingPassword') : tr('profile.confirmResetPassword') }}
+        </button>
+      </section>
     </el-form>
 
     <template #footer>
@@ -54,6 +108,7 @@
 <script setup>
 import { reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { forgotPasswordApi, resetPasswordApi } from '@/api/auth'
 import { useLocaleStore } from '@/stores/locale'
 import { useUserStore } from '@/stores/user'
 import { t } from '@/utils/i18n'
@@ -73,9 +128,14 @@ const tr = (key, params) => t(key, localeStore.locale, params)
 
 const formRef = ref(null)
 const saving = ref(false)
+const sendingCode = ref(false)
+const resettingPassword = ref(false)
 const form = reactive({
   email: '',
   phone: '',
+  code: '',
+  newPassword: '',
+  confirmPassword: '',
 })
 
 const rules = {
@@ -94,11 +154,39 @@ const rules = {
       trigger: 'blur',
     },
   ],
+  code: [
+    {
+      pattern: /^$|^\d{6}$/,
+      message: tr('profile.codeInvalid'),
+      trigger: 'blur',
+    },
+  ],
+  newPassword: [
+    {
+      min: 6,
+      max: 100,
+      message: tr('profile.passwordInvalid'),
+      trigger: 'blur',
+    },
+  ],
+  confirmPassword: [
+    {
+      validator: (_rule, value, callback) => {
+        if (!value && !form.newPassword) return callback()
+        if (value !== form.newPassword) return callback(new Error(tr('profile.passwordMismatch')))
+        callback()
+      },
+      trigger: 'blur',
+    },
+  ],
 }
 
 const resetForm = () => {
   form.email = userStore.user?.email || ''
   form.phone = userStore.user?.phone || ''
+  form.code = ''
+  form.newPassword = ''
+  form.confirmPassword = ''
   formRef.value?.clearValidate()
 }
 
@@ -123,11 +211,82 @@ const submit = async () => {
     saving.value = false
   }
 }
+
+const syncProfileBeforePasswordReset = async () => {
+  await formRef.value?.validateField(['email', 'phone'])
+  if (form.email === userStore.user?.email && form.phone === (userStore.user?.phone || '')) {
+    return
+  }
+  await userStore.updateProfile({
+    email: form.email,
+    phone: form.phone,
+  })
+  emit('saved')
+}
+
+const sendResetCode = async () => {
+  sendingCode.value = true
+  try {
+    await syncProfileBeforePasswordReset()
+    await forgotPasswordApi({ email: form.email })
+    ElMessage.success(tr('profile.codeSent'))
+  } finally {
+    sendingCode.value = false
+  }
+}
+
+const resetPassword = async () => {
+  const valid = await formRef.value?.validateField(['email', 'code', 'newPassword', 'confirmPassword']).catch(() => false)
+  if (valid === false) return
+  if (!form.code || !form.newPassword || !form.confirmPassword) {
+    ElMessage.warning(tr('profile.resetFieldsRequired'))
+    return
+  }
+
+  resettingPassword.value = true
+  try {
+    await resetPasswordApi({
+      email: form.email,
+      code: form.code,
+      new_password: form.newPassword,
+    })
+    form.code = ''
+    form.newPassword = ''
+    form.confirmPassword = ''
+    ElMessage.success(tr('profile.passwordResetSuccess'))
+  } finally {
+    resettingPassword.value = false
+  }
+}
 </script>
 
 <style scoped>
 :deep(.profile-edit-dialog .el-dialog__body) {
   padding-top: 8px;
+}
+
+.password-reset-section {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.section-heading strong {
+  color: #111827;
+  font-size: 14px;
+}
+
+.section-heading span {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .dialog-button {
@@ -154,5 +313,15 @@ const submit = async () => {
 .dialog-button.primary:disabled {
   background: #9ca3af;
   cursor: not-allowed;
+}
+
+.reset-code-button,
+.reset-password-button {
+  width: 100%;
+  margin: 0 0 12px;
+}
+
+.reset-password-button {
+  margin-bottom: 0;
 }
 </style>

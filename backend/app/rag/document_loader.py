@@ -189,10 +189,12 @@ class DocumentLoader:
         try:
             data = MinIOClient().get_object(file_path)
             content = data.decode("utf-8")
-            source = PurePosixPath(file_path).name
+            object_filename = PurePosixPath(file_path).name
+            object_ext = Path(object_filename).suffix
             # 如果未提供标题，从内容提取
             if title is None:
-                title = DocumentLoader._extract_title(content, Path(source).stem)
+                title = DocumentLoader._extract_title(content, Path(object_filename).stem)
+            source = f"{title}{object_ext or '.txt'}"
 
             documents.append(
                 {

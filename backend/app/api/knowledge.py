@@ -69,6 +69,17 @@ def _knowledge_object_name(filename: str) -> str:
     return f"knowledge/documents/{uuid.uuid4().hex}_{_safe_filename(filename)}"
 
 
+def _display_filename(document: KnowledgeDocument) -> str:
+    """返回用户可识别的文件名，避免把 MinIO 对象名前缀显示给用户。"""
+    object_filename = PurePosixPath(str(document.file_path or "")).name
+    file_ext = os.path.splitext(object_filename)[1]
+    if document.title:
+        return f"{document.title}{file_ext or '.txt'}"
+
+    matched = re.match(r"^[0-9a-f]{32}_(.+)$", object_filename)
+    return matched.group(1) if matched else object_filename
+
+
 def _content_type_for_extension(file_ext: str) -> str:
     if file_ext == ".md":
         return "text/markdown; charset=utf-8"
@@ -170,6 +181,9 @@ async def upload_document(
         return {
             "message": "文档上传成功，等待审核",
             "document_id": item["document_id"],
+            "filename": item["filename"],
+            "title": item["title"],
+            "file_path": item["file_path"],
             "status": item["status"],
         }
     except HTTPException:
@@ -257,6 +271,7 @@ async def list_published_documents(
             results.append({
                 "id": doc.id,
                 "title": doc.title,
+                "filename": _display_filename(doc),
                 "file_path": doc.file_path,
                 "uploader_id": doc.uploader_id,
                 "uploader_name": doc.uploader.username if doc.uploader else None,
@@ -316,6 +331,7 @@ async def get_document_detail(
         return {
             "id": document.id,
             "title": document.title,
+            "filename": _display_filename(document),
             "file_path": document.file_path,
             "content": content,
             "uploader_id": document.uploader_id,
@@ -357,6 +373,7 @@ async def list_my_submissions(
             results.append({
                 "id": doc.id,
                 "title": doc.title,
+                "filename": _display_filename(doc),
                 "file_path": doc.file_path,
                 "status": doc.status,
                 "review_comment": doc.review_comment,
@@ -423,6 +440,7 @@ async def list_all_documents(
             results.append({
                 "id": doc.id,
                 "title": doc.title,
+                "filename": _display_filename(doc),
                 "file_path": doc.file_path,
                 "uploader_id": doc.uploader_id,
                 "uploader_name": doc.uploader.username if doc.uploader else None,
@@ -471,6 +489,7 @@ async def list_pending_documents(
             results.append({
                 "id": doc.id,
                 "title": doc.title,
+                "filename": _display_filename(doc),
                 "file_path": doc.file_path,
                 "uploader_id": doc.uploader_id,
                 "uploader_name": doc.uploader.username if doc.uploader else None,
